@@ -66,6 +66,7 @@ see locally is byte-for-byte what gets deployed.
 ```sh
 npm run check   # syntax, vendored three.js, every texture, model, font and link
 npm run smoke   # loads the real page in headless Chrome, runs a tour and a time jump
+npm run responsive  # layout and accessibility at ten screen sizes, 320px to 1080p
 npm run vendor  # re-copy three.js out of node_modules after a version bump
 ```
 
@@ -74,7 +75,12 @@ would normally catch: a stale vendored three.js, or a texture named in the
 catalogue that is not actually shipped. `npm run smoke` catches the rest, by
 loading the page, driving it, and failing on any uncaught error, failed
 request or loading screen that never lifts. It uses whatever Chrome is already
-installed and skips itself if there is none. Add `?debug` to the URL to get the
+installed and skips itself if there is none. `npm run responsive` opens every
+panel at each of ten common screen sizes and fails if anything runs off screen,
+overlaps, wraps or clips, if a control is too small to tap, if Tab reaches a
+control without a visible focus ring, if text on a plate falls below 4.5:1
+contrast, or if axe-core finds a WCAG 2.2 AA violation. Pass `--shots=dir` to
+keep a screenshot of every size and state. Add `?debug` to the URL to get the
 scene, camera and clock on `window.orrery` in the console.
 
 ## Deploying

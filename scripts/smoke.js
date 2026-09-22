@@ -11,71 +11,14 @@
  *   npm run smoke            # skips cleanly if no Chrome is installed
  *   npm run smoke -- --strict  # missing Chrome is a failure (used by CI)
  */
-import { existsSync } from 'node:fs';
-import { spawn } from 'node:child_process';
+import {
+  sleep, requireChrome, ensureServer, launch, waitForApp,
+} from './lib/browser.js';
 
 const STRICT = process.argv.includes('--strict');
-const ORIGIN = process.env.SMOKE_URL ?? 'http://localhost:5173';
-
-/** Where Chrome lives, in the places worth looking. */
-function findChrome() {
-  const candidates = [
-    process.env.PUPPETEER_EXECUTABLE_PATH,
-    process.env.CHROME_PATH,
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/chromium-browser',
-    '/usr/bin/chromium',
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    'C:/Program Files/Google/Chrome/Application/chrome.exe',
-    'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-  ];
-  return candidates.find((path) => path && existsSync(path));
-}
-
-const chrome = findChrome();
-if (!chrome) {
-  const message = 'smoke: no Chrome found; set CHROME_PATH to run this check.';
-  if (STRICT) {
-    console.error(message);
-    process.exit(1);
-  }
-  console.warn(`${message} Skipping.`);
-  process.exit(0);
-}
-
-/** Starts the dev server unless something is already answering. */
-async function ensureServer() {
-  if (await reachable()) return null;
-
-  const server = spawn(process.execPath, ['scripts/serve.js'], { stdio: 'ignore' });
-  for (let i = 0; i < 60; i++) {
-    await sleep(500);
-    if (await reachable()) return server;
-  }
-  server.kill();
-  throw new Error(`nothing answering at ${ORIGIN}`);
-}
-
-const reachable = () =>
-  fetch(ORIGIN, { method: 'HEAD' }).then((r) => r.ok, () => false);
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-const server = await ensureServer();
-const { default: puppeteer } = await import('puppeteer-core');
-
-const browser = await puppeteer.launch({
-  executablePath: chrome,
-  headless: true,
-  args: [
-    // CI runners have no GPU, so WebGL has to come from SwiftShader.
-    '--enable-unsafe-swiftshader',
-    '--use-gl=angle',
-    '--use-angle=swiftshader',
-    '--no-sandbox',
-    '--disable-dev-shm-usage',
-  ],
-});
+const chrome = requireChrome('smoke', STRICT);
+const { origin: ORIGIN, server } = await ensureServer();
+const browser = await launch(chrome);
 
 const problems = [];
 let exitCode = 0;
@@ -96,9 +39,7 @@ try {
 
   await page.goto(`${ORIGIN}/?body=saturn`, { waitUntil: 'load', timeout: 60_000 });
 
-  // Software rendering on a CI runner is slow; the timeout is generous on
-  // purpose, and only a genuine hang should hit it.
-  await page.waitForFunction(() => !document.getElementById('loading'), { timeout: 180_000 });
+  await waitForApp(page);
   await sleep(4000);
 
   const state = await page.evaluate(() => ({

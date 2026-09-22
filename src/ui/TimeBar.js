@@ -72,6 +72,21 @@ export class TimeBar {
       oninput: (event) => this._onSlide(Number(event.target.value)),
     });
 
+    // The detents drawn as graduations under the slider, so the scale reads
+    // like an instrument dial and the snap points are visible before a drag.
+    this.rateScale = el('span', { class: 'timebar__scale' }, [
+      el(
+        'span',
+        { class: 'timebar__ticks', 'aria-hidden': 'true' },
+        PRESET_POSITIONS.map((position, i) =>
+          el('span', {
+            class: RATE_PRESETS[i].daysPerSecond === 1 ? 'timebar__tick is-major' : 'timebar__tick',
+            style: { '--at': position / STEPS },
+          }))
+      ),
+      this.rateSlider,
+    ]);
+
     this.reverseButton = el(
       'button',
       {
@@ -112,7 +127,7 @@ export class TimeBar {
       this.dateButton,
       el('div', { class: 'timebar__divider' }),
       this.playButton,
-      this.rateSlider,
+      this.rateScale,
       this.rateLabel,
       this.reverseButton,
       el('div', { class: 'timebar__divider' }),

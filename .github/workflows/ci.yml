@@ -32,3 +32,10 @@ jobs:
         # so nothing has to download a browser) and fails on any uncaught error,
         # any failed request, or a loading screen that never lifts.
         run: npm run smoke -- --strict
+
+      - name: Check the layout at common screen sizes
+        # Ten viewports from a 320px phone to 1080p, each with every panel
+        # open: nothing off screen or overlapping, touch-sized targets, a
+        # visible focus ring on every Tab stop, readable contrast on the
+        # plates, and axe-core's WCAG 2.2 AA rules at one phone and one desktop.
+        run: npm run responsive -- --strict

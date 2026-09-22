@@ -52,6 +52,7 @@ export class BodyPicker {
     this.menu = el('div', {
       class: 'picker__menu',
       role: 'listbox',
+      'aria-label': 'Go to',
       hidden: true,
       onkeydown: (e) => this._onMenuKeyDown(e),
     });

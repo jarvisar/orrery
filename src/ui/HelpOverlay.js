@@ -71,7 +71,8 @@ export class HelpOverlay {
 
     const body = el(
       'div',
-      { class: 'help__body' },
+      // Focusable so the list can be scrolled from the keyboard when it overflows.
+      { class: 'help__body', tabindex: '0', role: 'region', 'aria-label': 'Keyboard shortcuts' },
       SHORTCUTS.map((section) =>
         el('div', {}, [
           el('h3', { class: 'section-title', text: section.group }),
