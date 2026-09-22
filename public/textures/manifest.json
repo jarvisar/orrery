@@ -212,10 +212,10 @@
     "w": 1024
   },
   "stars_milkyway": {
-    "bytes": 118926,
+    "bytes": 48240,
     "file": "stars_milkyway.webp",
-    "h": 2048,
-    "w": 4096
+    "h": 1024,
+    "w": 2048
   },
   "sun": {
     "bytes": 216164,

@@ -125,3 +125,17 @@ export function spinAngle(periodHours, tDays) {
   if (!periodHours) return 0;
   return ((tDays * 24) / periodHours) * TAU;
 }
+
+/**
+ * Where a body's prime meridian points at `tDays`: the IAU's W = W0 + W'd,
+ * measured east along the equator from where it crosses the Earth's. Taken
+ * modulo one turn before scaling, so Earth - some ten thousand turns past
+ * J2000 by now - keeps its precision.
+ *
+ * @param {{periodHours:number, meridianDeg?:number}} spin
+ */
+export function rotationAngle(spin, tDays) {
+  if (!spin?.periodHours) return 0;
+  const turns = (spin.meridianDeg ?? 0) / 360 + (tDays * 24) / spin.periodHours;
+  return (turns - Math.floor(turns)) * TAU;
+}

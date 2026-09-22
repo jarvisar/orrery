@@ -8,6 +8,22 @@
    opened on phones more than anything else.
    ========================================================================== */
 
+/* Both faces are self-hosted: the page loads nothing from a third party.
+   Inter carries the interface; Jost, a geometric face in the Futura tradition,
+   sets names and titles - the signage. */
+@font-face {
+  font-family: "Inter";
+  src: url("public/fonts/inter.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("public/fonts/jost.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 :root {
   --bg: #030409;
   --panel: rgba(12, 14, 20, 0.58);
@@ -31,8 +47,9 @@
   --gap: 12px;
   --edge: 16px;
 
-  --font: "Inter var", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI",
           Roboto, "Helvetica Neue", Arial, sans-serif;
+  --display: Jost, var(--font);
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -51,6 +68,13 @@ html, body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
+}
+
+sup {
+  font-size: 0.7em;
+  line-height: 0;
+  vertical-align: 0.5em;
+  margin-left: 0.05em;
 }
 
 #viewport {
@@ -148,11 +172,13 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.6; f
 
 .loading__inner { text-align: center; width: min(240px, 70vw); }
 
+/* A small working orrery: three rings turning in the ratio of Mercury, Venus
+   and Earth's years, each planet starting where it stood on 1 January 2000. */
 .loading__orbit {
   position: relative;
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 32px;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 34px;
 }
 .loading__sun {
   position: absolute;
@@ -162,45 +188,47 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.6; f
   margin: -4px 0 0 -4px;
   border-radius: 50%;
   background: var(--sun);
-  box-shadow: 0 0 18px 4px rgba(255, 217, 160, 0.35);
+  box-shadow: 0 0 18px 5px rgba(255, 217, 160, 0.32);
 }
-.loading__orbit::after {
-  content: "";
+.loading__ring {
   position: absolute;
-  inset: 0;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 50%;
+  transform: rotate(var(--start));
+  animation: orbit var(--period) linear infinite;
 }
-.loading__planet {
-  position: absolute;
-  inset: 0;
-  animation: orbit 2.4s linear infinite;
-}
-.loading__planet::before {
+.loading__ring::before {
   content: "";
   position: absolute;
-  top: -2.5px;
+  top: calc(var(--size) / -2);
   left: 50%;
-  width: 5px;
-  height: 5px;
-  margin-left: -2.5px;
+  width: var(--size);
+  height: var(--size);
+  margin-left: calc(var(--size) / -2);
   border-radius: 50%;
-  background: var(--text);
+  background: var(--color);
 }
-@keyframes orbit { to { transform: rotate(360deg); } }
+.loading__ring--1 { inset: 30px; --period: 0.96s; --size: 3px;   --color: #b3aba2; --start: -162deg; }
+.loading__ring--2 { inset: 18px; --period: 2.46s; --size: 4px;   --color: #e3c996; --start: -92deg; }
+.loading__ring--3 { inset: 4px;  --period: 4s;    --size: 4.5px; --color: #6aa6ff; --start: -10deg; }
+@keyframes orbit {
+  from { transform: rotate(var(--start)); }
+  to { transform: rotate(calc(var(--start) - 360deg)); }
+}
 
 .loading__title {
   margin: 0;
-  font-size: 13px;
+  font-family: var(--display);
+  font-size: 15px;
   font-weight: 500;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.42em;
   text-transform: uppercase;
   /* Letter-spacing trails the last glyph; this keeps the word optically centred. */
-  margin-right: -0.32em;
+  margin-right: -0.42em;
 }
 .loading__track {
   height: 1px;
-  margin-top: 22px;
+  margin-top: 26px;
   background: rgba(255, 255, 255, 0.1);
   overflow: hidden;
 }
@@ -228,23 +256,40 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.6; f
   gap: var(--gap);
 }
 .topbar__group { display: flex; align-items: center; gap: 2px; }
+.topbar__end { justify-self: end; display: flex; gap: var(--gap); }
 .topbar__actions {
-  justify-self: end;
   padding: 3px;
   border-radius: 999px;
 }
 .topbar__actions .btn { border-radius: 999px; }
+.topbar__divider { width: 1px; height: 18px; margin: 0 4px; background: var(--border-strong); }
 
 .brand {
+  justify-self: start;
   align-self: center;
-  padding-left: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 40px;
+  padding: 0 12px 0 6px;
+  border-radius: 999px;
   color: var(--text-dim);
   user-select: none;
+  transition: color 0.2s var(--ease);
 }
+.brand:hover { color: var(--text); }
+.brand__word {
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.36em;
+  text-transform: uppercase;
+}
+.brand__mark { overflow: visible; transition: transform 0.9s var(--ease); }
+.brand:hover .brand__mark { transform: rotate(-60deg); }
+.brand__orbit { fill: none; stroke: currentColor; stroke-width: 1; opacity: 0.55; }
+.brand__sun { fill: var(--sun); }
+.brand__planet { fill: currentColor; }
 
 /* --- body picker --------------------------------------------------------- */
 
@@ -325,6 +370,27 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.6; f
 .picker__option:focus-visible { background: var(--hover); color: var(--text); outline: none; }
 .picker__option[aria-selected="true"] { background: var(--accent-soft); color: var(--text); }
 .picker__option-meta { margin-left: auto; font-size: 11.5px; color: var(--text-faint); }
+.picker__option-meta kbd { min-width: 18px; padding: 0 5px; font-size: 10.5px; color: var(--text-dim); }
+.picker__option--overview { margin-bottom: 2px; }
+/* The whole system: a ring round a Sun, where a body would have a dot. */
+.picker__ring,
+.picker__swatch.is-ring {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: transparent !important;
+}
+.picker__ring::after,
+.picker__swatch.is-ring::after {
+  content: "";
+  position: absolute;
+  inset: 2.5px;
+  border-radius: 50%;
+  background: var(--sun);
+}
 
 /* --- info panel ---------------------------------------------------------- */
 
@@ -340,30 +406,53 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.6; f
 }
 .info[hidden] { display: none; }
 .info.is-collapsed .info__body { display: none; }
+.ui.is-touring .info { display: none; }
 
 .info__header {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 18px 18px 14px;
+  padding: 17px 18px 0;
   text-align: left;
   cursor: pointer;
 }
 .info__title {
-  margin: 0 0 2px;
-  font-size: 22px;
-  font-weight: 500;
-  letter-spacing: -0.015em;
-  line-height: 1.2;
+  margin: 0;
+  font-family: var(--display);
+  font-size: 27px;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  line-height: 1.15;
 }
 .info__kind {
+  padding: 4px 18px 15px;
   font-size: 10.5px;
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-faint);
 }
-.info__toggle { display: flex; margin: 4px 0 0 auto; color: var(--text-faint); }
+/* A short rule in the body's own colour: the one place it appears as an accent. */
+.info__kind::before {
+  content: "";
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  margin: 0 9px 3px 0;
+  border-radius: 2px;
+  vertical-align: middle;
+  background: var(--body-color, #fff);
+}
+.info__link {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border-strong);
+  transition: color 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+.info__link:hover { color: var(--text); border-color: var(--text-dim); }
+.info__toggle { display: flex; margin: 9px 0 0 auto; color: var(--text-faint); }
 .info__toggle svg { transition: transform 0.2s var(--ease); }
 .info.is-collapsed .info__toggle svg { transform: rotate(-90deg); }
 .info__header:hover .info__toggle { color: var(--text); }
@@ -401,13 +490,57 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.6; f
 }
 
 .info__live {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  margin: 0 0 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
   display: grid;
   gap: 2px;
 }
 .info__live:empty { display: none; }
+
+/* The orbit, face-on and to scale. */
+.info__diagram {
+  margin: 0 0 12px;
+  border-radius: 12px;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 217, 160, 0.05), transparent 60%),
+              rgba(255, 255, 255, 0.025);
+}
+.info__diagram:empty { display: none; }
+.info__diagram svg { display: block; overflow: visible; }
+.orbit-path { fill: none; stroke: rgba(255, 255, 255, 0.13); stroke-width: 1; }
+.orbit-path.is-own { stroke: rgba(255, 255, 255, 0.3); }
+.orbit-travelled {
+  fill: none;
+  stroke: var(--body-color, #fff);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.85;
+}
+.orbit-primary { filter: drop-shadow(0 0 3px rgba(255, 217, 160, 0.6)); }
+.orbit-body { fill: var(--body-color, #fff); stroke: #0c0e14; stroke-width: 1.5; }
+.orbit-halo { fill: none; stroke: var(--body-color, #fff); stroke-width: 1; opacity: 0.3; }
+.orbit-neighbour { stroke: #0c0e14; stroke-width: 1; opacity: 0.8; }
+.orbit-label { fill: var(--text-faint); font-size: 9.5px; letter-spacing: 0.02em; font-family: var(--font); }
+
+.info__system:empty { display: none; }
+.info__system .section-title { margin-top: 18px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 28px;
+  padding: 0 11px 0 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  font-size: 12px;
+  color: var(--text-dim);
+  transition: border-color 0.15s var(--ease), color 0.15s var(--ease), background 0.15s var(--ease);
+}
+.chip:hover { border-color: rgba(255, 255, 255, 0.28); color: var(--text); }
+.chip[aria-current="true"] { background: var(--accent-soft); color: var(--text); border-color: transparent; }
+.chip__dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
 
 /* --- time bar ------------------------------------------------------------ */
 
@@ -423,14 +556,22 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.6; f
 }
 .timebar .btn { border-radius: 999px; }
 
+.timebar { position: relative; }
 .timebar__date {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 0 12px 0 14px;
-  min-width: 112px;
+  justify-content: center;
+  align-self: stretch;
+  padding: 0 14px;
+  min-width: 118px;
   line-height: 1.3;
+  text-align: left;
+  border-radius: 999px;
+  transition: background 0.15s var(--ease);
 }
+.timebar__date:hover,
+.timebar.is-open .timebar__date { background: var(--hover); }
 .timebar__date-main { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .timebar__date-sub { font-size: 11px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
 
@@ -595,6 +736,10 @@ body.reduce-motion .hud.is-active .hud__hint { animation: none; opacity: 1; }
 .marker.is-crowded .marker__label { display: none; }
 .marker.is-crowded:hover .marker__label { display: inline; }
 
+/* Moons, shown only while their own system is in view. */
+.marker--moon .marker__dot { width: 4px; height: 4px; margin: 0 1px; }
+.marker--moon .marker__label { font-size: 10.5px; font-weight: 400; color: var(--text-faint); }
+
 /* --- hover tooltip ------------------------------------------------------- */
 
 .tooltip {
@@ -637,7 +782,7 @@ body.reduce-motion .hud.is-active .hud__hint { animation: none; opacity: 1; }
   gap: 12px;
   padding: 12px 10px 4px 18px;
 }
-.drawer__title { margin: 0; font-size: 15px; font-weight: 500; }
+.drawer__title { margin: 0; font-family: var(--display); font-size: 18px; font-weight: 450; letter-spacing: 0.01em; }
 .drawer__close { margin-left: auto; }
 .drawer__body {
   padding: 0 18px 18px;
@@ -776,11 +921,13 @@ input[type="range"]::-moz-range-thumb {
 .help__body {
   padding: 0 18px 12px;
   overflow-y: auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 0 32px;
+  columns: 2 240px;
+  column-gap: 32px;
   scrollbar-width: thin;
 }
+.help__body > div { break-inside: avoid; }
+/* Margins vanish at a column break; padding does not, so both columns start level. */
+.help__body .section-title { margin: 0; padding: 14px 0 4px; }
 .keyrow {
   display: flex;
   align-items: center;
@@ -832,6 +979,230 @@ kbd {
 }
 .stats[hidden] { display: none; }
 
+/* --- tours --------------------------------------------------------------- */
+
+/* The menu hangs off the whole action group, so it lines up with its edge
+   rather than with the Tours button inside it. */
+.topbar__actions { position: relative; }
+.tours__button { padding: 0 13px 0 11px; gap: 7px; }
+.tours__button svg { width: 16px; height: 16px; }
+.tours__button[aria-expanded="true"] { background: var(--hover); color: var(--text); }
+
+.tours__menu,
+.when {
+  background: var(--panel-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.tours__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 5;
+  width: min(300px, calc(100vw - 2 * var(--edge)));
+  padding: 6px;
+}
+.tours__menu[hidden] { display: none; }
+.tours__heading {
+  padding: 8px 10px 6px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.tours__item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 12px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  text-align: left;
+  transition: background 0.12s var(--ease);
+}
+.tours__item:hover,
+.tours__item:focus-visible { background: var(--hover); outline: none; }
+.tours__item-title { font-family: var(--display); font-size: 16px; font-weight: 450; color: var(--text); }
+.tours__item-meta {
+  align-self: center;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.tours__item-summary { grid-column: 1 / -1; font-size: 12.5px; color: var(--text-dim); line-height: 1.45; }
+
+/* The caption takes the info panel's place while a tour runs. */
+.tour {
+  grid-row: 2;
+  align-self: end;
+  justify-self: center;
+  width: min(560px, 100%);
+  padding: 14px 16px 10px 20px;
+}
+.tour[hidden] { display: none; }
+.tour__top { display: flex; align-items: center; gap: 12px; }
+.tour__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.tour__eyebrow::before {
+  content: "";
+  width: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--body-color, #fff);
+}
+.tour__count { color: var(--text-dim); font-variant-numeric: tabular-nums; letter-spacing: 0.06em; }
+.tour__close { margin-left: auto; margin-right: -6px; width: 30px; min-height: 30px; min-width: 30px; }
+.tour__close svg { width: 16px; height: 16px; }
+.tour__title {
+  margin: 2px 0 6px;
+  font-family: var(--display);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0.005em;
+}
+.tour__text {
+  margin: 0 0 10px;
+  max-width: 60ch;
+  font-size: 14px;
+  line-height: 1.62;
+  color: var(--text-dim);
+}
+.tour__controls { display: flex; align-items: center; gap: 2px; margin-left: -9px; }
+.tour__controls .btn { border-radius: 999px; }
+.tour__track {
+  flex: 1;
+  height: 2px;
+  margin: 0 4px 0 12px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+.tour__progress {
+  height: 100%;
+  background: var(--body-color, #fff);
+  opacity: 0.8;
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+.tour.is-paused .tour__progress { opacity: 0.35; }
+.tour.is-entering .tour__title,
+.tour.is-entering .tour__text { animation: rise 0.7s var(--ease) both; }
+.tour.is-entering .tour__text { animation-delay: 0.08s; }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+/* --- going somewhere in time --------------------------------------------- */
+
+.when {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 0;
+  z-index: 5;
+  width: min(372px, calc(100vw - 2 * var(--edge)));
+  max-height: min(72vh, 600px);
+  overflow-y: auto;
+  padding: 2px 14px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+.when[hidden] { display: none; }
+.when .section-title { margin: 14px 2px 8px; }
+.when__form { display: flex; gap: 6px; }
+.when__input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color-scheme: dark;
+  transition: border-color 0.15s var(--ease);
+}
+.when__input:focus { border-color: var(--border-strong); outline: none; }
+.when__input--time { flex: 0 0 118px; }
+.when__go { background: var(--accent-soft); color: var(--text); border-radius: 10px; }
+.when__go:hover { background: rgba(255, 255, 255, 0.16); }
+.when__hint { margin: 7px 2px 0; font-size: 11.5px; color: var(--text-faint); }
+
+.when__moments { display: grid; gap: 1px; margin: 0 -6px; }
+.moment {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  column-gap: 12px;
+  padding: 8px 8px;
+  border-radius: 10px;
+  text-align: left;
+  transition: background 0.12s var(--ease);
+}
+.moment:hover,
+.moment:focus-visible { background: var(--hover); outline: none; }
+.moment__date {
+  grid-row: span 2;
+  padding-top: 1px;
+  font-size: 12px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.moment__title { font-size: 13.5px; color: var(--text); }
+.moment__note { font-size: 12px; line-height: 1.45; color: var(--text-dim); }
+
+.when__footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 12px 2px 0;
+  border-top: 1px solid var(--border);
+}
+.when__copy { gap: 8px; font-size: 12.5px; }
+.when__copy svg { width: 15px; height: 15px; }
+.when__status { margin-left: auto; font-size: 12px; color: var(--text-dim); }
+
+/* --- first-visit hint ---------------------------------------------------- */
+
+.hint {
+  position: fixed;
+  left: 50%;
+  bottom: calc(max(var(--edge), env(safe-area-inset-bottom)) + 70px);
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 2 * var(--edge));
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, 6px);
+  transition: opacity 0.5s var(--ease), transform 0.5s var(--ease);
+}
+.hint[hidden] { display: none; }
+.hint.is-visible { opacity: 1; transform: translate(-50%, 0); }
+.hint__dot { width: 3px; height: 3px; border-radius: 50%; background: var(--text-faint); }
+
 /* --- fallbacks ----------------------------------------------------------- */
 
 .fallback {
@@ -863,9 +1234,25 @@ kbd {
     width: auto;
     max-height: 40vh;
   }
-  .info__header { padding: 14px 16px 10px; }
-  .info__title { font-size: 19px; }
+  .info__header { padding: 13px 16px 0; }
+  .info__kind { padding: 3px 16px 12px; }
+  .info__title { font-size: 22px; }
   .info__body { padding: 0 16px 14px; }
+  .tours__label { display: none; }
+  .tours__button { padding: 0; width: 36px; }
+  .topbar__divider { display: none; }
+  .tour { padding: 12px 14px 8px 16px; }
+  .tour__title { font-size: 25px; }
+  .tour__text { font-size: 13px; line-height: 1.55; }
+  /* The folded info panel owns the space above the time bar on a phone. */
+  .hint {
+    top: calc(max(var(--edge), env(safe-area-inset-top)) + 58px);
+    bottom: auto;
+    font-size: 12px;
+    gap: 8px;
+    padding: 7px 14px;
+  }
+  .hint span:nth-child(n + 4) { display: none; }
   .timebar { width: 100%; justify-content: space-between; }
   .timebar__date { min-width: 0; padding-left: 10px; }
   .timebar__rate { display: none; }

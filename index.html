@@ -5,24 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Orrery — An Interactive Solar System</title>
 
-<meta name="description" content="An interactive 3D model of the solar system. Real orbital elements, real scale relationships, and a free-flight mode — built with three.js.">
+<meta name="description" content="An interactive 3D model of the solar system. Real orbital elements, the real sky, guided tours and a free-flight mode — built with three.js.">
 <meta name="author" content="Adam Jarvis">
 <meta name="theme-color" content="#05070f">
 <meta name="color-scheme" content="dark">
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="Orrery — An Interactive Solar System">
-<meta property="og:description" content="An interactive 3D model of the solar system, driven by real orbital elements.">
+<meta property="og:description" content="An interactive 3D model of the solar system: real orbits, the real sky, and guided tours.">
 
+<link rel="icon" type="image/svg+xml" href="public/icon/orrery.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="public/icon/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="public/icon/favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="public/icon/favicon-16x16.png">
 <link rel="manifest" href="site.webmanifest">
 <link rel="stylesheet" href="style.css">
+<link rel="preload" as="font" type="font/woff2" href="public/fonts/inter.woff2" crossorigin>
+<link rel="preload" as="font" type="font/woff2" href="public/fonts/jost.woff2" crossorigin>
 
 <!-- The first three textures the loading screen waits on, requested before the
      module graph has even been parsed. -->
-<link rel="preload" as="fetch" href="public/textures/manifest.json">
+<link rel="preload" as="fetch" href="public/textures/manifest.json" crossorigin>
 <link rel="preload" as="image" href="public/textures/stars_milkyway.webp" crossorigin="anonymous">
 <link rel="preload" as="image" href="public/textures/sun.webp" crossorigin="anonymous">
 
@@ -46,8 +49,10 @@
 <div id="loading" class="loading" role="status" aria-live="polite">
   <div class="loading__inner">
     <div class="loading__orbit" aria-hidden="true">
+      <span class="loading__ring loading__ring--3"></span>
+      <span class="loading__ring loading__ring--2"></span>
+      <span class="loading__ring loading__ring--1"></span>
       <span class="loading__sun"></span>
-      <span class="loading__planet"></span>
     </div>
     <h1 class="loading__title">Orrery</h1>
     <div class="loading__track"><div class="loading__bar" id="loading-bar"></div></div>

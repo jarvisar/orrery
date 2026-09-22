@@ -11,6 +11,7 @@
 
 import * as THREE from 'three';
 import { el } from './dom.js';
+import { BODY_BY_ID } from '../data/bodies.js';
 
 /** Apparent radius, in CSS pixels, at which a marker is fully faded out / in. */
 const HIDE_ABOVE = 7;
@@ -39,14 +40,14 @@ export class Markers {
     this.entries = [];
 
     for (const view of system.bodies.values()) {
-      // Moons would crowd the view at every zoom level; they are reachable
-      // through their primary, the picker and the orbit paths instead.
-      if (view.kind === 'moon') continue;
+      // Every moon labelled at once would crowd the view at any zoom. A moon
+      // is only marked while its own system is the one being looked at.
+      const isMoon = view.kind === 'moon';
 
       const node = el(
         'button',
         {
-          class: 'marker',
+          class: isMoon ? 'marker marker--moon' : 'marker',
           type: 'button',
           'data-id': view.id,
           title: view.name,
@@ -67,7 +68,7 @@ export class Markers {
       node.style.display = 'none';
       this.root.append(node);
       this.entries.push({
-        view, node, shown: false, crowded: false,
+        view, node, isMoon, shown: false, crowded: false,
         lastX: -1, lastY: -1, lastOpacity: -1,
         labelWidth: LABEL_LEAD + measureText(view.name) + LABEL_TRAIL,
       });
@@ -83,9 +84,14 @@ export class Markers {
     this.root.style.display = enabled ? '' : 'none';
   }
 
-  /** Dims the marker for whatever is focused, so it does not sit on top of the body. */
+  /**
+   * Dims the marker for whatever is focused, so it does not sit on top of the
+   * body, and switches on the moons of the system it belongs to.
+   */
   setFocus(bodyId) {
     this._focusedId = bodyId;
+    const body = bodyId ? BODY_BY_ID.get(bodyId) : null;
+    this._systemId = body?.kind === 'moon' ? body.parent : bodyId;
   }
 
   /**
@@ -104,7 +110,7 @@ export class Markers {
 
     for (const entry of this.entries) {
       const { view } = entry;
-      if (!view.visible) {
+      if (!view.visible || (entry.isMoon && view.body.parent !== this._systemId)) {
         this._hide(entry);
         continue;
       }

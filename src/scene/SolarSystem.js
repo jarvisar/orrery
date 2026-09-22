@@ -20,8 +20,11 @@ import {
   bodyRadius, heliocentricDistance, satelliteDistance, ringRadius,
   SCALE_EXPONENT_RANGE,
 } from './scaling.js';
-import { orbitalPosition, spinAngle } from '../sim/kepler.js';
+import { orbitalPosition, spinAngle, rotationAngle } from '../sim/kepler.js';
+import { equatorialToScene } from '../sim/frames.js';
 import { receiveRingShadow, receivePlanetShadow, updateSunDirection } from './ringShadow.js';
+import { nightSideEmissive, softTerminator, sunSurface } from './shading.js';
+import { createAtmosphere } from './atmosphere.js';
 
 const DEG = Math.PI / 180;
 const _vec = new THREE.Vector3();
@@ -29,7 +32,14 @@ const _raw = { x: 0, y: 0, z: 0 };
 const _inverseTilt = new THREE.Quaternion();
 
 /** Corona sprite size, in solar radii. */
-const CORONA_RADII = 7;
+const CORONA_RADII = 6;
+
+/**
+ * The catalogue's bump scales were tuned for a much harsher look: at full
+ * strength every crater rim casts a hard black edge and the terminator turns to
+ * gravel. Two-thirds keeps the relief and loses the grit.
+ */
+const BUMP_SOFTENING = 0.65;
 
 /** Sphere tessellation by on-screen size. The old code used 128x128 for everything. */
 function sphereSegments(radiusUnits) {
@@ -97,8 +107,9 @@ export class SolarSystem {
     this.sunLight.shadow.camera.far = 40_000;
     this.root.add(this.sunLight);
 
-    // Just enough fill that the night side is a silhouette rather than a hole.
-    this.ambient = new THREE.AmbientLight(0x2a3450, 0.55);
+    // Just enough fill that the night side is a silhouette rather than a hole -
+    // roughly what starlight and a little camera exposure would show.
+    this.ambient = new THREE.AmbientLight(0x6c7894, 0.1);
     this.root.add(this.ambient);
   }
 
@@ -118,8 +129,14 @@ export class SolarSystem {
     if (body.rings) this._attachRings(view, body, radius);
     if (body.clouds) this._attachShell(view, body.clouds, radius, 'clouds');
     if (body.atmosphere) this._attachShell(view, body.atmosphere, radius, 'atmosphere');
+    if (body.glow) {
+      const air = createAtmosphere(radius, body.glow);
+      air.userData.bodyId = body.id;
+      view.tilt.add(air);
+      this._disposables.push(air.geometry, air.material);
+    }
 
-    view.tilt.rotation.z = (body.spin?.tiltDeg ?? 0) * DEG;
+    orientBody(view.tilt.quaternion, body);
     view.elements = this._scaleElements(body, view);
 
     this.bodies.set(body.id, view);
@@ -132,18 +149,23 @@ export class SolarSystem {
     this._disposables.push(geometry);
 
     const isStar = body.kind === 'star';
+    // Rock and cloud are close to perfectly matte. A broad Phong highlight on
+    // them is what makes a planet look like a plastic ball; only a body with a
+    // specular map - oceans, Pluto's nitrogen ice - gets a glint, and a tight one.
     const material = isStar
-      ? new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false })
+      ? new THREE.MeshBasicMaterial({ color: 0xffffff })
       : new THREE.MeshPhongMaterial({
           color: 0xffffff,
-          shininess: body.textures?.specularMap ? 18 : 4,
-          specular: body.textures?.specularMap ? 0x444444 : 0x111111,
+          shininess: body.textures?.specularMap ? 32 : 1,
+          specular: body.textures?.specularMap ? 0x2a2a2a : 0x000000,
         });
 
     // Claim every map slot up front with a placeholder so the program that gets
     // compiled now is the same one used once the real textures arrive.
     this._claimSlots(material, body, isStar, radius);
-    if (body.nightLights) applyNightSideEmissive(material);
+    if (isStar) this._sunSurface = sunSurface(material);
+    if (body.nightLights) nightSideEmissive(material);
+    if (body.terminator) softTerminator(material, body.terminator);
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = `${body.id}-mesh`;
@@ -170,7 +192,7 @@ export class SolarSystem {
     if (isStar) return;
     if (slots.bumpMap) {
       material.bumpMap = this.assets.placeholderFor('bumpMap');
-      material.bumpScale = (body.bumpScale ?? 0.01) * radius;
+      material.bumpScale = (body.bumpScale ?? 0.01) * radius * BUMP_SOFTENING;
     }
     if (slots.specularMap) material.specularMap = this.assets.placeholderFor('specularMap');
     if (slots.emissiveMap) {
@@ -328,31 +350,65 @@ export class SolarSystem {
     shell.userData.bodyId = view.id;
 
     view.tilt.add(shell);
-    view.shells.push({ mesh: shell, spinPeriodHours: spec.spinPeriodHours ?? 0 });
+    view.shells.push({
+      mesh: shell,
+      spinPeriodHours: spec.spinPeriodHours ?? 0,
+      // Weather moves with the ground beneath it. A cloud deck on its own
+      // period, as Earth's used to be, slides across the continents at
+      // hundreds of degrees a day; this one drifts slowly relative to them.
+      corotating: Boolean(spec.corotating),
+    });
     this._disposables.push(geometry, material);
     this.pickables.push(shell);
   }
 
-  /** A billboarded glow so the Sun reads as a light source rather than a lit ball. */
+  /**
+   * The Sun's glow, in two layers.
+   *
+   * The corona is a few solar radii across, so it scales with the Sun and
+   * frames it close up. The glare is a fixed size on screen, so from Neptune -
+   * where the Sun is a couple of pixels wide - it still reads as the brightest
+   * thing in the sky rather than one more star. Both sit at the Sun's centre and
+   * are depth tested, so the disc hides them where it covers them and a planet
+   * crossing in front cuts a clean silhouette out of the light.
+   */
   _buildCorona() {
     const sun = this.bodies.get(SUN_ID);
     if (!sun) return;
 
-    const texture = makeCoronaTexture();
-    const material = new THREE.SpriteMaterial({
-      map: texture,
-      color: 0xffd9a0,
+    const coronaTexture = makeGlowTexture(256, [
+      [0.0, 1.0], [0.1, 0.62], [0.2, 0.3], [0.35, 0.11], [0.55, 0.035], [0.8, 0.008], [1.0, 0],
+    ]);
+    const coronaMaterial = new THREE.SpriteMaterial({
+      map: coronaTexture,
+      color: new THREE.Color(1.0, 0.7, 0.42).multiplyScalar(0.55),
       transparent: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
-      toneMapped: false,
     });
-    const sprite = new THREE.Sprite(material);
-    sprite.scale.setScalar(sun.radius * CORONA_RADII);
-    sprite.renderOrder = -1;
-    sun.group.add(sprite);
-    this._corona = sprite;
-    this._disposables.push(material, texture);
+    const corona = new THREE.Sprite(coronaMaterial);
+    corona.scale.setScalar(sun.radius * CORONA_RADII);
+    corona.renderOrder = -1;
+    sun.group.add(corona);
+    this._corona = corona;
+
+    const glareTexture = makeGlowTexture(128, [
+      [0.0, 1.0], [0.04, 0.55], [0.12, 0.16], [0.3, 0.04], [0.6, 0.008], [1.0, 0],
+    ]);
+    const glareMaterial = new THREE.SpriteMaterial({
+      map: glareTexture,
+      color: new THREE.Color(1.0, 0.84, 0.64).multiplyScalar(0.5),
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      sizeAttenuation: false,
+    });
+    const glare = new THREE.Sprite(glareMaterial);
+    glare.scale.setScalar(0.18);
+    glare.renderOrder = -1;
+    sun.group.add(glare);
+
+    this._disposables.push(coronaMaterial, coronaTexture, glareMaterial, glareTexture);
   }
 
   /**
@@ -413,11 +469,13 @@ export class SolarSystem {
       if (view.body.tidallyLocked && view.spinNode) {
         this._faceParent(view);
       } else if (spin?.periodHours && view.spinNode) {
-        view.spinNode.rotation.y = spinAngle(spin.periodHours, tDays);
+        view.spinNode.rotation.y = rotationAngle(spin, tDays);
       }
 
       for (const shell of view.shells) {
-        if (shell.spinPeriodHours) shell.mesh.rotation.y = spinAngle(shell.spinPeriodHours, tDays);
+        if (!shell.spinPeriodHours) continue;
+        const own = spinAngle(shell.spinPeriodHours, tDays);
+        shell.mesh.rotation.y = shell.corotating ? view.spinNode.rotation.y + own : own;
       }
     }
 
@@ -605,41 +663,45 @@ function createRadialRingGeometry(inner, outer, segments) {
 }
 
 /**
- * Restricts an emissive map to the night side.
- *
- * Earth's city lights are an emissive texture, and emissive ignores lighting by
- * definition, so out of the box the lights glow straight through local noon.
- * This gates them on the dot product between the surface normal and the Sun,
- * both of which Phong already has in view space at this point in the shader.
+ * Points a body's tilt node so that local +Y is its north pole and local +X is
+ * where its equator crosses Earth's - the IAU's reference for the prime
+ * meridian, so that spinning local +X by the meridian angle W lands longitude 0
+ * where it really is. Moons with no pole of their own share their planet's; a
+ * body with no measured pole at all is simply tilted by its obliquity.
  */
-function applyNightSideEmissive(material) {
-  material.onBeforeCompile = (shader) => {
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <emissivemap_fragment>',
-      /* glsl */ `
-      #include <emissivemap_fragment>
-      #if NUM_POINT_LIGHTS > 0
-        vec3 sunDirection = normalize( pointLights[ 0 ].position + vViewPosition );
-        float dayness = dot( normal, sunDirection );
-        totalEmissiveRadiance *= smoothstep( 0.15, -0.10, dayness );
-      #endif
-      `
-    );
-  };
-  material.customProgramCacheKey = () => 'night-side-emissive';
+const _pole = new THREE.Vector3();
+const _node = new THREE.Vector3();
+const _third = new THREE.Vector3();
+const _basis = new THREE.Matrix4();
+function orientBody(target, body) {
+  let pole = body.spin?.pole;
+  for (let parent = BODY_BY_ID.get(body.parent); !pole && parent; parent = BODY_BY_ID.get(parent.parent)) {
+    if (parent.id !== SUN_ID) pole = parent.spin?.pole;
+  }
+
+  if (!pole) {
+    return target.setFromAxisAngle(_third.set(0, 0, 1), (body.spin?.tiltDeg ?? 0) * DEG);
+  }
+
+  const p = equatorialToScene(pole.ra, pole.dec);
+  const n = equatorialToScene(pole.ra + 90, 0);
+  _pole.set(p.x, p.y, p.z);
+  _node.set(n.x, n.y, n.z);
+  _third.crossVectors(_node, _pole);
+  return target.setFromRotationMatrix(_basis.makeBasis(_node, _pole, _third));
 }
 
-/** Radial falloff painted once into a canvas; cheaper and softer than a sprite sheet. */
-function makeCoronaTexture(size = 256) {
+/**
+ * Radial falloff painted once into a canvas; cheaper and softer than a sprite
+ * sheet. Stops are [radius, intensity] pairs, both 0..1, painted white so the
+ * material colour does the tinting.
+ */
+function makeGlowTexture(size, stops) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d');
   const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  gradient.addColorStop(0.0, 'rgba(255,245,220,0.95)');
-  gradient.addColorStop(0.12, 'rgba(255,214,150,0.55)');
-  gradient.addColorStop(0.32, 'rgba(255,170,90,0.16)');
-  gradient.addColorStop(0.65, 'rgba(255,140,60,0.04)');
-  gradient.addColorStop(1.0, 'rgba(255,120,40,0)');
+  for (const [at, value] of stops) gradient.addColorStop(at, `rgba(255,255,255,${value})`);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, size, size);
 

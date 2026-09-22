@@ -18,6 +18,7 @@
  */
 
 import * as THREE from 'three';
+import { addPatch } from './shading.js';
 
 /**
  * Makes a planet's surface receive the shadow of its rings.
@@ -37,7 +38,7 @@ export function receiveRingShadow(material, { innerRadius, outerRadius }) {
     uRingOuter: { value: outerRadius },
   };
 
-  material.onBeforeCompile = (shader) => {
+  addPatch(material, 'receive-ring-shadow', (shader) => {
     Object.assign(shader.uniforms, uniforms);
 
     shader.vertexShader = shader.vertexShader
@@ -84,14 +85,20 @@ export function receiveRingShadow(material, { innerRadius, outerRadius }) {
         reflectedLight.directSpecular *= ringShade;
         `
       );
-  };
+  });
 
-  material.customProgramCacheKey = () => 'receive-ring-shadow';
   return { uniforms };
 }
 
 /**
- * Makes a ring plane fall dark where its planet eclipses the Sun.
+ * Makes a ring plane fall dark where its planet eclipses the Sun, and light it
+ * by how high the Sun stands above it.
+ *
+ * Rings are a thin layer of ice, and a thin layer lit at a grazing angle is
+ * dim: near a Saturnian equinox, with the Sun edge-on to the plane, the rings
+ * all but vanish. Seen from the side away from the Sun they are lit only by
+ * what filters through, so the dense B ring goes dark and the sparse parts
+ * glow - the photographic negative of the sunlit face.
  *
  * @param {THREE.Material} material The ring material.
  * @param {object} options
@@ -103,12 +110,21 @@ export function receivePlanetShadow(material, { planetRadius }) {
     uPlanetRadius: { value: planetRadius },
   };
 
-  material.onBeforeCompile = (shader) => {
+  addPatch(material, 'receive-planet-shadow', (shader) => {
     Object.assign(shader.uniforms, uniforms);
 
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vObjectPosition;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvObjectPosition = transformed;');
+      .replace(
+        '#include <common>',
+        '#include <common>\nvarying vec3 vObjectPosition;\nvarying float vViewSide;'
+      )
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        vObjectPosition = transformed;
+        // Which face of the ring plane the camera is on, in the ring's own space.
+        vViewSide = ( inverse( modelMatrix ) * vec4( cameraPosition, 1.0 ) ).z;`
+      );
 
     shader.fragmentShader = shader.fragmentShader
       .replace(
@@ -116,8 +132,16 @@ export function receivePlanetShadow(material, { planetRadius }) {
         /* glsl */ `
         #include <common>
         varying vec3 vObjectPosition;
+        varying float vViewSide;
         uniform vec3 uSunDirection;
         uniform float uPlanetRadius;
+
+        float ringIllumination( float density ) {
+          float elevation = abs( uSunDirection.z );
+          float lit = mix( 0.1, 1.0, smoothstep( 0.0, 0.2, elevation ) );
+          bool sunlitFace = sign( vViewSide ) == sign( uSunDirection.z );
+          return sunlitFace ? lit : lit * mix( 0.6, 0.14, density );
+        }
 
         // Ray/sphere test from the ring particle toward the Sun. The planet is
         // centred on this mesh's own origin, which makes the closest-approach
@@ -134,13 +158,12 @@ export function receivePlanetShadow(material, { planetRadius }) {
       .replace(
         '#include <opaque_fragment>',
         /* glsl */ `
-        outgoingLight *= planetShadow();
+        outgoingLight *= planetShadow() * ringIllumination( diffuseColor.a );
         #include <opaque_fragment>
         `
       );
-  };
+  });
 
-  material.customProgramCacheKey = () => 'receive-planet-shadow';
   return { uniforms };
 }
 

@@ -44,6 +44,8 @@ export class Picker {
 
     /** @type {string|null} */
     this.hoveredId = null;
+    /** Pickable things that are not catalogue bodies, by id. */
+    this._extras = new Map();
     this._onSelect = null;
     this._onHover = null;
 
@@ -51,6 +53,11 @@ export class Picker {
   }
 
   onSelect(callback) { this._onSelect = callback; }
+
+  /** Makes something outside the catalogue clickable. Its meshes carry `userData.bodyId`. */
+  addSelectable(id, meshes) {
+    this._extras.set(id, meshes);
+  }
   onHover(callback) { this._onHover = callback; }
 
   _bind() {
@@ -105,11 +112,14 @@ export class Picker {
   _pick() {
     this.raycaster.setFromCamera(this._pointer, this.camera);
     const targets = this.system.pickables.filter((mesh) => isRenderable(mesh));
+    for (const meshes of this._extras.values()) {
+      for (const mesh of meshes) if (isRenderable(mesh)) targets.push(mesh);
+    }
     const hits = this.raycaster.intersectObjects(targets, false);
 
     for (const hit of hits) {
       const id = hit.object.userData.bodyId;
-      if (id && this.system.isVisible(id)) return id;
+      if (id && (this.system.isVisible(id) || this._extras.has(id))) return id;
     }
     return null;
   }

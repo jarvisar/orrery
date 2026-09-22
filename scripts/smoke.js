@@ -121,6 +121,25 @@ try {
   assert(state.bodies >= 20, `the picker only lists ${state.bodies} bodies`);
   assert(Boolean(state.date), 'the time bar shows no date');
 
+  // Drive the parts with the most moving pieces: a tour, and a jump in time.
+  await page.click('.tours__button');
+  await page.click('.tours__item');
+  await sleep(1500);
+  const tour = await page.evaluate(() => ({
+    shown: !document.querySelector('.tour').hidden,
+    title: document.querySelector('.tour__title')?.textContent,
+  }));
+  assert(tour.shown && tour.title === 'Sun', `the Grand Tour did not start at the Sun ("${tour.title}")`);
+  await page.keyboard.press('Escape');
+
+  await page.click('.timebar__date');
+  const moments = await page.$$('.moment');
+  assert(moments.length > 0, 'the date panel lists no moments');
+  await moments[0]?.click();
+  await sleep(3500);
+  const jumped = await page.evaluate(() => new URL(location.href).searchParams.get('t'));
+  assert(jumped?.startsWith('1846-'), `jumping to the first moment left t=${jumped}`);
+
   if (problems.length === 0) {
     console.log(
       `smoke: ok — ${state.bodies} bodies, focused ${state.focus}, ${state.facts} facts, ${state.date}`

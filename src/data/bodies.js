@@ -43,6 +43,19 @@ export const SUN_ID = 'sun';
  *   what keeps Saturn's moons in the plane of its rings; the Moon is the odd
  *   one out, with elements referred to the ecliptic. Ignored for heliocentric
  *   orbits, which are always ecliptic.
+ *
+ * @typedef {object} Spin
+ * @property {number} periodHours  Sidereal rotation period. Negative is
+ *   retrograde: the body turns clockwise seen from above its north pole.
+ * @property {{ra:number, dec:number}} [pole] Direction of the north pole, J2000
+ *   equatorial, from the IAU Working Group on Cartographic Coordinates and
+ *   Rotational Elements. This is what points Earth's axis at Polaris and makes
+ *   the seasons fall in the right months. Moons without one share their
+ *   planet's; bodies with no measured pole fall back to `tiltDeg`.
+ * @property {number} [meridianDeg] Where the prime meridian stood at J2000 (the
+ *   IAU's W0). With it, the side of Earth in daylight is the side in daylight
+ *   at the date shown.
+ * @property {number} [tiltDeg] Obliquity, for bodies with no measured pole.
  */
 
 export const BODIES = [
@@ -52,7 +65,7 @@ export const BODIES = [
     kind: 'star',
     parent: null,
     radiusKm: 696_340,
-    spin: { periodHours: 609.12, tiltDeg: 7.25 },
+    spin: { periodHours: 609.119878, pole: { ra: 286.13, dec: 63.87 }, meridianDeg: 84.176 },
     textures: { map: 'sun' },
     color: '#ffcc55',
     blurb:
@@ -80,7 +93,7 @@ export const BODIES = [
       aAU: 0.38709927, e: 0.20563593, inc: 7.00497902,
       meanLong: 252.25032350, periLong: 77.45779628, nodeLong: 48.33076593,
     },
-    spin: { periodHours: 1407.6, tiltDeg: 0.034 },
+    spin: { periodHours: 1407.507502, pole: { ra: 281.0103, dec: 61.4155 }, meridianDeg: 329.5988 },
     textures: { map: 'mercury', bumpMap: 'mercury_bump' },
     bumpScale: 0.012,
     color: '#a8a19a',
@@ -107,11 +120,13 @@ export const BODIES = [
       aAU: 0.72333566, e: 0.00677672, inc: 3.39467605,
       meanLong: 181.97909950, periLong: 131.60246718, nodeLong: 76.67984255,
     },
-    spin: { periodHours: -5832.5, tiltDeg: 177.36 },
+    spin: { periodHours: -5832.443616, pole: { ra: 272.76, dec: 67.16 }, meridianDeg: 160.2 },
     textures: { map: 'venus', bumpMap: 'venus_bump' },
     bumpScale: 0.02,
     atmosphere: { map: 'venus_atmosphere', opacity: 0.78, scale: 1.012, spinPeriodHours: -96 },
     color: '#d9b982',
+    glow: { color: '#f3dcae', intensity: 0.9, height: 0.045 },
+    terminator: 0.22,
     blurb:
       'Almost Earth’s twin in size, and nothing like it otherwise. A runaway greenhouse ' +
       'effect keeps the surface at 464 °C under 92 atmospheres of carbon dioxide. It also ' +
@@ -137,7 +152,7 @@ export const BODIES = [
       aAU: 1.00000261, e: 0.01671123, inc: -0.00001531,
       meanLong: 100.46457166, periLong: 102.93768193, nodeLong: 0,
     },
-    spin: { periodHours: 23.9345, tiltDeg: 23.44 },
+    spin: { periodHours: 23.934471, pole: { ra: 0, dec: 90 }, meridianDeg: 190.147 },
     textures: {
       map: 'earth',
       bumpMap: 'earth_bump',
@@ -146,8 +161,10 @@ export const BODIES = [
     },
     bumpScale: 0.02,
     nightLights: true,
-    clouds: { alphaMap: 'earth_clouds', opacity: 0.85, scale: 1.006, spinPeriodHours: 190 },
+    clouds: { alphaMap: 'earth_clouds', opacity: 0.85, scale: 1.006, spinPeriodHours: 2400, corotating: true },
     color: '#4b8fd6',
+    glow: { color: '#5f9dff', intensity: 1.0, height: 0.035 },
+    terminator: 0.06,
     blurb:
       'The only place in the catalogue with liquid water on its surface, plate tectonics, ' +
       'and an oxygen atmosphere. Its unusually large moon stabilises its axial tilt, which ' +
@@ -174,7 +191,7 @@ export const BODIES = [
       meanLong: 218.32, periLong: 83.35, nodeLong: 125.08, periodDays: 27.321661,
       plane: 'ecliptic',
     },
-    spin: { periodHours: 655.72, tiltDeg: 6.68 },
+    spin: { periodHours: 655.72, pole: { ra: 269.9949, dec: 66.5392 } },
     tidallyLocked: true,
     textures: { map: 'moon', bumpMap: 'moon_bump' },
     bumpScale: 0.015,
@@ -203,10 +220,12 @@ export const BODIES = [
       aAU: 1.52371034, e: 0.09339410, inc: 1.84969142,
       meanLong: -4.55343205, periLong: -23.94362959, nodeLong: 49.55953891,
     },
-    spin: { periodHours: 24.6229, tiltDeg: 25.19 },
+    spin: { periodHours: 24.622962, pole: { ra: 317.68143, dec: 52.8865 }, meridianDeg: 176.63 },
     textures: { map: 'mars', bumpMap: 'mars_bump' },
     bumpScale: 0.025,
     color: '#c1603f',
+    glow: { color: '#e9b48d', intensity: 0.45, height: 0.022 },
+    terminator: 0.03,
     blurb:
       'Half Earth’s diameter, with a day only 40 minutes longer. It carries the tallest ' +
       'volcano in the solar system, Olympus Mons, and a canyon system that would span the ' +
@@ -228,7 +247,7 @@ export const BODIES = [
     parent: 'mars',
     radiusKm: 11.267,
     orbit: { aKm: 9376, e: 0.0151, inc: 1.093, meanLong: 0, periLong: 0, nodeLong: 0, periodDays: 0.318910 },
-    spin: { periodHours: 7.6538, tiltDeg: 0 },
+    spin: { periodHours: 7.6538 },
     tidallyLocked: true,
     model: 'phobos',
     color: '#8c8177',
@@ -252,7 +271,7 @@ export const BODIES = [
     parent: 'mars',
     radiusKm: 6.2,
     orbit: { aKm: 23_463, e: 0.00033, inc: 0.93, meanLong: 90, periLong: 0, nodeLong: 0, periodDays: 1.263 },
-    spin: { periodHours: 30.312, tiltDeg: 0 },
+    spin: { periodHours: 30.312 },
     tidallyLocked: true,
     model: 'deimos',
     color: '#9a8f83',
@@ -280,9 +299,11 @@ export const BODIES = [
       aAU: 5.20288700, e: 0.04838624, inc: 1.30439695,
       meanLong: 34.39644051, periLong: 14.72847983, nodeLong: 100.47390909,
     },
-    spin: { periodHours: 9.9250, tiltDeg: 3.13 },
+    spin: { periodHours: 9.92492, pole: { ra: 268.056595, dec: 64.495303 }, meridianDeg: 284.95 },
     textures: { map: 'jupiter' },
     color: '#c8a07a',
+    glow: { color: '#f0dcc0', intensity: 0.4, height: 0.02 },
+    terminator: 0.14,
     blurb:
       'More massive than every other planet combined. It has no surface to land on - the ' +
       'atmosphere simply gets denser until it becomes a metallic hydrogen ocean. A day ' +
@@ -304,7 +325,7 @@ export const BODIES = [
     parent: 'jupiter',
     radiusKm: 1821.6,
     orbit: { aKm: 421_700, e: 0.0041, inc: 0.05, meanLong: 0, periLong: 0, nodeLong: 0, periodDays: 1.769138 },
-    spin: { periodHours: 42.459, tiltDeg: 0 },
+    spin: { periodHours: 42.459 },
     tidallyLocked: true,
     textures: { map: 'io', bumpMap: 'io_bump' },
     bumpScale: 0.015,
@@ -329,7 +350,7 @@ export const BODIES = [
     parent: 'jupiter',
     radiusKm: 1560.8,
     orbit: { aKm: 671_034, e: 0.009, inc: 0.47, meanLong: 90, periLong: 0, nodeLong: 0, periodDays: 3.551181 },
-    spin: { periodHours: 85.228, tiltDeg: 0.1 },
+    spin: { periodHours: 85.228 },
     tidallyLocked: true,
     textures: { map: 'europa', bumpMap: 'europa_bump' },
     bumpScale: 0.008,
@@ -354,7 +375,7 @@ export const BODIES = [
     parent: 'jupiter',
     radiusKm: 2634.1,
     orbit: { aKm: 1_070_412, e: 0.0013, inc: 0.20, meanLong: 270, periLong: 0, nodeLong: 0, periodDays: 7.154553 },
-    spin: { periodHours: 171.709, tiltDeg: 0.33 },
+    spin: { periodHours: 171.709 },
     tidallyLocked: true,
     textures: { map: 'ganymede', bumpMap: 'ganymede_bump' },
     bumpScale: 0.015,
@@ -378,7 +399,7 @@ export const BODIES = [
     parent: 'jupiter',
     radiusKm: 2410.3,
     orbit: { aKm: 1_882_709, e: 0.0074, inc: 0.192, meanLong: 45, periLong: 0, nodeLong: 0, periodDays: 16.689018 },
-    spin: { periodHours: 400.536, tiltDeg: 0 },
+    spin: { periodHours: 400.536 },
     tidallyLocked: true,
     textures: { map: 'callisto', bumpMap: 'callisto_bump' },
     bumpScale: 0.018,
@@ -406,12 +427,14 @@ export const BODIES = [
       aAU: 9.53667594, e: 0.05386179, inc: 2.48599187,
       meanLong: 49.95424423, periLong: 92.59887831, nodeLong: 113.66242448,
     },
-    spin: { periodHours: 10.656, tiltDeg: 26.73 },
+    spin: { periodHours: 10.656222, pole: { ra: 40.589, dec: 83.537 }, meridianDeg: 38.9 },
     textures: { map: 'saturn' },
     // Ring radii are expressed as multiples of the planet's own radius so the
     // scaling layer can compress them exactly like everything else.
     rings: { innerRadii: 1.18, outerRadii: 2.0, map: 'saturn_rings', opacity: 0.95 },
     color: '#e0c48c',
+    glow: { color: '#f1e0b4', intensity: 0.4, height: 0.02 },
+    terminator: 0.14,
     blurb:
       'Less dense than water, and circled by a ring system only about ten metres thick but ' +
       '280,000 km wide. The rings are almost pure water ice, and may be younger than the ' +
@@ -434,11 +457,13 @@ export const BODIES = [
     parent: 'saturn',
     radiusKm: 2574.7,
     orbit: { aKm: 1_221_870, e: 0.0288, inc: 0.35, meanLong: 0, periLong: 0, nodeLong: 0, periodDays: 15.945 },
-    spin: { periodHours: 382.68, tiltDeg: 0 },
+    spin: { periodHours: 382.68 },
     tidallyLocked: true,
     textures: { map: 'titan', bumpMap: 'titan_bump' },
     bumpScale: 0.01,
     color: '#d9a968',
+    glow: { color: '#f0ae57', intensity: 1.1, height: 0.07 },
+    terminator: 0.3,
     blurb:
       'The only moon with a substantial atmosphere - denser at the surface than Earth’s - ' +
       'and the only other body known to have standing liquid on its surface, in the form of ' +
@@ -460,7 +485,7 @@ export const BODIES = [
     parent: 'saturn',
     radiusKm: 252.1,
     orbit: { aKm: 237_948, e: 0.0047, inc: 0.009, meanLong: 120, periLong: 0, nodeLong: 0, periodDays: 1.370218 },
-    spin: { periodHours: 32.885, tiltDeg: 0 },
+    spin: { periodHours: 32.885 },
     tidallyLocked: true,
     textures: { map: 'enceladus', bumpMap: 'enceladus_bump' },
     bumpScale: 0.006,
@@ -485,7 +510,7 @@ export const BODIES = [
     parent: 'saturn',
     radiusKm: 734.5,
     orbit: { aKm: 3_560_820, e: 0.0286, inc: 15.47, meanLong: 250, periLong: 0, nodeLong: 0, periodDays: 79.3215 },
-    spin: { periodHours: 1903.72, tiltDeg: 0 },
+    spin: { periodHours: 1903.72, pole: { ra: 318.16, dec: 75.03 } },
     tidallyLocked: true,
     textures: { map: 'iapetus', bumpMap: 'iapetus_bump' },
     bumpScale: 0.02,
@@ -515,9 +540,11 @@ export const BODIES = [
       aAU: 19.18916464, e: 0.04725744, inc: 0.77263783,
       meanLong: 313.23810451, periLong: 170.95427630, nodeLong: 74.01692503,
     },
-    spin: { periodHours: -17.24, tiltDeg: 97.77 },
+    spin: { periodHours: -17.24, pole: { ra: 257.311, dec: -15.175 }, meridianDeg: 203.81 },
     textures: { map: 'uranus' },
     color: '#9fd8e0',
+    glow: { color: '#a6eef6', intensity: 0.75, height: 0.03 },
+    terminator: 0.16,
     blurb:
       'Tipped over on its side, almost certainly by an ancient collision. Each pole spends ' +
       '42 years in continuous sunlight and then 42 years in darkness. Methane in the upper ' +
@@ -543,9 +570,11 @@ export const BODIES = [
       aAU: 30.06992276, e: 0.00859048, inc: 1.77004347,
       meanLong: -55.12002969, periLong: 44.96476227, nodeLong: 131.78422574,
     },
-    spin: { periodHours: 16.11, tiltDeg: 28.32 },
+    spin: { periodHours: 16.11, pole: { ra: 299.36, dec: 43.46 }, meridianDeg: 253.18 },
     textures: { map: 'neptune' },
     color: '#4a6fd4',
+    glow: { color: '#7b9dff', intensity: 0.75, height: 0.03 },
+    terminator: 0.16,
     blurb:
       'The windiest planet, with storms clocked above 2,000 km/h. It was the first planet ' +
       'found by mathematics rather than observation - its position was predicted from ' +
@@ -567,8 +596,8 @@ export const BODIES = [
     kind: 'moon',
     parent: 'neptune',
     radiusKm: 1353.4,
-    orbit: { aKm: 354_759, e: 0.000016, inc: 156.885, meanLong: 0, periLong: 0, nodeLong: 0, periodDays: -5.876854 },
-    spin: { periodHours: -141.044, tiltDeg: 0 },
+    orbit: { aKm: 354_759, e: 0.000016, inc: 156.885, meanLong: 0, periLong: 0, nodeLong: 0, periodDays: 5.876854 },
+    spin: { periodHours: 141.044 },
     tidallyLocked: true,
     textures: { map: 'triton', bumpMap: 'triton_bump' },
     bumpScale: 0.012,
@@ -599,7 +628,7 @@ export const BODIES = [
       aAU: 2.7658, e: 0.0785, inc: 10.593,
       meanLong: 249.98, periLong: 153.99, nodeLong: 80.393,
     },
-    spin: { periodHours: 9.074, tiltDeg: 4 },
+    spin: { periodHours: 9.07417, pole: { ra: 291.418, dec: 66.764 }, meridianDeg: 170.65 },
     textures: { map: 'ceres', bumpMap: 'ceres_bump' },
     bumpScale: 0.01,
     color: '#94897d',
@@ -627,10 +656,11 @@ export const BODIES = [
       aAU: 39.48211675, e: 0.24882730, inc: 17.14001206,
       meanLong: 238.92903833, periLong: 224.06891629, nodeLong: 110.30393684,
     },
-    spin: { periodHours: -153.2928, tiltDeg: 122.53 },
+    spin: { periodHours: 153.293352, pole: { ra: 132.993, dec: -6.163 }, meridianDeg: 302.695 },
     textures: { map: 'pluto', bumpMap: 'pluto_bump', specularMap: 'pluto_specular' },
     bumpScale: 0.012,
     color: '#c9a98c',
+    glow: { color: '#a8c4ff', intensity: 0.35, height: 0.02 },
     blurb:
       'Its orbit is eccentric and steeply inclined enough that for twenty years of each ' +
       '248-year circuit it is closer to the Sun than Neptune - as it was from 1979 to 1999. ' +

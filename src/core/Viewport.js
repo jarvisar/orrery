@@ -40,8 +40,13 @@ export class Viewport {
     });
 
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    // AgX rolls bright colour off toward white the way film does, where ACES
+    // pushes it toward saturated orange - which is what used to turn the Sun
+    // into a ball of cheese.
+    this.renderer.toneMapping = THREE.AgXToneMapping;
     this.renderer.toneMappingExposure = 1.0;
+    // The frame is several passes now; count the whole frame, not the last pass.
+    this.renderer.info.autoReset = false;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
@@ -53,6 +58,7 @@ export class Viewport {
 
     this._frameTimes = [];
     this._lastAdjust = 0;
+    this._resizeListeners = [];
     this._onResize = () => this.resize();
 
     window.addEventListener('resize', this._onResize);
@@ -72,12 +78,21 @@ export class Viewport {
 
     this.renderer.setPixelRatio(this.maxPixelRatio * this.renderScale);
     this.renderer.setSize(width, height, false);
-    this._onResizeCallback?.(this.drawingBufferSize());
+    const buffer = this.drawingBufferSize();
+    for (const listener of this._resizeListeners) listener(buffer, this);
   }
 
+  /**
+   * Calls back now and on every resize or render-scale change, with the
+   * drawing-buffer size and this viewport.
+   */
   onResize(callback) {
-    this._onResizeCallback = callback;
-    callback(this.drawingBufferSize());
+    this._resizeListeners.push(callback);
+    callback(this.drawingBufferSize(), this);
+  }
+
+  get pixelRatio() {
+    return this.renderer.getPixelRatio();
   }
 
   drawingBufferSize() {

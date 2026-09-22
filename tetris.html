@@ -1,319 +1,1438 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Basic Tetris HTML Game</title>
-  <meta charset="UTF-8">
-  <style>
-  html, body {
-    height: 100%;
-    margin: 0;
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tetris · Orrery</title>
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#030409">
+<link rel="icon" href="favicon.ico">
+<link rel="preload" href="public/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="public/fonts/jost.woff2" as="font" type="font/woff2" crossorigin>
+
+<style>
+/* ==========================================================================
+   Tetris, reached from the orrery with the Konami code.
+
+   Same materials as the main app: near-black space, one translucent glass
+   well, hairline borders, white as the only accent. The pieces take the
+   planet swatches, so the only colour on the page is the game itself.
+   ========================================================================== */
+
+@font-face {
+  font-family: "Inter";
+  src: url("public/fonts/inter.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("public/fonts/jost.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+
+  --bg: #030409;
+  --panel: rgba(12, 14, 20, 0.58);
+  --panel-solid: rgba(14, 16, 23, 0.94);
+  --hover: rgba(255, 255, 255, 0.07);
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --text: #eef0f5;
+  --text-dim: rgba(238, 240, 245, 0.64);
+  --text-faint: rgba(238, 240, 245, 0.4);
+
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+  --display: Jost, Futura, "Century Gothic", ui-sans-serif, system-ui, sans-serif;
+
+  --edge: 16px;
+  --gap: 12px;
+  --side-w: 176px;
+  --well-pad: 8px;
+
+  /* The board size is set from script; the well and side column follow it. */
+  --board-w: 300px;
+  --board-h: 600px;
+  --well-w: calc(var(--board-w) + 2 * var(--well-pad) + 2px);
+  --well-h: calc(var(--board-h) + 2 * var(--well-pad) + 2px);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+/* Only the root paints the background; a body background would cover the sky. */
+html { background: var(--bg); }
+
+body {
+  height: 100vh;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--gap);
+  padding:
+    max(var(--edge), env(safe-area-inset-top))
+    max(var(--edge), env(safe-area-inset-right))
+    max(var(--edge), env(safe-area-inset-bottom))
+    max(var(--edge), env(safe-area-inset-left));
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Drawn once per resize; sits behind everything. */
+.sky {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+svg[aria-hidden="true"] {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+:where(a, button):focus-visible {
+  outline: 1.5px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 2px;
+}
+
+.label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  font-family: var(--font);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text);
+}
+kbd svg { width: 11px; height: 11px; stroke-width: 2; }
+
+/* --- top bar ------------------------------------------------------------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px 0 2px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-faint);
+  text-decoration: none;
+  transition: color 0.15s var(--ease);
+}
+.back:hover { color: var(--text); }
+.back svg { width: 16px; height: 16px; }
+
+.pause-btn {
+  display: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--text-dim);
+}
+.pause-btn svg { width: 20px; height: 20px; }
+.pause-btn .i-play,
+body[data-state="paused"] .pause-btn .i-pause { display: none; }
+body[data-state="paused"] .pause-btn .i-play { display: block; }
+body[data-state="ready"] .pause-btn,
+body[data-state="over"] .pause-btn { visibility: hidden; }
+
+/* --- stage --------------------------------------------------------------- */
+
+/* Three columns, so the board sits on the true centre line with the status
+   column hanging off its right edge. The one row is exactly as tall as the
+   well, so everything beside it can align to its top and bottom. */
+.stage {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-rows: var(--well-h);
+  grid-template-areas: "pad well side";
+  align-content: center;
+  column-gap: 28px;
+}
+
+.slot {
+  grid-area: well;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+
+.well {
+  position: relative;
+  padding: var(--well-pad);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: var(--shadow);
+}
+
+#board {
+  display: block;
+  width: var(--board-w);
+  height: var(--board-h);
+}
+
+/* --- overlay (ready, paused, game over) ---------------------------------- */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  border-radius: calc(var(--radius) - 1px);
+  background: rgba(6, 7, 12, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  text-align: center;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s var(--ease), visibility 0.3s;
+}
+.overlay.is-open { opacity: 1; visibility: visible; }
+
+.overlay__body { display: none; }
+.overlay[data-show="ready"] [data-for="ready"],
+.overlay[data-show="paused"] [data-for="paused"],
+.overlay[data-show="over"] [data-for="over"] {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.overlay__title {
+  margin: 0 -0.32em 0 0;
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+.overlay__hint {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+.overlay__hint kbd { margin: 0 2px; }
+
+.overlay__result {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin: 10px 0 6px;
+}
+.overlay__score {
+  font-family: var(--display);
+  font-size: 44px;
+  font-weight: 300;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.overlay__best { color: var(--text); }
+.overlay__best[hidden] { display: none; }
+
+.touch-only { display: none; }
+
+/* --- side column --------------------------------------------------------- */
+
+.side {
+  grid-area: side;
+  justify-self: start;
+  width: var(--side-w);
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  padding: 8px 0 2px;
+}
+
+.title {
+  margin: 0 -0.32em 0 0;
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+#next {
+  display: block;
+  width: 100%;
+  height: 88px;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px 12px;
+}
+.stat { min-width: 0; }
+.stat__value {
+  display: block;
+  margin-top: 8px;
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.stat--score { grid-column: 1 / -1; }
+.stat--score .stat__value { font-size: 40px; font-weight: 300; }
+.stat--best { grid-column: 1 / -1; }
+.stat--best .stat__value { color: var(--text-dim); }
+
+/* Hairline showing progress to the next level. */
+.progress {
+  grid-column: 1 / -1;
+  height: 1px;
+  margin-top: -8px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+.progress__fill {
+  height: 100%;
+  background: var(--text);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s var(--ease);
+}
+
+.keys {
+  margin: auto 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 5px;
+}
+.keyrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+}
+.keyrow dt { color: var(--text-dim); }
+.keyrow dd { margin: 0; display: flex; gap: 4px; }
+
+/* --- touch controls ------------------------------------------------------ */
+
+.pad {
+  grid-area: pad;
+  display: none;
+  justify-content: space-between;
+  gap: 16px;
+}
+.pad__group { display: flex; gap: 10px; }
+.pad__btn {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--panel);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  box-shadow: var(--shadow);
+  color: var(--text-dim);
+  touch-action: none;
+  -webkit-touch-callout: none;
+  transition: background 0.12s var(--ease), color 0.12s var(--ease), border-color 0.12s var(--ease);
+}
+.pad__btn svg { width: 22px; height: 22px; }
+.pad__btn.is-held {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+/* --- wide screens: the top bar floats in the corner ----------------------- */
+
+@media (min-width: 700px) {
+  body { grid-template-rows: minmax(0, 1fr); }
+
+  .topbar {
+    position: fixed;
+    z-index: 2;
+    top: max(var(--edge), env(safe-area-inset-top));
+    left: max(var(--edge), env(safe-area-inset-left));
+    right: max(var(--edge), env(safe-area-inset-right));
+    min-height: 44px;
+    pointer-events: none;
+  }
+  .topbar > * { pointer-events: auto; }
+}
+
+/* --- narrow screens: status becomes a row above the board ---------------- */
+
+@media (max-width: 699px) {
+  .stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "side" "well";
+    row-gap: var(--gap);
   }
 
-  body {
-    background: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  /* Status row and controls share the well's edges. */
+  .side,
+  .pad {
+    justify-self: center;
+    width: var(--well-w);
+    max-width: 100%;
   }
 
-  canvas {
-    border: 1px solid black;
+  .side {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 16px;
+    padding: 0 4px;
   }
-  </style>
+  .keys, .progress { display: none; }
+
+  .next {
+    order: 2;
+    display: grid;
+    justify-items: center;
+  }
+  #next {
+    width: 56px;
+    height: 30px;
+    margin-top: 6px;
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+
+  .stats {
+    grid-template-columns: repeat(4, auto);
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .stat--score, .stat--best { grid-column: auto; }
+  .stat__value, .stat--score .stat__value {
+    margin-top: 6px;
+    font-size: 18px;
+    font-weight: 400;
+  }
+
+  .pad__btn {
+    width: clamp(44px, calc((var(--well-w) - 64px) / 5), 56px);
+    height: clamp(44px, calc((var(--well-w) - 64px) / 5), 56px);
+  }
+}
+
+/* --- short wide screens: tighten the side column ------------------------- */
+
+@media (min-width: 700px) and (max-height: 600px) {
+  .side { gap: 18px; }
+  #next { height: 60px; }
+  .stats { row-gap: 14px; }
+  .stat--score .stat__value { font-size: 30px; }
+}
+@media (min-width: 700px) and (max-height: 520px) {
+  .keys { display: none; }
+}
+
+/* --- touch --------------------------------------------------------------- */
+
+@media (pointer: coarse) {
+  .pad { display: flex; }
+  .pause-btn { display: grid; }
+  .keys { display: none; }
+  .keys-only { display: none; }
+  .touch-only { display: inline; }
+}
+
+/* On a wide touch screen the two thumb clusters sit either side of the board. */
+@media (pointer: coarse) and (min-width: 700px) {
+  .pad { display: contents; }
+  .pad__group { align-self: end; }
+  .pad__group--move { grid-area: pad; justify-self: end; }
+  .pad__group--act { grid-area: side; justify-self: start; }
+}
+
+/* Touch controls on a narrow screen take a row of their own under the board. */
+@media (pointer: coarse) and (max-width: 699px) {
+  .stage {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "side" "well" "pad";
+  }
+}
+
+/* Where space is short the title steps aside, but stays for screen readers. */
+@media (max-width: 699px), (min-width: 700px) and (max-height: 600px), (pointer: coarse) {
+  .title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+</style>
 </head>
-<body>
-<canvas width="320" height="640" id="game"></canvas>
-<script>
-// https://tetris.fandom.com/wiki/Tetris_Guideline
 
-// get a random integer between the range of [min,max]
-// @see https://stackoverflow.com/a/1527820/2124254
-function getRandomInt(min, max) {
-  min = Math.ceil(min);
-  max = Math.floor(max);
+<body data-state="ready">
+<canvas class="sky" id="sky" aria-hidden="true"></canvas>
 
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+<header class="topbar">
+  <a class="back" href="./">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg>
+    <span>Back to the orrery</span>
+  </a>
+  <button class="pause-btn" id="pause-btn" type="button" aria-label="Pause">
+    <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 5v14"/><path d="M14.5 5v14"/></svg>
+    <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+  </button>
+</header>
+
+<main class="stage" id="stage">
+  <div class="slot" id="slot">
+    <div class="well">
+      <canvas id="board" role="img" aria-label="Playfield"></canvas>
+
+      <div class="overlay" id="overlay" role="status" aria-live="polite">
+        <div class="overlay__body" data-for="ready">
+          <h2 class="overlay__title">Ready</h2>
+          <p class="overlay__hint">
+            <span class="keys-only">Press <kbd>Enter</kbd> to start</span>
+            <span class="touch-only">Tap to start</span>
+          </p>
+        </div>
+        <div class="overlay__body" data-for="paused">
+          <h2 class="overlay__title">Paused</h2>
+          <p class="overlay__hint">
+            <span class="keys-only">Press <kbd>P</kbd> to resume</span>
+            <span class="touch-only">Tap to resume</span>
+          </p>
+        </div>
+        <div class="overlay__body" data-for="over">
+          <h2 class="overlay__title">Game over</h2>
+          <div class="overlay__result">
+            <span class="label">Score</span>
+            <span class="overlay__score" id="final-score">0</span>
+            <span class="label overlay__best" id="final-best" hidden>New best</span>
+          </div>
+          <p class="overlay__hint">
+            <span class="keys-only">Press <kbd>Enter</kbd> to play again</span>
+            <span class="touch-only">Tap to play again</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="side" aria-label="Game status">
+    <h1 class="title">Tetris</h1>
+
+    <section class="next">
+      <span class="label">Next</span>
+      <canvas id="next" aria-hidden="true"></canvas>
+    </section>
+
+    <div class="stats">
+      <div class="stat stat--score"><span class="label">Score</span><span class="stat__value" id="score">0</span></div>
+      <div class="stat"><span class="label">Level</span><span class="stat__value" id="level">1</span></div>
+      <div class="stat"><span class="label">Lines</span><span class="stat__value" id="lines">0</span></div>
+      <div class="progress" aria-hidden="true"><div class="progress__fill" id="progress"></div></div>
+      <div class="stat stat--best"><span class="label">Best</span><span class="stat__value" id="best">0</span></div>
+    </div>
+
+    <dl class="keys">
+      <div class="keyrow">
+        <dt>Move</dt>
+        <dd>
+          <kbd aria-label="Left arrow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></kbd>
+          <kbd aria-label="Right arrow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg></kbd>
+        </dd>
+      </div>
+      <div class="keyrow">
+        <dt>Rotate</dt>
+        <dd>
+          <kbd aria-label="Up arrow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></svg></kbd>
+          <kbd>X</kbd>
+        </dd>
+      </div>
+      <div class="keyrow">
+        <dt>Soft drop</dt>
+        <dd><kbd aria-label="Down arrow"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M18 13l-6 6-6-6"/></svg></kbd></dd>
+      </div>
+      <div class="keyrow"><dt>Hard drop</dt><dd><kbd>Space</kbd></dd></div>
+      <div class="keyrow"><dt>Pause</dt><dd><kbd>P</kbd></dd></div>
+    </dl>
+  </aside>
+
+  <div class="pad" role="group" aria-label="Controls">
+    <div class="pad__group pad__group--move">
+      <button class="pad__btn" type="button" data-action="left" aria-label="Move left">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6l-6 6 6 6"/></svg>
+      </button>
+      <button class="pad__btn" type="button" data-action="down" aria-label="Soft drop">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg>
+      </button>
+      <button class="pad__btn" type="button" data-action="right" aria-label="Move right">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+    <div class="pad__group pad__group--act">
+      <button class="pad__btn" type="button" data-action="drop" aria-label="Hard drop">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5v10"/><path d="M7.5 10 12 14.5l4.5-4.5"/><path d="M6 19.5h12"/></svg>
+      </button>
+      <button class="pad__btn" type="button" data-action="rotate" aria-label="Rotate">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66L20 8.6"/><path d="M20 4.2v4.4h-4.4"/></svg>
+      </button>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+/* --- rules --------------------------------------------------------------- */
+
+// @see https://tetris.fandom.com/wiki/Tetris_Guideline
+const COLS = 10;
+const ROWS = 20;
+const HIDDEN = 2; // rows above the visible field, where pieces spawn
+
+// Spawn orientations. Rotating these clockwise inside their bounding box gives
+// the other three SRS states. @see https://tetris.fandom.com/wiki/SRS
+const SHAPES = {
+  I: [
+    [0, 0, 0, 0],
+    [1, 1, 1, 1],
+    [0, 0, 0, 0],
+    [0, 0, 0, 0],
+  ],
+  J: [
+    [1, 0, 0],
+    [1, 1, 1],
+    [0, 0, 0],
+  ],
+  L: [
+    [0, 0, 1],
+    [1, 1, 1],
+    [0, 0, 0],
+  ],
+  O: [
+    [1, 1],
+    [1, 1],
+  ],
+  S: [
+    [0, 1, 1],
+    [1, 1, 0],
+    [0, 0, 0],
+  ],
+  Z: [
+    [1, 1, 0],
+    [0, 1, 1],
+    [0, 0, 0],
+  ],
+  T: [
+    [0, 1, 0],
+    [1, 1, 1],
+    [0, 0, 0],
+  ],
+};
+
+// The swatches the orrery uses for these bodies.
+const COLORS = {
+  I: '#9fd8e0', // Uranus
+  O: '#e0c48c', // Saturn
+  T: '#b08a72', // Makemake
+  S: '#4b8fd6', // Earth
+  Z: '#c1603f', // Mars
+  J: '#4a6fd4', // Neptune
+  L: '#d9b982', // Venus
+};
+
+// SRS wall kicks for a clockwise turn, indexed by the rotation state being
+// left (0, R, 2, L). Offsets are [columns, rows], rows counting down.
+const KICKS = {
+  JLSTZ: [
+    [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
+    [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],
+    [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],
+    [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
+  ],
+  I: [
+    [[0, 0], [-2, 0], [1, 0], [-2, 1], [1, -2]],
+    [[0, 0], [-1, 0], [2, 0], [-1, -2], [2, 1]],
+    [[0, 0], [2, 0], [-1, 0], [2, -1], [-1, 2]],
+    [[0, 0], [1, 0], [-2, 0], [1, 2], [-2, -1]],
+  ],
+};
+
+const LINE_SCORES = [0, 100, 300, 500, 800]; // multiplied by the level
+const LINES_PER_LEVEL = 10;
+const LOCK_DELAY = 500;  // ms a piece may rest on the stack before it locks
+const LOCK_RESETS = 15;  // moves that may restart that wait, per row reached
+const DAS = 150;         // ms a direction is held before it repeats
+const ARR = 40;          // ms between repeats
+const MAX_CELL = 34;     // px; the board stops growing past this
+
+const BEST_KEY = 'orrery:tetris:best';
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const narrowLayout = matchMedia('(max-width: 699px)');
+
+/* --- state --------------------------------------------------------------- */
+
+let state = 'ready'; // ready | playing | paused | over
+let field;           // (ROWS + HIDDEN) rows of piece names, or null
+let queue;           // upcoming pieces, refilled a bag at a time
+let piece;           // { name, matrix, turn, row, col }, or null between pieces
+let clearing;        // { rows, elapsed } while full rows flash
+let score, lines, level;
+let best = loadBest();
+
+let fallTimer = 0;   // ms since the piece last fell
+let lockTimer = 0;   // ms the piece has rested on the stack
+let lockResets = 0;
+let lowestRow = 0;
+
+const held = new Set(); // actions whose key or button is down
+let shiftDir = 0;       // -1, 0 or 1
+let shiftHeld = 0;
+let shiftRepeat = 0;
+
+function reset() {
+  field = Array.from({ length: ROWS + HIDDEN }, () => Array(COLS).fill(null));
+  queue = [];
+  fillQueue();
+  piece = null;
+  clearing = null;
+  score = 0;
+  lines = 0;
+  level = 1;
+  updateHud();
+  drawNext();
 }
 
-// generate a new tetromino sequence
-// @see https://tetris.fandom.com/wiki/Random_Generator
-function generateSequence() {
-  const sequence = ['I', 'J', 'L', 'O', 'S', 'T', 'Z'];
+/* --- pieces and the field ------------------------------------------------ */
 
-  while (sequence.length) {
-    const rand = getRandomInt(0, sequence.length - 1);
-    const name = sequence.splice(rand, 1)[0];
-    tetrominoSequence.push(name);
-  }
+// Rows above the buffer count as open space, so a kick near the top never
+// reads past the array.
+function cellAt(row, col) {
+  return row < -HIDDEN ? null : field[row + HIDDEN][col];
 }
 
-// get the next tetromino in the sequence
-function getNextTetromino() {
-  if (tetrominoSequence.length === 0) {
-    generateSequence();
-  }
-
-  const name = tetrominoSequence.pop();
-  const matrix = tetrominos[name];
-
-  // I and O start centered, all others start in left-middle
-  const col = playfield[0].length / 2 - Math.ceil(matrix[0].length / 2);
-
-  // I starts on row 21 (-1), all others start on row 22 (-2)
-  const row = name === 'I' ? -1 : -2;
-
-  return {
-    name: name,      // name of the piece (L, O, etc.)
-    matrix: matrix,  // the current rotation matrix
-    row: row,        // current row (starts offscreen)
-    col: col         // current col
-  };
-}
-
-// rotate an NxN matrix 90deg
-// @see https://codereview.stackexchange.com/a/186834
-function rotate(matrix) {
-  const N = matrix.length - 1;
-  const result = matrix.map((row, i) =>
-    row.map((val, j) => matrix[N - j][i])
-  );
-
-  return result;
-}
-
-// check to see if the new matrix/row/col is valid
-function isValidMove(matrix, cellRow, cellCol) {
-  for (let row = 0; row < matrix.length; row++) {
-    for (let col = 0; col < matrix[row].length; col++) {
-      if (matrix[row][col] && (
-          // outside the game bounds
-          cellCol + col < 0 ||
-          cellCol + col >= playfield[0].length ||
-          cellRow + row >= playfield.length ||
-          // collides with another piece
-          playfield[cellRow + row][cellCol + col])
-        ) {
-        return false;
-      }
+function fits(matrix, row, col) {
+  for (let r = 0; r < matrix.length; r++) {
+    for (let c = 0; c < matrix[r].length; c++) {
+      if (!matrix[r][c]) continue;
+      const y = row + r;
+      const x = col + c;
+      if (x < 0 || x >= COLS || y >= ROWS || cellAt(y, x)) return false;
     }
   }
-
   return true;
 }
 
-// place the tetromino on the playfield
-function placeTetromino() {
-  for (let row = 0; row < tetromino.matrix.length; row++) {
-    for (let col = 0; col < tetromino.matrix[row].length; col++) {
-      if (tetromino.matrix[row][col]) {
-
-        // game over if piece has any part offscreen
-        if (tetromino.row + row < 0) {
-          return showGameOver();
-        }
-
-        playfield[tetromino.row + row][tetromino.col + col] = tetromino.name;
-      }
-    }
-  }
-
-  // check for line clears starting from the bottom and working our way up
-  for (let row = playfield.length - 1; row >= 0; ) {
-    if (playfield[row].every(cell => !!cell)) {
-
-      // drop every row above this one
-      for (let r = row; r >= 0; r--) {
-        for (let c = 0; c < playfield[r].length; c++) {
-          playfield[r][c] = playfield[r-1][c];
-        }
-      }
-    }
-    else {
-      row--;
-    }
-  }
-
-  tetromino = getNextTetromino();
+// Rotates an N×N matrix 90° clockwise. @see https://codereview.stackexchange.com/a/186834
+function rotateMatrix(matrix) {
+  const n = matrix.length - 1;
+  return matrix.map((line, i) => line.map((_, j) => matrix[n - j][i]));
 }
 
-// show the game over screen
-function showGameOver() {
-  cancelAnimationFrame(rAF);
-  gameOver = true;
-
-  context.fillStyle = 'black';
-  context.globalAlpha = 0.75;
-  context.fillRect(0, canvas.height / 2 - 30, canvas.width, 60);
-
-  context.globalAlpha = 1;
-  context.fillStyle = 'white';
-  context.font = '36px monospace';
-  context.textAlign = 'center';
-  context.textBaseline = 'middle';
-  context.fillText('GAME OVER!', canvas.width / 2, canvas.height / 2);
-}
-
-const canvas = document.getElementById('game');
-const context = canvas.getContext('2d');
-const grid = 32;
-const tetrominoSequence = [];
-
-// keep track of what is in every cell of the game using a 2d array
-// tetris playfield is 10x20, with a few rows offscreen
-const playfield = [];
-
-// populate the empty state
-for (let row = -2; row < 20; row++) {
-  playfield[row] = [];
-
-  for (let col = 0; col < 10; col++) {
-    playfield[row][col] = 0;
+// 7-bag randomiser: each piece once per bag, in random order.
+// @see https://tetris.fandom.com/wiki/Random_Generator
+function fillQueue() {
+  while (queue.length < 2) {
+    const bag = Object.keys(SHAPES);
+    for (let i = bag.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [bag[i], bag[j]] = [bag[j], bag[i]];
+    }
+    queue.push(...bag);
   }
 }
 
-// how to draw each tetromino
-// @see https://tetris.fandom.com/wiki/SRS
-const tetrominos = {
-  'I': [
-    [0,0,0,0],
-    [1,1,1,1],
-    [0,0,0,0],
-    [0,0,0,0]
-  ],
-  'J': [
-    [1,0,0],
-    [1,1,1],
-    [0,0,0],
-  ],
-  'L': [
-    [0,0,1],
-    [1,1,1],
-    [0,0,0],
-  ],
-  'O': [
-    [1,1],
-    [1,1],
-  ],
-  'S': [
-    [0,1,1],
-    [1,1,0],
-    [0,0,0],
-  ],
-  'Z': [
-    [1,1,0],
-    [0,1,1],
-    [0,0,0],
-  ],
-  'T': [
-    [0,1,0],
-    [1,1,1],
-    [0,0,0],
-  ]
-};
-
-// color of each tetromino
-const colors = {
-  'I': 'cyan',
-  'O': 'yellow',
-  'T': 'purple',
-  'S': 'green',
-  'Z': 'red',
-  'J': 'blue',
-  'L': 'orange'
-};
-
-let count = 0;
-let tetromino = getNextTetromino();
-let rAF = null;  // keep track of the animation frame so we can cancel it
-let gameOver = false;
-
-// game loop
-function loop() {
-  rAF = requestAnimationFrame(loop);
-  context.clearRect(0,0,canvas.width,canvas.height);
-
-  // draw the playfield
-  for (let row = 0; row < 20; row++) {
-    for (let col = 0; col < 10; col++) {
-      if (playfield[row][col]) {
-        const name = playfield[row][col];
-        context.fillStyle = colors[name];
-
-        // drawing 1 px smaller than the grid creates a grid effect
-        context.fillRect(col * grid, row * grid, grid-1, grid-1);
-      }
-    }
-  }
-
-  // draw the active tetromino
-  if (tetromino) {
-
-    // tetromino falls every 60 frames
-    if (++count > 60) {
-      tetromino.row++;
-      count = 0;
-
-      // place piece if it runs into anything
-      if (!isValidMove(tetromino.matrix, tetromino.row, tetromino.col)) {
-        tetromino.row--;
-        placeTetromino();
-      }
-    }
-
-    context.fillStyle = colors[tetromino.name];
-
-    for (let row = 0; row < tetromino.matrix.length; row++) {
-      for (let col = 0; col < tetromino.matrix[row].length; col++) {
-        if (tetromino.matrix[row][col]) {
-
-          // drawing 1 px smaller than the grid creates a grid effect
-          context.fillRect((tetromino.col + col) * grid, (tetromino.row + row) * grid, grid-1, grid-1);
-        }
-      }
-    }
-  }
+function spawn() {
+  fillQueue();
+  const name = queue.shift();
+  const matrix = SHAPES[name];
+  piece = {
+    name,
+    matrix,
+    turn: 0,
+    // Every piece starts in the two hidden rows (guideline rows 21 and 22),
+    // I and O centred, the others one column left of centre...
+    row: -2,
+    col: COLS / 2 - Math.ceil(matrix[0].length / 2),
+  };
+  fallTimer = 0;
+  lockTimer = 0;
+  lockResets = 0;
+  lowestRow = piece.row;
+  drawNext();
+  if (!fits(piece.matrix, piece.row, piece.col)) return endGame();
+  // ...then drops one row at once if it can, so its lowest row shows straight away.
+  move(1, 0);
 }
 
-// listen to keyboard events to move the active tetromino
-document.addEventListener('keydown', function(e) {
-  if (gameOver) return;
-
-  // left and right arrow keys (move)
-  if (e.which === 37 || e.which === 39) {
-    const col = e.which === 37
-      ? tetromino.col - 1
-      : tetromino.col + 1;
-
-    if (isValidMove(tetromino.matrix, tetromino.row, col)) {
-      tetromino.col = col;
-    }
+function move(dRow, dCol) {
+  if (!fits(piece.matrix, piece.row + dRow, piece.col + dCol)) return false;
+  piece.row += dRow;
+  piece.col += dCol;
+  if (dCol) nudgeLock();
+  if (piece.row > lowestRow) {
+    // Reaching a new row earns a fresh lock delay.
+    lowestRow = piece.row;
+    lockResets = 0;
+    lockTimer = 0;
   }
+  return true;
+}
 
-  // up arrow key (rotate)
-  if (e.which === 38) {
-    const matrix = rotate(tetromino.matrix);
-    if (isValidMove(matrix, tetromino.row, tetromino.col)) {
-      tetromino.matrix = matrix;
-    }
-  }
-
-  // down arrow key (drop)
-  if(e.which === 40) {
-    const row = tetromino.row + 1;
-
-    if (!isValidMove(tetromino.matrix, row, tetromino.col)) {
-      tetromino.row = row - 1;
-
-      placeTetromino();
+function turn() {
+  if (piece.name === 'O') return;
+  const matrix = rotateMatrix(piece.matrix);
+  const kicks = (piece.name === 'I' ? KICKS.I : KICKS.JLSTZ)[piece.turn];
+  for (const [dCol, dRow] of kicks) {
+    if (fits(matrix, piece.row + dRow, piece.col + dCol)) {
+      piece.matrix = matrix;
+      piece.row += dRow;
+      piece.col += dCol;
+      piece.turn = (piece.turn + 1) % 4;
+      nudgeLock();
       return;
     }
-
-    tetromino.row = row;
   }
+}
+
+// Moving or turning a resting piece restarts its lock delay, a limited number of times.
+function nudgeLock() {
+  if (lockTimer > 0) {
+    lockTimer = 0;
+    lockResets += 1;
+  }
+}
+
+function landingRow() {
+  let row = piece.row;
+  while (fits(piece.matrix, row + 1, piece.col)) row++;
+  return row;
+}
+
+function hardDrop() {
+  const row = landingRow();
+  score += (row - piece.row) * 2;
+  piece.row = row;
+  lock();
+}
+
+function lock() {
+  const { name, matrix, row, col } = piece;
+  let above = false;
+  matrix.forEach((line, r) => line.forEach((filled, c) => {
+    if (!filled) return;
+    if (row + r < 0) above = true;
+    if (row + r >= -HIDDEN) field[row + r + HIDDEN][col + c] = name;
+  }));
+  piece = null;
+
+  // Any part locking above the visible field ends the game.
+  if (above) return endGame();
+
+  const full = [];
+  for (let r = 0; r < ROWS; r++) {
+    if (field[r + HIDDEN].every(Boolean)) full.push(r);
+  }
+  updateHud();
+  if (full.length) clearing = { rows: full, elapsed: 0 };
+  else spawn();
+}
+
+function finishClear() {
+  const { rows } = clearing;
+  clearing = null;
+  // Top to bottom, so each splice leaves the rows still to clear where they were.
+  for (const r of rows) {
+    field.splice(r + HIDDEN, 1);
+    field.unshift(Array(COLS).fill(null));
+  }
+  score += LINE_SCORES[rows.length] * level;
+  lines += rows.length;
+  level = 1 + Math.floor(lines / LINES_PER_LEVEL);
+  updateHud();
+  spawn();
+}
+
+// Guideline gravity: (0.8 - (level - 1) × 0.007)^(level - 1) seconds per row.
+function gravity() {
+  const l = Math.min(level, 20);
+  return 1000 * Math.pow(0.8 - (l - 1) * 0.007, l - 1);
+}
+
+function clearTime() {
+  return reducedMotion.matches ? 120 : 200;
+}
+
+/* --- game loop ----------------------------------------------------------- */
+
+let rafId = 0;
+let lastTime = 0;
+
+function run() {
+  if (rafId) return;
+  lastTime = performance.now();
+  rafId = requestAnimationFrame(frame);
+}
+
+function frame(now) {
+  // Clamped, so a stalled tab doesn't drop the piece in one lurch.
+  const dt = Math.min(now - lastTime, 100);
+  lastTime = now;
+  update(dt);
+  render();
+  rafId = state === 'playing' ? requestAnimationFrame(frame) : 0;
+}
+
+function update(dt) {
+  if (clearing) {
+    clearing.elapsed += dt;
+    if (clearing.elapsed >= clearTime()) finishClear();
+    return;
+  }
+  if (!piece) return;
+  const scoreBefore = score;
+
+  // A held direction steps once on press, then repeats after a short delay.
+  if (shiftDir) {
+    shiftHeld += dt;
+    if (shiftHeld >= DAS) {
+      shiftRepeat += dt;
+      while (shiftRepeat >= ARR) {
+        shiftRepeat -= ARR;
+        move(0, shiftDir);
+      }
+    }
+  }
+
+  // Gravity. Holding Down makes it twenty times stronger, a point per row.
+  const softDrop = held.has('down');
+  const interval = softDrop ? gravity() / 20 : gravity();
+  fallTimer += dt;
+  while (fallTimer >= interval) {
+    fallTimer -= interval;
+    if (!move(1, 0)) {
+      fallTimer = 0;
+      break;
+    }
+    if (softDrop) score += 1;
+  }
+
+  if (fits(piece.matrix, piece.row + 1, piece.col)) {
+    lockTimer = 0;
+  } else {
+    lockTimer += dt;
+    if (lockTimer >= LOCK_DELAY || lockResets >= LOCK_RESETS) lock();
+  }
+
+  if (score !== scoreBefore) updateHud();
+}
+
+function setState(next) {
+  state = next;
+  document.body.dataset.state = next;
+  pauseButton.setAttribute('aria-label', next === 'paused' ? 'Resume' : 'Pause');
+
+  // The overlay keeps its last content while it fades out.
+  if (next !== 'playing') overlay.dataset.show = next;
+  overlay.classList.toggle('is-open', next !== 'playing');
+
+  if (next === 'playing') run();
+  else render();
+}
+
+function start() {
+  setState('playing');
+  spawn();
+}
+
+function restart() {
+  reset();
+  start();
+}
+
+function pause() {
+  if (state !== 'playing') return;
+  releaseAll();
+  setState('paused');
+}
+
+function endGame() {
+  piece = null;
+  const isBest = score > best;
+  if (isBest) {
+    best = score;
+    saveBest(best);
+  }
+  finalScore.textContent = formatNumber(score);
+  finalBest.hidden = !isBest;
+  updateHud();
+  setState('over');
+}
+
+/* --- input --------------------------------------------------------------- */
+
+const KEYS = {
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+  ArrowDown: 'down',
+  ArrowUp: 'rotate',
+  KeyX: 'rotate',
+  Space: 'drop',
+  KeyP: 'pause',
+  Escape: 'pause',
+  Enter: 'confirm',
+  NumpadEnter: 'confirm',
+  KeyR: 'restart',
+};
+
+function press(action) {
+  if (state === 'ready') {
+    if (action === 'confirm' || action === 'drop') start();
+    return;
+  }
+  if (state === 'paused') {
+    if (action === 'pause' || action === 'confirm') setState('playing');
+    return;
+  }
+  if (state === 'over') {
+    if (action === 'confirm' || action === 'restart') restart();
+    return;
+  }
+
+  held.add(action);
+  if (action === 'pause') return pause();
+  if (action === 'left' || action === 'right') {
+    shiftDir = action === 'left' ? -1 : 1;
+    shiftHeld = 0;
+    shiftRepeat = 0;
+  }
+  // Holds still register during a line clear; single presses do not.
+  if (!piece || clearing) return;
+
+  switch (action) {
+    case 'left':
+    case 'right':
+      move(0, shiftDir);
+      break;
+    case 'down':
+      fallTimer = 0;
+      if (move(1, 0)) score += 1;
+      break;
+    case 'rotate':
+      turn();
+      break;
+    case 'drop':
+      hardDrop();
+      break;
+  }
+  updateHud();
+  render();
+}
+
+function release(action) {
+  held.delete(action);
+  if ((action === 'left' && shiftDir < 0) || (action === 'right' && shiftDir > 0)) {
+    // Fall back to the other direction if it is still down.
+    shiftDir = held.has('left') ? -1 : held.has('right') ? 1 : 0;
+    shiftHeld = 0;
+    shiftRepeat = 0;
+  }
+}
+
+function releaseAll() {
+  held.clear();
+  shiftDir = 0;
+  for (const button of padButtons) button.classList.remove('is-held');
+}
+
+addEventListener('keydown', (event) => {
+  const action = KEYS[event.code];
+  if (!action || event.ctrlKey || event.metaKey || event.altKey) return;
+  // Enter and Space still activate a focused link or button.
+  if ((event.code === 'Enter' || event.code === 'Space') && event.target.closest?.('a, button')) return;
+  event.preventDefault();
+  if (!event.repeat) press(action); // repeats are timed by the game, not the OS
 });
 
-// start the game
-rAF = requestAnimationFrame(loop);
+addEventListener('keyup', (event) => {
+  const action = KEYS[event.code];
+  if (action) release(action);
+});
+
+addEventListener('blur', pause);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) pause();
+});
+
+const overlay = document.getElementById('overlay');
+overlay.addEventListener('pointerdown', (event) => {
+  event.preventDefault();
+  press('confirm');
+});
+
+const pauseButton = document.getElementById('pause-btn');
+pauseButton.addEventListener('click', () => press('pause'));
+
+const padButtons = [...document.querySelectorAll('.pad__btn')];
+for (const button of padButtons) {
+  const action = button.dataset.action;
+  const up = () => {
+    button.classList.remove('is-held');
+    release(action);
+  };
+  button.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    button.setPointerCapture(event.pointerId);
+    button.classList.add('is-held');
+    press(action);
+  });
+  button.addEventListener('pointerup', up);
+  button.addEventListener('pointercancel', up);
+  button.addEventListener('lostpointercapture', up);
+  button.addEventListener('contextmenu', (event) => event.preventDefault());
+}
+
+/* --- readouts ------------------------------------------------------------ */
+
+const hud = {
+  score: document.getElementById('score'),
+  level: document.getElementById('level'),
+  lines: document.getElementById('lines'),
+  best: document.getElementById('best'),
+  progress: document.getElementById('progress'),
+};
+const finalScore = document.getElementById('final-score');
+const finalBest = document.getElementById('final-best');
+const numberFormat = new Intl.NumberFormat('en-US');
+
+function formatNumber(value) {
+  return numberFormat.format(value);
+}
+
+function updateHud() {
+  hud.score.textContent = formatNumber(score);
+  hud.level.textContent = level;
+  hud.lines.textContent = lines;
+  hud.best.textContent = formatNumber(Math.max(best, score));
+  hud.progress.style.transform = `scaleX(${(lines % LINES_PER_LEVEL) / LINES_PER_LEVEL})`;
+}
+
+function loadBest() {
+  try {
+    return Math.max(0, parseInt(localStorage.getItem(BEST_KEY), 10) || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function saveBest(value) {
+  try {
+    localStorage.setItem(BEST_KEY, String(value));
+  } catch {
+    // Storage can be unavailable (private mode, blocked site data); the best score just won't persist.
+  }
+}
+
+/* --- drawing ------------------------------------------------------------- */
+
+const board = document.getElementById('board');
+const boardCtx = board.getContext('2d');
+const nextCanvas = document.getElementById('next');
+const nextCtx = nextCanvas.getContext('2d');
+const sky = document.getElementById('sky');
+const gridLayer = document.createElement('canvas');
+
+let dpr = 1;
+let cell = 30;
+let nextSize = { width: 0, height: 0, cell: 0 };
+
+// An inset rounded square, so neighbouring cells read as separate tiles.
+function tilePath(ctx, x, y, size, grow = 0) {
+  const inset = Math.max(1, Math.round(size * 0.06)) - grow;
+  const side = size - inset * 2;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x + inset, y + inset, side, side, size * 0.2);
+  else ctx.rect(x + inset, y + inset, side, side);
+}
+
+function drawTile(ctx, x, y, size, color, alpha = 1) {
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  tilePath(ctx, x, y, size);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function drawGhost(ctx, x, y, size, color) {
+  ctx.globalAlpha = 0.45;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  tilePath(ctx, x, y, size, -0.5);
+  ctx.stroke();
+  ctx.globalAlpha = 0.06;
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+// Calls fn(row, col) for each visible cell of a matrix placed at (row, col).
+function eachCell(matrix, row, col, fn) {
+  matrix.forEach((line, r) => line.forEach((filled, c) => {
+    if (filled && row + r >= 0) fn(row + r, col + c);
+  }));
+}
+
+function render() {
+  const s = cell;
+  boardCtx.clearRect(0, 0, COLS * s, ROWS * s);
+  boardCtx.drawImage(gridLayer, 0, 0, COLS * s, ROWS * s);
+
+  const flash = clearing ? 1 - clearing.elapsed / clearTime() : 0;
+  for (let r = 0; r < ROWS; r++) {
+    const isClearing = clearing?.rows.includes(r);
+    for (let c = 0; c < COLS; c++) {
+      const name = field[r + HIDDEN][c];
+      if (!name) continue;
+      if (isClearing) {
+        drawTile(boardCtx, c * s, r * s, s, COLORS[name], flash);
+        drawTile(boardCtx, c * s, r * s, s, '#ffffff', flash * 0.8);
+      } else {
+        drawTile(boardCtx, c * s, r * s, s, COLORS[name]);
+      }
+    }
+  }
+
+  if (piece) {
+    const color = COLORS[piece.name];
+    const ghost = landingRow();
+    if (ghost !== piece.row) {
+      eachCell(piece.matrix, ghost, piece.col, (r, c) => drawGhost(boardCtx, c * s, r * s, s, color));
+    }
+    eachCell(piece.matrix, piece.row, piece.col, (r, c) => drawTile(boardCtx, c * s, r * s, s, color));
+  }
+}
+
+function drawNext() {
+  const { width, height, cell: s } = nextSize;
+  nextCtx.clearRect(0, 0, width, height);
+  const name = queue?.[0];
+  if (!name || !s) return;
+
+  // Centre the piece on its filled cells, not its bounding box.
+  const cells = [];
+  SHAPES[name].forEach((line, r) => line.forEach((filled, c) => filled && cells.push([r, c])));
+  const rows = cells.map(([r]) => r);
+  const cols = cells.map(([, c]) => c);
+  const x0 = Math.round((width - (Math.max(...cols) - Math.min(...cols) + 1) * s) / 2) - Math.min(...cols) * s;
+  const y0 = Math.round((height - (Math.max(...rows) - Math.min(...rows) + 1) * s) / 2) - Math.min(...rows) * s;
+  for (const [r, c] of cells) drawTile(nextCtx, x0 + c * s, y0 + r * s, s, COLORS[name]);
+}
+
+// A faint dot at each interior grid crossing, drawn once per resize.
+function drawGrid() {
+  gridLayer.width = board.width;
+  gridLayer.height = board.height;
+  const ctx = gridLayer.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+  const radius = cell >= 20 ? 1 : 0.75;
+  for (let r = 1; r < ROWS; r++) {
+    for (let c = 1; c < COLS; c++) {
+      ctx.beginPath();
+      ctx.arc(c * cell, r * cell, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+// Small seeded generator, so the stars stay put across resizes.
+function mulberry32(seed) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function drawSky() {
+  const width = innerWidth;
+  const height = innerHeight;
+  sky.width = Math.round(width * dpr);
+  sky.height = Math.round(height * dpr);
+  const ctx = sky.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#ffffff';
+
+  // Stars keep clear of text, so none reads as a stray full stop.
+  const margin = 6;
+  const textBoxes = [...document.querySelectorAll('.back, .pause-btn, .title, .label, .stat__value, .keyrow')]
+    .map((el) => el.getBoundingClientRect())
+    .filter((box) => box.width && box.height);
+  const behindText = (x, y) => textBoxes.some((box) =>
+    x > box.left - margin && x < box.right + margin && y > box.top - margin && y < box.bottom + margin);
+
+  const random = mulberry32(1781); // the year Herschel found Uranus
+  const count = Math.round(Math.min((width * height) / 3600, 700));
+  for (let i = 0; i < count; i++) {
+    const x = random() * width;
+    const y = random() * height;
+    const radius = 0.3 + random() ** 5 * 0.9; // mostly pinpricks, a few brighter
+    const alpha = 0.1 + random() ** 2 * 0.45;
+    if (behindText(x, y)) continue;
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* --- layout -------------------------------------------------------------- */
+
+const root = document.documentElement;
+const stage = document.getElementById('stage');
+const slot = document.getElementById('slot');
+
+// Picks the largest whole-pixel cell that fits the space the stylesheet leaves
+// for the board, then sizes every canvas for the screen's pixel density.
+function layout() {
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
+
+  const styles = getComputedStyle(root);
+  const pad = parseFloat(styles.getPropertyValue('--well-pad')) || 0;
+  const frameSize = pad * 2 + 2;
+  let width;
+  let height;
+  if (narrowLayout.matches) {
+    ({ width, height } = slot.getBoundingClientRect());
+  } else {
+    // The outer columns mirror each other so the board stays on the centre line.
+    const sideWidth = parseFloat(styles.getPropertyValue('--side-w')) || 0;
+    const gap = parseFloat(getComputedStyle(stage).columnGap) || 0;
+    width = stage.clientWidth - 2 * (sideWidth + gap);
+    height = stage.clientHeight;
+  }
+  cell = Math.floor(Math.min((width - frameSize) / COLS, (height - frameSize) / ROWS, MAX_CELL));
+  cell = Math.max(cell, 8);
+
+  const boardWidth = cell * COLS;
+  const boardHeight = cell * ROWS;
+  root.style.setProperty('--board-w', `${boardWidth}px`);
+  root.style.setProperty('--board-h', `${boardHeight}px`);
+  board.width = Math.round(boardWidth * dpr);
+  board.height = Math.round(boardHeight * dpr);
+  boardCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const nextBox = nextCanvas.getBoundingClientRect();
+  nextSize = {
+    width: nextBox.width,
+    height: nextBox.height,
+    cell: Math.max(4, Math.min(Math.round(cell * 0.66), Math.floor(nextBox.width / 5), Math.floor(nextBox.height / 3))),
+  };
+  nextCanvas.width = Math.round(nextBox.width * dpr);
+  nextCanvas.height = Math.round(nextBox.height * dpr);
+  nextCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  drawGrid();
+  drawSky();
+  drawNext();
+  render();
+}
+
+addEventListener('resize', layout);
+narrowLayout.addEventListener('change', layout);
+document.fonts?.ready.then(layout);
+
+reset();
+layout();
+setState('ready');
 </script>
 </body>
 </html>

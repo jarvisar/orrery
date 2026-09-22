@@ -56,11 +56,45 @@ export class Clock {
     this.daysPerSecond = RATE_PRESETS[DEFAULT_RATE_INDEX].daysPerSecond;
     this.direction = 1;
     this.paused = false;
+    /** Set while an animated jump is under way; see travelTo(). */
+    this._travel = null;
   }
 
   advance(deltaSeconds) {
+    if (this._travel) {
+      const travel = this._travel;
+      travel.elapsed += deltaSeconds;
+      const t = Math.min(1, travel.elapsed / travel.seconds);
+      // Smootherstep: starts and lands gently, so the jump reads as a sweep
+      // through time rather than a cut.
+      const k = t * t * t * (t * (t * 6 - 15) + 10);
+      this.days = travel.from + (travel.to - travel.from) * k;
+      if (t >= 1) this._travel = null;
+      return;
+    }
     if (this.paused) return;
     this.days += deltaSeconds * this.daysPerSecond * this.direction;
+  }
+
+  /**
+   * Moves to another moment over a second or two instead of cutting to it, so
+   * the planets visibly sweep round to where they were. A jump of a day takes
+   * under a second; a century takes a little over two.
+   */
+  travelTo(days, { instant = false } = {}) {
+    if (instant || !Number.isFinite(days)) {
+      this._travel = null;
+      if (Number.isFinite(days)) this.days = days;
+      return;
+    }
+    const span = Math.abs(days - this.days);
+    const seconds = Math.min(2.4, 0.55 + 0.36 * Math.log10(1 + span));
+    this._travel = { from: this.days, to: days, elapsed: 0, seconds };
+  }
+
+  /** True while an animated jump is still playing. */
+  get isTravelling() {
+    return this._travel !== null;
   }
 
   /** The simulated instant, as a real Date. */
@@ -77,8 +111,8 @@ export class Clock {
     this.daysPerSecond = Math.min(MAX_RATE, Math.max(MIN_RATE, daysPerSecond));
   }
 
-  jumpToNow() {
-    this.days = daysSinceJ2000(new Date());
+  jumpToNow(options) {
+    this.travelTo(daysSinceJ2000(new Date()), options);
   }
 
   /** Signed rate, for display. */

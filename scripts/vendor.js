@@ -26,6 +26,15 @@ const FILES = [
   ['examples/jsm/lines/LineMaterial.js', 'addons/lines/LineMaterial.js'],
   ['examples/jsm/lines/LineSegments2.js', 'addons/lines/LineSegments2.js'],
   ['examples/jsm/lines/LineSegmentsGeometry.js', 'addons/lines/LineSegmentsGeometry.js'],
+  // Post-processing: bloom, and the composer it runs in.
+  ['examples/jsm/postprocessing/EffectComposer.js', 'addons/postprocessing/EffectComposer.js'],
+  ['examples/jsm/postprocessing/Pass.js', 'addons/postprocessing/Pass.js'],
+  ['examples/jsm/postprocessing/RenderPass.js', 'addons/postprocessing/RenderPass.js'],
+  ['examples/jsm/postprocessing/ShaderPass.js', 'addons/postprocessing/ShaderPass.js'],
+  ['examples/jsm/postprocessing/MaskPass.js', 'addons/postprocessing/MaskPass.js'],
+  ['examples/jsm/postprocessing/UnrealBloomPass.js', 'addons/postprocessing/UnrealBloomPass.js'],
+  ['examples/jsm/shaders/CopyShader.js', 'addons/shaders/CopyShader.js'],
+  ['examples/jsm/shaders/LuminosityHighPassShader.js', 'addons/shaders/LuminosityHighPassShader.js'],
   ['LICENSE', 'LICENSE'],
 ];
 

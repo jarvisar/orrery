@@ -16,13 +16,16 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { systemRadius } from '../scene/scaling.js';
+import { systemRadius, heliocentricDistance } from '../scene/scaling.js';
 
 /** How many body radii of empty space to leave around a framed body. */
 const FRAMING = 2.6;
 
 /** Seconds a focus change takes. */
 const TRANSITION_SECONDS = 1.4;
+
+/** Elevation of the overview shot above the ecliptic, radians. */
+const OVERVIEW_ELEVATION = 0.62;
 
 const _delta = new THREE.Vector3();
 const _desired = new THREE.Vector3();
@@ -55,6 +58,7 @@ export class CameraDirector {
     this.focus = null;
     this._lastFocusPosition = new THREE.Vector3();
     this._transition = null;
+    this._scaleExponent = system.scaleExponent;
   }
 
   /**
@@ -63,6 +67,7 @@ export class CameraDirector {
    * rather than a limit.
    */
   setScaleExponent(exponent) {
+    this._scaleExponent = exponent;
     const halfFov = THREE.MathUtils.degToRad(this.camera.fov) / 2;
     this.controls.maxDistance = (systemRadius(exponent) / Math.tan(halfFov)) * 1.1;
   }
@@ -78,7 +83,7 @@ export class CameraDirector {
    * Points the camera at a body, flying there over {@link TRANSITION_SECONDS}.
    * Passing `null` releases the camera into free view without moving it.
    */
-  focusOn(view, { instant = false } = {}) {
+  focusOn(view, { instant = false, duration = TRANSITION_SECONDS } = {}) {
     const previous = this.focus;
     this.focus = view;
 
@@ -110,14 +115,61 @@ export class CameraDirector {
     } else {
       this._transition = {
         elapsed: 0,
-        duration: TRANSITION_SECONDS,
+        duration,
         fromTarget: this.controls.target.clone(),
         fromPosition: this.camera.position.clone(),
         offset: _offset.clone(),
+        toTarget: null,
       };
     }
 
     this._lastFocusPosition.copy(view.group.position);
+  }
+
+  /**
+   * The whole system at a three-quarter angle, framed to `radiusAU`. Keeps the
+   * camera's current bearing round the Sun, so it rises and pulls back rather
+   * than swinging round to some fixed side.
+   */
+  overview(radiusAU = 33, { instant = false, duration = 2.2 } = {}) {
+    const radius = heliocentricDistance(radiusAU, this._scaleExponent);
+    const halfHeight = THREE.MathUtils.degToRad(this.camera.fov) / 2;
+    const halfWidth = Math.atan(Math.tan(halfHeight) * this.camera.aspect);
+    // Fit the sphere that holds the disc, not the disc as seen head-on: from
+    // an angle, perspective swells its near edge well past the far one. The
+    // disc is foreshortened, so a little inside the sphere still clears it.
+    const distance = (0.9 * radius) / Math.sin(Math.min(halfHeight, halfWidth));
+
+    const bearing = Math.atan2(this.camera.position.x, this.camera.position.z);
+    _offset.set(
+      Math.sin(bearing) * Math.cos(OVERVIEW_ELEVATION),
+      Math.sin(OVERVIEW_ELEVATION),
+      Math.cos(bearing) * Math.cos(OVERVIEW_ELEVATION)
+    ).multiplyScalar(Math.min(distance, this.controls.maxDistance * 0.98));
+
+    this.focus = null;
+    this.controls.minDistance = 0;
+    const target = new THREE.Vector3();
+    if (instant) {
+      this.controls.target.copy(target);
+      this.camera.position.copy(_offset);
+      this._transition = null;
+      return;
+    }
+    this._transition = {
+      elapsed: 0,
+      duration,
+      fromTarget: this.controls.target.clone(),
+      fromPosition: this.camera.position.clone(),
+      offset: _offset.clone(),
+      toTarget: target,
+    };
+  }
+
+  /** A slow drift round whatever is in view, for tours and idle moments. */
+  setAutoRotate(enabled, speed = 0.35) {
+    this.controls.autoRotate = enabled;
+    this.controls.autoRotateSpeed = speed;
   }
 
   /** True while a focus transition is still playing. */
@@ -126,12 +178,10 @@ export class CameraDirector {
   }
 
   update(dt) {
-    if (this.focus) {
-      if (this._transition) this._advanceTransition(dt);
-      else this._follow();
-    }
+    if (this._transition) this._advanceTransition(dt);
+    else if (this.focus) this._follow();
 
-    this.controls.update();
+    this.controls.update(dt);
     this._updateClipping();
   }
 
@@ -140,13 +190,13 @@ export class CameraDirector {
     t.elapsed += dt;
     const k = easeInOutCubic(Math.min(1, t.elapsed / t.duration));
 
-    _desired.copy(this.focus.group.position);
+    _desired.copy(t.toTarget ?? this.focus.group.position);
     this.controls.target.lerpVectors(t.fromTarget, _desired, k);
-    this.camera.position.lerpVectors(t.fromPosition, _desired.clone().add(t.offset), k);
+    this.camera.position.lerpVectors(t.fromPosition, _desired.add(t.offset), k);
 
     if (t.elapsed >= t.duration) {
       this._transition = null;
-      this._lastFocusPosition.copy(this.focus.group.position);
+      if (this.focus) this._lastFocusPosition.copy(this.focus.group.position);
     }
   }
 

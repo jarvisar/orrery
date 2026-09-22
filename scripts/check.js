@@ -104,6 +104,23 @@ for (const name of models) {
 }
 console.log(`models    ${models.size} present`);
 
+// ---------------------------- 6. files the stylesheet and page point at directly
+const css = await readFile(join(ROOT, 'style.css'), 'utf8');
+const linked = [
+  ...[...css.matchAll(/url\("?([^")]+)"?\)/g)].map((match) => match[1]),
+  ...[...html.matchAll(/\b(?:href|src)="((?:public|vendor|src)\/[^"]+)"/g)].map((match) => match[1]),
+];
+for (const path of new Set(linked)) {
+  if (!(await exists(path))) fail(`${path} is linked from the page or stylesheet but missing`);
+}
+console.log(`links     ${new Set(linked).size} files the page and stylesheet name`);
+
+// ------------------------------------------------------------ 7. the star field
+const stars = await readFile(join(ROOT, 'public/data/stars.bin')).catch(() => null);
+if (!stars) fail('public/data/stars.bin is missing - run scripts/build-sky.py');
+else if (stars.length % 8 !== 0) fail(`public/data/stars.bin is ${stars.length} bytes, not a whole number of stars`);
+else console.log(`stars     ${stars.length / 8} in the catalogue`);
+
 // ------------------------------------------------------------------- report
 if (failures.length) {
   console.error(`\n${failures.length} problem${failures.length === 1 ? '' : 's'}:`);

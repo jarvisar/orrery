@@ -18,15 +18,24 @@ import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { BODY_BY_ID, SUN_ID } from '../data/bodies.js';
 import { heliocentricDistance, satelliteDistance } from './scaling.js';
-import { sampleOrbitPath, perifocalToWorld } from '../sim/kepler.js';
+import { sampleOrbitPath, perifocalToWorld, eccentricAnomaly } from '../sim/kepler.js';
 
 const HELIOCENTRIC_SEGMENTS = 512;
 const SATELLITE_SEGMENTS = 192;
 
 const BASE_WIDTH = 1.1;
 const FOCUS_WIDTH = 1.8;
-const BASE_OPACITY = 0.2;
-const FOCUS_OPACITY = 0.55;
+const BASE_OPACITY = 0.42;
+const FOCUS_OPACITY = 0.85;
+
+/**
+ * Each path is brightest just behind its body and fades back round the orbit
+ * to this fraction, like a long exposure of something moving. It says which way
+ * everything is going without an arrow in sight, and keeps a busy system from
+ * reading as a tangle of identical rings.
+ */
+const TRAIL_FLOOR = 0.14;
+const TRAIL_FALLOFF = 1.6;
 
 /**
  * Two reasons to fade a path out, both of which a close-up of Earth used to hit
@@ -82,6 +91,7 @@ export class Orbits {
 
     const geometry = new LineGeometry();
     geometry.setPositions(positions);
+    geometry.setColors(pathPhases(segments));
 
     const material = new LineMaterial({
       // Tinted towards the body's own colour, so a dense system reads as
@@ -93,8 +103,11 @@ export class Orbits {
       opacity: heliocentric ? BASE_OPACITY : BASE_OPACITY * 0.75,
       depthWrite: false,
       dashed: false,
+      vertexColors: true,
       resolution: this._resolution,
     });
+    const head = { value: 0 };
+    applyTrail(material, head);
 
     const line = new Line2(geometry, material);
     line.name = `${view.id}-orbit`;
@@ -115,6 +128,7 @@ export class Orbits {
       radius: meanRadius(positions),
       targetOpacity: base,
       allowed: true,
+      head,
     };
   }
 
@@ -152,9 +166,12 @@ export class Orbits {
    * nothing; the draw calls it skips do not.
    *
    * @param {THREE.Vector3} cameraPosition
+   * @param {number} tDays Simulated time, for where each trail's head is.
    */
-  update(cameraPosition) {
+  update(cameraPosition, tDays) {
     for (const entry of this.lines.values()) {
+      entry.head.value = orbitPhase(entry.view.elements, tDays);
+
       if (entry.parentId) {
         const parent = this.system.bodies.get(entry.parentId);
         if (parent) entry.line.position.copy(parent.group.position);
@@ -239,6 +256,41 @@ export class Orbits {
     this.clear();
     this.root.removeFromParent();
   }
+}
+
+/**
+ * Where each vertex sits round the orbit, 0..1, smuggled to the shader in the
+ * red channel of the line's colour attribute. The path is sampled evenly in
+ * eccentric anomaly, so vertex i of n is simply at i/n.
+ */
+function pathPhases(segments) {
+  const phases = new Float32Array((segments + 1) * 3);
+  for (let i = 0; i <= segments; i++) phases[i * 3] = i / segments;
+  return phases;
+}
+
+/** How far round its orbit a body is at `tDays`, in the same 0..1 measure. */
+function orbitPhase(el, tDays) {
+  const meanAnomaly = (el.meanLong - el.periLong + (360 / el.periodDays) * tDays) * (Math.PI / 180);
+  const E = eccentricAnomaly(meanAnomaly, el.e) / (Math.PI * 2);
+  return E - Math.floor(E);
+}
+
+/** Replaces LineMaterial's colour multiply with the trail's fade. */
+function applyTrail(material, head) {
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uHead = head;
+    shader.fragmentShader = shader.fragmentShader
+      .replace('uniform float opacity;', 'uniform float opacity;\nuniform float uHead;')
+      .replace(
+        '#include <color_fragment>',
+        /* glsl */ `
+        float behind = fract( uHead - vColor.r );
+        alpha *= mix( ${TRAIL_FLOOR.toFixed(3)}, 1.0, pow( 1.0 - behind, ${TRAIL_FALLOFF.toFixed(2)} ) );
+        `
+      );
+  };
+  material.customProgramCacheKey = () => 'orbit-trail';
 }
 
 /** Mean distance of a sampled path from its own centre, in scene units. */

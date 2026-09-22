@@ -82,6 +82,11 @@ export class SettingsPanel {
         'Lets moons shadow their planet. Saturn’s ring shadows are always on.'
       ),
       this._toggle(
+        'effects',
+        'Bloom and film finish',
+        'Glow around bright light, and smoother gradients. Costs a little speed.'
+      ),
+      this._toggle(
         'adaptiveResolution',
         'Adaptive resolution',
         'Trades sharpness for frame rate when needed.'

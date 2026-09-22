@@ -17,7 +17,7 @@ SRC, OUT = "public", "public/textures"
 #         'alpha'  -> WebP RGBA (keeps transparency)
 #         'data'   -> grayscale JPEG (bump / specular / elevation)
 JOBS = [
-    ("8k_stars_milky_way.jpg",      "stars_milkyway",   "color", 4096),
+    # stars_milkyway is built by scripts/build-sky.py, which reprojects it.
     ("2k_sun.jpg",                  "sun",              "color", 2048),
 
     ("2k_mercury.jpg",              "mercury",          "color", 2048),

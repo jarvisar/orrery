@@ -9,10 +9,15 @@
  * The rate is a continuous slider on a log scale, since the useful range runs
  * from real time to ten years a second - eight orders of magnitude. The named
  * presets are detents on it, and the , and . keys step between them.
+ *
+ * The date itself opens a small panel for going somewhere in time: any date,
+ * a short list of moments worth seeing, and a link back to this one.
  */
 
 import { el, icon } from './dom.js';
 import { RATE_PRESETS, MIN_RATE, MAX_RATE } from '../sim/Clock.js';
+import { daysSinceJ2000 } from '../sim/kepler.js';
+import { MOMENTS } from '../data/moments.js';
 
 /** Slider resolution. Fine enough that the step between positions is invisible. */
 const STEPS = 1000;
@@ -27,9 +32,17 @@ const fromSlider = (position) => Math.exp(LOG_MIN + (position / STEPS) * LOG_SPA
 const PRESET_POSITIONS = RATE_PRESETS.map((preset) => toSlider(preset.daysPerSecond));
 
 export class TimeBar {
-  /** @param {import('../sim/Clock.js').Clock} clock */
-  constructor(clock) {
+  /**
+   * @param {import('../sim/Clock.js').Clock} clock
+   * @param {object} [hooks]
+   * @param {(days: number, moment?: import('../data/moments.js').Moment) => void} [hooks.onJump]
+   * @param {() => void} [hooks.onNow]
+   * @param {() => Promise<void>} [hooks.onCopyLink]
+   */
+  constructor(clock, hooks = {}) {
     this.clock = clock;
+    this.hooks = hooks;
+    this.isOpen = false;
 
     this.dateMain = el('span', { class: 'timebar__date-main' });
     this.dateSub = el('span', { class: 'timebar__date-sub' });
@@ -77,11 +90,26 @@ export class TimeBar {
       type: 'button',
       title: 'Jump to the present (N)',
       text: 'Now',
-      onclick: () => { this.clock.jumpToNow(); this.refresh(); },
+      onclick: () => this.jumpToNow(),
     });
 
+    this.dateButton = el(
+      'button',
+      {
+        class: 'timebar__date',
+        type: 'button',
+        title: 'Go to a date',
+        'aria-haspopup': 'dialog',
+        'aria-expanded': 'false',
+        onclick: (event) => { event.stopPropagation(); this.toggle(); },
+      },
+      [this.dateMain, this.dateSub]
+    );
+    this.panel = this._buildPanel();
+
     this.root = el('div', { class: 'timebar panel', role: 'group', 'aria-label': 'Time controls' }, [
-      el('div', { class: 'timebar__date' }, [this.dateMain, this.dateSub]),
+      this.panel,
+      this.dateButton,
       el('div', { class: 'timebar__divider' }),
       this.playButton,
       this.rateSlider,
@@ -91,6 +119,143 @@ export class TimeBar {
       this.nowButton,
     ]);
 
+    this.refresh();
+
+    this._onDocumentClick = (event) => {
+      if (this.isOpen && !this.panel.contains(event.target)) this.close();
+    };
+    document.addEventListener('click', this._onDocumentClick);
+  }
+
+  /* --- going somewhere in time ------------------------------------------- */
+
+  _buildPanel() {
+    this.dateInput = el('input', {
+      class: 'when__input',
+      type: 'date',
+      min: '1800-01-01',
+      max: '2050-12-31',
+      'aria-label': 'Date',
+      required: true,
+    });
+    this.timeInput = el('input', {
+      class: 'when__input when__input--time',
+      type: 'time',
+      step: 60,
+      'aria-label': 'Time, UTC',
+    });
+
+    const form = el(
+      'form',
+      {
+        class: 'when__form',
+        onsubmit: (event) => {
+          event.preventDefault();
+          const [year, month, day] = this.dateInput.value.split('-').map(Number);
+          if (!year) return;
+          const [hours, minutes] = (this.timeInput.value || '12:00').split(':').map(Number);
+          const date = new Date(Date.UTC(2000, month - 1, day, hours, minutes));
+          date.setUTCFullYear(year);
+          this.close();
+          this.hooks.onJump?.(daysSinceJ2000(date));
+        },
+      },
+      [
+        this.dateInput,
+        this.timeInput,
+        el('button', { class: 'btn when__go', type: 'submit', text: 'Go' }),
+      ]
+    );
+
+    const moments = MOMENTS.map((moment) => {
+      const date = new Date(moment.date);
+      return el(
+        'button',
+        {
+          class: 'moment',
+          type: 'button',
+          onclick: () => {
+            this.close();
+            this.hooks.onJump?.(daysSinceJ2000(date), moment);
+          },
+        },
+        [
+          el('span', {
+            class: 'moment__date',
+            text: date.toLocaleDateString(undefined, {
+              day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+            }),
+          }),
+          el('span', { class: 'moment__title', text: moment.title }),
+          el('span', { class: 'moment__note', text: moment.note }),
+        ]
+      );
+    });
+
+    this.copyStatus = el('span', { class: 'when__status', 'aria-live': 'polite' });
+    const copy = el(
+      'button',
+      {
+        class: 'btn btn--text when__copy',
+        type: 'button',
+        onclick: async () => {
+          try {
+            await this.hooks.onCopyLink?.();
+            this.copyStatus.textContent = 'Copied';
+          } catch {
+            this.copyStatus.textContent = 'Could not copy';
+          }
+          clearTimeout(this._statusTimer);
+          this._statusTimer = setTimeout(() => { this.copyStatus.textContent = ''; }, 2200);
+        },
+      },
+      [icon('link', 15), el('span', { text: 'Copy a link to this moment' })]
+    );
+
+    return el(
+      'div',
+      { class: 'when', role: 'dialog', 'aria-label': 'Go to a date', hidden: true },
+      [
+        el('h3', { class: 'section-title', text: 'Go to' }),
+        form,
+        el('p', { class: 'when__hint', text: 'Times are UTC. Positions are most accurate between 1800 and 2050.' }),
+        el('h3', { class: 'section-title', text: 'Moments' }),
+        el('div', { class: 'when__moments' }, moments),
+        el('div', { class: 'when__footer' }, [copy, this.copyStatus]),
+      ]
+    );
+  }
+
+  toggle() {
+    this.isOpen ? this.close() : this.open();
+  }
+
+  open() {
+    const date = this.clock.date;
+    const iso = Number.isNaN(date.getTime()) ? '' : date.toISOString();
+    // Years outside 0000-9999 come back as +YYYYYY, which a date input rejects.
+    if (/^\d{4}-/.test(iso)) {
+      this.dateInput.value = iso.slice(0, 10);
+      this.timeInput.value = iso.slice(11, 16);
+    }
+    this.isOpen = true;
+    this.panel.hidden = false;
+    this.dateButton.setAttribute('aria-expanded', 'true');
+    this.root.classList.add('is-open');
+  }
+
+  close({ restoreFocus = false } = {}) {
+    if (!this.isOpen) return;
+    this.isOpen = false;
+    this.panel.hidden = true;
+    this.dateButton.setAttribute('aria-expanded', 'false');
+    this.root.classList.remove('is-open');
+    if (restoreFocus) this.dateButton.focus();
+  }
+
+  jumpToNow() {
+    if (this.hooks.onNow) this.hooks.onNow();
+    else this.clock.jumpToNow();
     this.refresh();
   }
 

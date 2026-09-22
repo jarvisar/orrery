@@ -19,9 +19,9 @@ export const SHORTCUTS = [
       { keys: ['Scroll'], desc: 'Zoom in and out' },
       { keys: ['Right-drag'], desc: 'Pan' },
       { keys: ['Click'], desc: 'Focus a body' },
+      { keys: ['H'], desc: 'The whole system' },
       { keys: ['Esc'], desc: 'Free view, or exit flight' },
-      { keys: ['['], desc: 'Previous body' },
-      { keys: [']'], desc: 'Next body' },
+      { keys: ['[', ']'], desc: 'Previous or next body' },
       { keys: ['F'], desc: 'Re-frame current body' },
     ],
   },
@@ -29,10 +29,18 @@ export const SHORTCUTS = [
     group: 'Time',
     items: [
       { keys: ['Space'], desc: 'Play or pause' },
-      { keys: [','], desc: 'Slower' },
-      { keys: ['.'], desc: 'Faster' },
+      { keys: [',', '.'], desc: 'Slower or faster' },
       { keys: ['R'], desc: 'Reverse direction' },
       { keys: ['N'], desc: 'Jump to now' },
+      { keys: ['Click the date'], desc: 'Go to a date or moment' },
+    ],
+  },
+  {
+    group: 'Tours',
+    items: [
+      { keys: ['T'], desc: 'Choose a tour' },
+      { keys: ['←', '→'], desc: 'Previous or next stop' },
+      { keys: ['Esc'], desc: 'End the tour' },
     ],
   },
   {
@@ -84,7 +92,9 @@ export class HelpOverlay {
     const footer = el('div', { class: 'help__footer' }, [
       el('span', {
         class: 'help__note',
-        text: 'Positions come from J2000 orbital elements; sizes and distances are compressed.',
+        text:
+          'Positions come from J2000 orbital elements and poles from the IAU; sizes and ' +
+          'distances are compressed. Stars from the Yale Bright Star Catalogue.',
       }),
       el(
         'a',

@@ -19,10 +19,17 @@ const GROUP_ORDER = [
 ];
 
 export class BodyPicker {
-  /** @param {(id: string) => void} onSelect */
-  constructor(onSelect) {
+  /**
+   * @param {object} handlers
+   * @param {(id: string) => void} handlers.onSelect
+   * @param {() => void} handlers.onOverview
+   */
+  constructor({ onSelect, onOverview }) {
     this.onSelect = onSelect;
+    this.onOverview = onOverview;
     this.selectedId = null;
+    this._typed = '';
+    this._typedAt = 0;
     this.isOpen = false;
     this._options = new Map();
 
@@ -57,6 +64,24 @@ export class BodyPicker {
   }
 
   _buildOptions() {
+    const overview = el(
+      'button',
+      {
+        class: 'picker__option picker__option--overview',
+        type: 'button',
+        role: 'option',
+        'aria-selected': 'false',
+        onclick: () => { this.onOverview(); this.close(); },
+      },
+      [
+        el('span', { class: 'picker__ring', 'aria-hidden': 'true' }),
+        el('span', { text: 'Whole system' }),
+        el('span', { class: 'picker__option-meta', html: '<kbd>H</kbd>' }),
+      ]
+    );
+    this.menu.append(overview);
+    this._options.set('@overview', overview);
+
     for (const group of GROUP_ORDER) {
       const members = BODIES.filter((b) => b.kind === group.kind);
       if (members.length === 0) continue;
@@ -106,18 +131,19 @@ export class BodyPicker {
     }
   }
 
-  select(id) {
-    if (this.selectedId === id) return;
-
+  /**
+   * Shows `id` as the current body. `display` names things the catalogue does
+   * not - the whole-system view, or something that is not a body at all.
+   */
+  select(id, display = id ? BODY_BY_ID.get(id) : null) {
     this._options.get(this.selectedId)?.setAttribute('aria-selected', 'false');
-    this.selectedId = id;
+    this.selectedId = id ?? (display ? '@overview' : null);
 
-    const body = id ? BODY_BY_ID.get(id) : null;
-    this.label.textContent = body?.name ?? 'Free view';
-    this.swatch.style.background = body?.color ?? '#8892a8';
-    this.swatch.style.color = body?.color ?? '#8892a8';
+    this.label.textContent = display?.name ?? 'Free view';
+    this.swatch.style.background = display?.color ?? '#8892a8';
+    this.swatch.classList.toggle('is-ring', !id && Boolean(display));
 
-    if (id) this._options.get(id)?.setAttribute('aria-selected', 'true');
+    this._options.get(this.selectedId)?.setAttribute('aria-selected', 'true');
   }
 
   toggle() {
@@ -172,6 +198,16 @@ export class BodyPicker {
       // Let the option activate natively instead of the app-wide Space
       // shortcut pausing time.
       event.stopPropagation();
+    } else if (/^[a-z]$/i.test(event.key)) {
+      // Type-ahead, as a native list box has: letters typed in quick
+      // succession spell out the start of a name.
+      event.stopPropagation();
+      const now = performance.now();
+      this._typed = (now - this._typedAt < 700 ? this._typed : '') + event.key.toLowerCase();
+      this._typedAt = now;
+      const match = visible.find((node) =>
+        node.textContent.toLowerCase().replace(/^the /, '').startsWith(this._typed));
+      match?.focus();
     }
   }
 

@@ -26,6 +26,8 @@ export const DEFAULTS = {
   // Saturn on its rings - are computed analytically in src/scene/ringShadow.js
   // and are always on.
   shadowQuality: 0,
+  // Bloom, tone mapping over the whole frame, and dithering. See src/core/Post.js.
+  effects: true,
   adaptiveResolution: true,
   beltDensity: 1,
   exposure: 1,
