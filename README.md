@@ -7,9 +7,9 @@ An interactive 3D model of the solar system, built with [three.js](https://three
 Every body is placed by solving Kepler's equation against its real J2000 orbital
 elements, so what you see is roughly where things actually are on the date shown
 in the time bar. Sizes and distances are compressed — a true-to-scale solar
-system is mostly empty space with sub-pixel planets in it — but the compression
-is monotonic, which means the ordering and proportions survive it. Pluto still
-ducks inside Neptune's orbit near perihelion.
+system is mostly empty space with sub-pixel planets in it — but every length
+goes through the same power law, so the ordering and proportions survive it.
+Pluto still ducks inside Neptune's orbit near perihelion.
 
 Contains the Sun, eight planets, eleven moons, four dwarf planets, and the
 asteroid and Kuiper belts.
@@ -28,7 +28,7 @@ are too small to see, labelled markers fade in — click those instead.
 | **Esc** | Free view, or leave flight mode |
 | **`[`** / **`]`** | Previous / next body |
 | **Space** | Play or pause time |
-| **`,`** / **`.`** | Slow down / speed up time |
+| **`,`** / **`.`** | Slow down / speed up time (or drag the rate slider) |
 | **R** / **N** | Reverse time / jump to now |
 | **G** | Flight mode |
 | **?** | Full list of controls |
@@ -122,8 +122,16 @@ coordinate and the texture stores that one profile once. 4.5 MB became 1.7 KB.
   good enough to put a body on the right side of its primary, not to navigate by.
 - **Eccentricity, inclination and axial tilt** are real. Retrograde rotation
   (Venus, Uranus, Pluto) and retrograde orbits (Triton) are real.
-- **Sizes and distances** are compressed by a power law. The orbit-spacing
-  slider in Settings moves between tight and near-true proportions.
+- **Sizes and distances** all go through one power law,
+  `units = 24 × (km / Earth radius) ^ k`, defined in `src/scene/scaling.js`.
+  Radii, orbits, moon distances and rings use the same `k`, so every ratio of
+  two lengths is compressed the same way and nothing is tuned per category. The
+  **Scale** setting is `k`: higher is closer to true proportions, with smaller
+  bodies and wider orbits.
+- **Moon orbits** are measured from their planet's equator, so Saturn's moons
+  share the plane of its rings. The Moon, whose elements are referred to the
+  ecliptic, is the one exception. Every moon here is tidally locked and keeps
+  one face toward its planet.
 - **Lighting** uses a point light with distance falloff disabled. Real
   inverse-square falloff leaves everything past Jupiter in the dark.
 - **Ring shadows** — rings onto Saturn, and Saturn onto its rings — are solved

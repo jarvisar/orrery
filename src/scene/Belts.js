@@ -2,7 +2,7 @@
  * The asteroid and Kuiper belts, as point clouds.
  *
  * Each particle keeps its orbit in AU alongside its unit direction, so changing
- * the orbit-spacing setting is a cheap rescale of existing buffers rather than a
+ * the Scale setting is a cheap rescale of existing buffers rather than a
  * full regeneration. The whole cloud rotates at the mean orbital rate for its
  * distance, driven by the same simulation clock as the planets, so the belts
  * stay in step when time is paused or reversed.
@@ -10,7 +10,7 @@
 
 import * as THREE from 'three';
 import { BELTS, SIDEREAL_YEAR_DAYS } from '../data/bodies.js';
-import { auToUnits } from './scaling.js';
+import { heliocentricDistance } from './scaling.js';
 
 export class Belts {
   /** @param {THREE.Scene} scene */
@@ -94,10 +94,10 @@ export class Belts {
   /** Recomputes scene-space positions from the stored AU radii. */
   _writePositions(cloud) {
     const positions = cloud.geometry.attributes.position.array;
-    const exponent = this.system.orbitExponent;
+    const exponent = this.system.scaleExponent;
 
     for (let i = 0; i < cloud.count; i++) {
-      const scale = auToUnits(cloud.au[i], exponent);
+      const scale = heliocentricDistance(cloud.au[i], exponent);
       positions[i * 3] = cloud.direction[i * 3] * scale;
       positions[i * 3 + 1] = cloud.direction[i * 3 + 1] * scale;
       positions[i * 3 + 2] = cloud.direction[i * 3 + 2] * scale;

@@ -42,7 +42,12 @@ export class BodyPicker {
       [this.swatch, this.label, el('span', { class: 'picker__chevron' }, [icon('chevron', 14)])]
     );
 
-    this.menu = el('div', { class: 'picker__menu', role: 'listbox', hidden: true });
+    this.menu = el('div', {
+      class: 'picker__menu',
+      role: 'listbox',
+      hidden: true,
+      onkeydown: (e) => this._onMenuKeyDown(e),
+    });
     this.root = el('div', { class: 'picker' }, [this.button, this.menu]);
 
     this._buildOptions();
@@ -127,22 +132,46 @@ export class BodyPicker {
     this._options.get(this.selectedId)?.scrollIntoView({ block: 'nearest' });
   }
 
-  close() {
+  /** Escape is routed here from src/main.js, which owns that key app-wide. */
+  close({ restoreFocus = false } = {}) {
     if (!this.isOpen) return;
     this.isOpen = false;
     this.menu.hidden = true;
     this.root.classList.remove('is-open');
     this.button.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) this.button.focus();
+  }
+
+  _visibleOptions() {
+    return [...this._options.values()].filter((node) => !node.hidden);
   }
 
   _onButtonKeyDown(event) {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
       this.open();
-      const visible = [...this._options.values()].filter((n) => !n.hidden);
+      const visible = this._visibleOptions();
       visible[event.key === 'ArrowDown' ? 0 : visible.length - 1]?.focus();
-    } else if (event.key === 'Escape') {
-      this.close();
+    }
+  }
+
+  _onMenuKeyDown(event) {
+    const visible = this._visibleOptions();
+    const index = visible.indexOf(document.activeElement);
+    const move = {
+      ArrowDown: index + 1,
+      ArrowUp: index - 1,
+      Home: 0,
+      End: visible.length - 1,
+    }[event.key];
+
+    if (move !== undefined) {
+      event.preventDefault();
+      visible[(move + visible.length) % visible.length]?.focus();
+    } else if (event.key === ' ' || event.key === 'Enter') {
+      // Let the option activate natively instead of the app-wide Space
+      // shortcut pausing time.
+      event.stopPropagation();
     }
   }
 

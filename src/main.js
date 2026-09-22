@@ -70,7 +70,7 @@ async function boot() {
   const assets = new AssetLoader(renderer);
   const system = new SolarSystem(scene, assets);
 
-  system.orbitExponent = settings.get('orbitSpacing');
+  system.scaleExponent = settings.get('scale');
   viewport.setAdaptiveResolution(settings.get('adaptiveResolution'));
   renderer.toneMappingExposure = settings.get('exposure');
 
@@ -169,7 +169,8 @@ function buildInterface(ctx) {
   const camera = viewport.camera;
 
   const bodyPicker = new BodyPicker((id) => selectBody(id));
-  const infoPanel = new InfoPanel();
+  // On a phone the panel would cover the body it describes; start it folded.
+  const infoPanel = new InfoPanel({ collapsed: window.matchMedia('(max-width: 720px)').matches });
   const timeBar = new TimeBar(clock);
   const flightHud = new FlightHud(flight);
   const settingsPanel = new SettingsPanel(settings);
@@ -194,14 +195,9 @@ function buildInterface(ctx) {
   );
 
   const topbar = el('div', { class: 'topbar' }, [
-    el('div', { class: 'topbar__group' }, [
-      el('div', { class: 'brand' }, [
-        el('span', { class: 'brand__name', text: 'Orrery' }),
-        el('span', { class: 'brand__tag', text: 'Solar system explorer' }),
-      ]),
-    ]),
+    el('div', { class: 'brand', text: 'Orrery' }),
     bodyPicker.root,
-    el('div', { class: 'topbar__group' }, [
+    el('div', { class: 'topbar__group topbar__actions panel' }, [
       flightButton,
       el(
         'button',
@@ -266,7 +262,9 @@ function buildInterface(ctx) {
     const available = BODIES.filter((body) => system.isVisible(body.id));
     if (available.length === 0) return;
     const index = available.findIndex((body) => body.id === state.focusedId);
-    const next = available[(index + delta + available.length) % available.length];
+    // From free view, [ and ] start at either end of the list.
+    const start = index < 0 ? (delta > 0 ? -1 : 0) : index;
+    const next = available[(start + delta + available.length) % available.length];
     selectBody(next.id);
   }
 
@@ -285,6 +283,11 @@ function buildInterface(ctx) {
     flightButton.setAttribute('aria-pressed', String(enabled));
     flightButton.classList.toggle('is-active', enabled);
     ship.group.visible = !enabled;
+
+    if (!enabled) {
+      const nearest = director.nearestBody(camera.position);
+      director.syncTargetToView(nearest ? camera.position.distanceTo(nearest.group.position) : 100);
+    }
 
     if (enabled) {
       director.focusOn(null);
@@ -341,8 +344,9 @@ function buildInterface(ctx) {
     if (!value && isKind(state.focusedId, 'dwarf')) selectBody('sun');
   });
 
-  settings.on('orbitSpacing', debounce((value) => {
-    system.orbitExponent = value;
+  settings.on('scale', debounce((value) => {
+    system.setScaleExponent(value);
+    director.setScaleExponent(value);
     system.update(clock.days);
     orbits.rescale();
     belts.rescale();
@@ -364,15 +368,20 @@ function buildInterface(ctx) {
   window.addEventListener('keydown', (event) => {
     if (isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
 
+    // The controls dialog is modal: while it is up, only the keys that close it count.
+    if (helpOverlay.isOpen && event.code !== 'Escape' && event.code !== 'Slash') return;
+
     // Flight mode owns WASD, Shift and Space while it is active.
     const flightOwns = state.flying &&
       ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight'].includes(event.code);
     if (flightOwns) return;
 
     switch (event.code) {
+      // The one place Escape is handled, so closing a panel never also drops focus.
       case 'Escape':
-        if (settingsPanel.isOpen) settingsPanel.close();
+        if (bodyPicker.isOpen) bodyPicker.close({ restoreFocus: true });
         else if (helpOverlay.isOpen) helpOverlay.close();
+        else if (settingsPanel.isOpen) settingsPanel.close();
         else if (state.flying) setFlight(false);
         else selectBody(null);
         break;
@@ -436,6 +445,7 @@ function startLoop(ctx) {
 
     if (ui.state.flying) {
       flight.update(dt);
+      director.fitClippingToSurroundings();
       ui.flightHud.update(Math.abs(flight.speed) * KM_PER_UNIT / 1000);
     } else {
       director.update(dt);
@@ -556,9 +566,11 @@ function hasWebGL() {
   }
 }
 
+/** True where a key press is text entry. Sliders and switches do not count. */
 function isTypingTarget(target) {
-  return target instanceof HTMLElement &&
-    (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable || ['TEXTAREA', 'SELECT'].includes(target.tagName)) return true;
+  return target.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'button'].includes(target.type);
 }
 
 function debounce(fn, ms) {

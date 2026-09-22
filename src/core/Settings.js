@@ -4,6 +4,8 @@
  * Defaults are tuned for a mid-range laptop rather than a desktop GPU.
  */
 
+import { SCALE_EXPONENT_RANGE } from '../scene/scaling.js';
+
 const STORAGE_KEY = 'solar-system:settings:v2';
 
 export const DEFAULTS = {
@@ -14,8 +16,8 @@ export const DEFAULTS = {
   showBelts: true,
   showLabels: true,
 
-  // Layout
-  orbitSpacing: 0.35,
+  // Layout. The single compression exponent every length goes through.
+  scale: SCALE_EXPONENT_RANGE.default,
 
   // Graphics.
   // Off by default: a point light's cube shadow map has roughly ten texels

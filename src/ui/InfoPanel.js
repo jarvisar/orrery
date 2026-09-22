@@ -9,7 +9,7 @@
  */
 
 import { el, icon, formatKm } from './dom.js';
-import { AU_KM, BODY_BY_ID, periodDays } from '../data/bodies.js';
+import { AU_KM, BODY_BY_ID } from '../data/bodies.js';
 import { orbitalPosition } from '../sim/kepler.js';
 
 const KIND_LABEL = {
@@ -114,15 +114,20 @@ export class InfoPanel {
     const km = heliocentric ? travelled * AU_KM : travelled;
     const speedKmS = km / (dt * 86_400);
 
-    const period = periodDays(view.body);
-    const yearFraction = ((tDays / period) % 1 + 1) % 1;
+    // The mean anomaly, as a fraction of a turn: how far round the orbit the
+    // body has come since it last passed closest to its primary.
+    // Retrograde orbits (Triton) run the anomaly backwards.
+    const turns = ((el_.meanLong - el_.periLong) / 360 + tDays / el_.periodDays) *
+      Math.sign(el_.periodDays);
+    const sincePeriapsis = ((turns % 1) + 1) % 1;
     const parent = view.body.parent ? BODY_BY_ID.get(view.body.parent) : null;
 
     const rows = [
       [heliocentric ? 'Distance from Sun' : `Distance from ${parent?.name ?? 'primary'}`,
        heliocentric ? `${(distance).toFixed(3)} AU` : formatKm(distance)],
       ['Orbital speed', `${speedKmS.toFixed(2)} km/s`],
-      ['Through its orbit', `${(yearFraction * 100).toFixed(1)}%`],
+      [heliocentric ? 'Since perihelion' : 'Since periapsis',
+       `${(sincePeriapsis * 100).toFixed(1)}% of orbit`],
     ];
 
     this._renderLive(rows);

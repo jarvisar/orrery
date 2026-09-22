@@ -37,8 +37,10 @@ export class AssetLoader {
     this._gltfLoader = new GLTFLoader();
     this._maxAnisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
-    /** @type {Array<{name:string,slot:string,priority:number,resolve:Function,reject:Function}>} */
+    /** @type {Array<{name:string,slot:string,priority:number,resolve:Function}>} */
     this._queue = [];
+    /** @type {Map<string, Promise<THREE.Texture>>} */
+    this._requests = new Map();
     this._inFlight = new Set();
     this._uploadQueue = [];
     this._draining = false;
@@ -62,35 +64,26 @@ export class AssetLoader {
 
   /**
    * Requests a texture. Returns a promise that resolves with the texture, or
-   * the already-loaded texture synchronously wrapped in a resolved promise.
+   * with a placeholder if it fails - it never rejects.
    *
    * @param {string} name   Manifest stem, e.g. 'europa_bump'.
    * @param {string} slot   Material slot it will occupy, which decides colour space.
    * @param {number} priority Lower numbers load first.
    */
   texture(name, slot = 'map', priority = 10) {
-    const existing = this.textures.get(name);
-    if (existing) return Promise.resolve(existing);
-
-    const queued = this._queue.find((t) => t.name === name);
-    if (queued) {
-      queued.priority = Math.min(queued.priority, priority);
-      return queued.promise;
-    }
-    if (this._inFlight.has(name)) {
-      return new Promise((resolve) => {
-        const poll = () => {
-          const tex = this.textures.get(name);
-          if (tex) resolve(tex);
-          else setTimeout(poll, 30);
-        };
-        poll();
-      });
+    // Every request for a name shares one promise, whether the texture is
+    // queued, decoding or already done.
+    const known = this._requests.get(name);
+    if (known) {
+      const queued = this._queue.find((t) => t.name === name);
+      if (queued) queued.priority = Math.min(queued.priority, priority);
+      return known;
     }
 
     let resolve;
     const promise = new Promise((res) => { resolve = res; });
-    this._queue.push({ name, slot, priority, resolve, promise });
+    this._requests.set(name, promise);
+    this._queue.push({ name, slot, priority, resolve });
     return promise;
   }
 
@@ -195,18 +188,23 @@ export class AssetLoader {
     }
   }
 
-  /** Loads a .glb and caches the parsed scene. */
-  async model(name) {
-    if (this.models.has(name)) return this.models.get(name);
-    const gltf = await this._gltfLoader.loadAsync(`${MODEL_DIR}${name}.glb`);
-    gltf.scene.traverse((child) => {
-      if (!child.isMesh) return;
-      child.castShadow = true;
-      child.receiveShadow = true;
-      if (child.material?.map) child.material.map.anisotropy = this._maxAnisotropy;
-    });
-    this.models.set(name, gltf.scene);
-    return gltf.scene;
+  /**
+   * Loads a .glb and caches the parsed scene. The promise is what gets cached,
+   * so a model the scene and the loading screen both ask for is fetched once.
+   */
+  model(name) {
+    if (!this.models.has(name)) {
+      this.models.set(name, this._gltfLoader.loadAsync(`${MODEL_DIR}${name}.glb`).then((gltf) => {
+        gltf.scene.traverse((child) => {
+          if (!child.isMesh) return;
+          child.castShadow = true;
+          child.receiveShadow = true;
+          if (child.material?.map) child.material.map.anisotropy = this._maxAnisotropy;
+        });
+        return gltf.scene;
+      }));
+    }
+    return this.models.get(name);
   }
 
   /**
@@ -228,6 +226,7 @@ export class AssetLoader {
     for (const texture of this.textures.values()) texture.dispose();
     for (const placeholder of Object.values(this.placeholders)) placeholder.dispose();
     this.textures.clear();
+    this._requests.clear();
     this.models.clear();
   }
 }

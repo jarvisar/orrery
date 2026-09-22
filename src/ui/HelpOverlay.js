@@ -127,8 +127,6 @@ export class HelpOverlay {
       },
       [this.card]
     );
-
-    this._onKeyDown = (event) => { if (event.key === 'Escape' && this.isOpen) this.close(); };
   }
 
   toggle() { this.isOpen ? this.close() : this.open(); }
@@ -137,7 +135,6 @@ export class HelpOverlay {
     this.isOpen = true;
     this.root.classList.add('is-open');
     this._releaseFocus = trapFocus(this.card);
-    document.addEventListener('keydown', this._onKeyDown);
     this.card.querySelector('button')?.focus();
   }
 
@@ -145,7 +142,6 @@ export class HelpOverlay {
     if (!this.isOpen) return;
     this.isOpen = false;
     this.root.classList.remove('is-open');
-    document.removeEventListener('keydown', this._onKeyDown);
     this._releaseFocus?.();
     this._releaseFocus = null;
   }

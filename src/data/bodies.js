@@ -38,6 +38,11 @@ export const SUN_ID = 'sun';
  * @property {number} periLong     Longitude of perihelion, degrees.
  * @property {number} nodeLong     Longitude of the ascending node, degrees.
  * @property {number} [periodDays] Orbital period; derived from `aAU` when absent.
+ * @property {'equator'|'ecliptic'} [plane] What `inc` is measured from. Satellite
+ *   elements are conventionally referred to the primary's equator, which is
+ *   what keeps Saturn's moons in the plane of its rings; the Moon is the odd
+ *   one out, with elements referred to the ecliptic. Ignored for heliocentric
+ *   orbits, which are always ecliptic.
  */
 
 export const BODIES = [
@@ -167,6 +172,7 @@ export const BODIES = [
     orbit: {
       aKm: 384_400, e: 0.0549, inc: 5.145,
       meanLong: 218.32, periLong: 83.35, nodeLong: 125.08, periodDays: 27.321661,
+      plane: 'ecliptic',
     },
     spin: { periodHours: 655.72, tiltDeg: 6.68 },
     tidallyLocked: true,

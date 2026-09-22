@@ -186,7 +186,9 @@ function applyCurve(value) {
   return Math.sign(value) * scaled ** 2;
 }
 
+/** True where a key press is text entry. Sliders and switches do not count. */
 function isTypingTarget(target) {
-  return target instanceof HTMLElement &&
-    (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable || ['TEXTAREA', 'SELECT'].includes(target.tagName)) return true;
+  return target.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'button'].includes(target.type);
 }

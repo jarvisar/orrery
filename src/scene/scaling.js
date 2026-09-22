@@ -1,84 +1,85 @@
 /**
  * The one place where real measurements become scene units.
  *
- * A true-to-scale solar system is unwatchable: at Earth-diameter = 24 units the
+ * A true-to-scale solar system is unwatchable: at Earth-radius = 24 units the
  * Sun would be 2,600 units across and Neptune would sit 720,000 units out, so
- * every planet is a sub-pixel speck. Instead both sizes and distances are run
- * through power-law compression, which keeps the *ordering* and the *feel* of
- * the real proportions (Jupiter still dwarfs Earth, Neptune is still far) while
- * fitting everything into a space you can fly across.
+ * every planet is a sub-pixel speck. So every length is compressed - but by a
+ * single power law, applied the same way to everything:
+ *
+ *   units = EARTH_RADIUS_UNITS × (km / EARTH_RADIUS_KM) ^ exponent
+ *
+ * Radii, heliocentric distances, moon distances and ring radii all go through
+ * that one function. Nothing is tuned per category, so any ratio of two lengths
+ * - Jupiter to Earth, Io's orbit to Io, Neptune's orbit to Mercury's - is
+ * compressed by exactly the same rule, and the ordering of every size and every
+ * gap survives. Earlier builds compressed sizes harder than distances, which
+ * inflated small moons relative to the space around them; that is the clutter
+ * this avoids.
+ *
+ * The exponent is the only free parameter, and it is the Scale setting. Raising
+ * it moves everything towards true proportions: bodies shrink relative to their
+ * orbits and the system spreads out.
  *
  * Because the compression is applied to the instantaneous distance rather than
  * baked into a fixed orbit radius, genuinely interesting behaviour survives it:
  * Pluto still ducks inside Neptune's orbit near perihelion.
  */
 
-import { EARTH_RADIUS_KM } from '../data/bodies.js';
+import { AU_KM, EARTH_RADIUS_KM } from '../data/bodies.js';
 
-/** Earth's on-screen radius. Everything else is relative to this. */
+/** Earth's on-screen radius: the unit everything else is measured against. */
 export const EARTH_RADIUS_UNITS = 24;
-
-/** Earth's on-screen orbital distance at the default spacing. */
-export const EARTH_ORBIT_UNITS = 2400;
-
-/**
- * Compression exponent for body radii. 0.4 maps the real 109:1 Sun-to-Earth
- * ratio down to 6.5:1 — still unmistakably the largest thing in the scene,
- * without swallowing Mercury's orbit.
- */
-const RADIUS_EXPONENT = 0.4;
 
 /** Smallest a body may render, so Phobos and Deimos stay visible and clickable. */
 const MIN_RADIUS_UNITS = 3;
 
-/** Compression exponent for satellite distances, relative to the primary. */
-const SATELLITE_EXPONENT = 0.55;
-
 /**
- * Heliocentric spacing runs from tight to near-realistic. 0.5 is the true
- * square-root compression; lower values pull the outer planets in so the whole
- * system fits on screen at once.
+ * The compression exponent. 1 would be true scale; 0.5 is a square root. The
+ * range stops where the whole system still fits comfortably in one view
+ * (the top) and where moons still sit visibly clear of their planets (the bottom).
  */
-export const ORBIT_EXPONENT_RANGE = { min: 0.2, max: 0.5, default: 0.35 };
+export const SCALE_EXPONENT_RANGE = { min: 0.45, max: 0.65, default: 0.55 };
+
+/** Heliocentric distance, in AU, that comfortably encloses every orbit (Eris peaks near 98). */
+const SYSTEM_EDGE_AU = 100;
+
+/** Any real length, in kilometres, to scene units. */
+export function toUnits(km, exponent = SCALE_EXPONENT_RANGE.default) {
+  return EARTH_RADIUS_UNITS * (Math.max(km, 1e-6) / EARTH_RADIUS_KM) ** exponent;
+}
 
 /** On-screen radius of a body, in scene units. */
-export function bodyRadius(body) {
-  const relative = body.radiusKm / EARTH_RADIUS_KM;
-  return Math.max(MIN_RADIUS_UNITS, EARTH_RADIUS_UNITS * relative ** RADIUS_EXPONENT);
+export function bodyRadius(body, exponent) {
+  return Math.max(MIN_RADIUS_UNITS, toUnits(body.radiusKm, exponent));
 }
 
 /**
- * Compresses a heliocentric distance. Takes the *instantaneous* distance, not
- * the semi-major axis, so eccentricity survives the transform.
+ * A distance from the Sun. Takes the *instantaneous* distance, not the
+ * semi-major axis, so eccentricity survives the transform.
  */
-export function heliocentricDistance(distanceAU, exponent = ORBIT_EXPONENT_RANGE.default) {
-  return EARTH_ORBIT_UNITS * Math.max(distanceAU, 1e-6) ** exponent;
+export function heliocentricDistance(distanceAU, exponent) {
+  return toUnits(distanceAU * AU_KM, exponent);
+}
+
+/** A moon's distance from the centre of its primary. */
+export function satelliteDistance(distanceKm, exponent) {
+  return toUnits(distanceKm, exponent);
 }
 
 /**
- * Compresses a satellite's distance from its primary. Expressed as a multiple
- * of the primary's on-screen radius so moons always clear the surface they
- * orbit no matter how the size curve is tuned.
+ * A ring radius given in primary radii, relative to the primary's on-screen
+ * radius. The same law as {@link toUnits}: `toUnits(m·R) / toUnits(R)` is `m^exponent`.
  */
-export function satelliteDistance(distanceKm, parent, parentRadiusUnits) {
-  const relative = Math.max(distanceKm / parent.radiusKm, 1.05);
-  return parentRadiusUnits * relative ** SATELLITE_EXPONENT;
+export function ringRadius(multipleOfPrimaryRadius, primaryRadiusUnits, exponent) {
+  return primaryRadiusUnits * multipleOfPrimaryRadius ** exponent;
 }
 
-/** Same compression as {@link satelliteDistance}, for ring radii given in primary radii. */
-export function ringRadius(multipleOfPrimaryRadius, parentRadiusUnits) {
-  return parentRadiusUnits * multipleOfPrimaryRadius ** SATELLITE_EXPONENT;
+/** Radius that encloses every orbit, for zoom limits. */
+export function systemRadius(exponent) {
+  return heliocentricDistance(SYSTEM_EDGE_AU, exponent);
 }
 
-/** Scene units for a distance in AU, at a given spacing exponent. Used by the belts. */
-export function auToUnits(au, exponent = ORBIT_EXPONENT_RANGE.default) {
-  return heliocentricDistance(au, exponent);
-}
-
-/**
- * Far plane for the camera. The skybox sits just inside it, and the outermost
- * orbit needs headroom at the loosest spacing setting.
- */
-export function sceneRadius(exponent = ORBIT_EXPONENT_RANGE.max) {
-  return heliocentricDistance(120, exponent) * 3;
+/** Far plane for the camera: room to see the whole system from outside it, at any Scale. */
+export function sceneRadius(exponent = SCALE_EXPONENT_RANGE.max) {
+  return systemRadius(exponent) * 3;
 }

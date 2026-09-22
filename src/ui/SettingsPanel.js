@@ -8,7 +8,7 @@
  */
 
 import { el, icon, trapFocus } from './dom.js';
-import { ORBIT_EXPONENT_RANGE } from '../scene/scaling.js';
+import { SCALE_EXPONENT_RANGE } from '../scene/scaling.js';
 
 export class SettingsPanel {
   /** @param {import('../core/Settings.js').Settings} settings */
@@ -40,28 +40,26 @@ export class SettingsPanel {
     );
 
     this._build();
-    this._onKeyDown = (event) => { if (event.key === 'Escape' && this.isOpen) this.close(); };
   }
 
   _build() {
     this.body.append(
-      el('h3', { class: 'section-title', text: 'What to show' }),
+      el('h3', { class: 'section-title', text: 'Show' }),
       this._toggle('showOrbits', 'Orbit paths'),
       this._toggle('showMoons', 'Moons'),
       this._toggle('showDwarfs', 'Dwarf planets'),
-      this._toggle('showBelts', 'Asteroid & Kuiper belts'),
-      this._toggle('showLabels', 'Hover labels'),
+      this._toggle('showBelts', 'Belts'),
+      this._toggle('showLabels', 'Labels'),
 
       el('h3', { class: 'section-title', text: 'Layout' }),
       this._slider(
-        'orbitSpacing',
-        'Orbit spacing',
-        ORBIT_EXPONENT_RANGE.min,
-        ORBIT_EXPONENT_RANGE.max,
+        'scale',
+        'Scale',
+        SCALE_EXPONENT_RANGE.min,
+        SCALE_EXPONENT_RANGE.max,
         0.01,
-        (value) => (value <= 0.26 ? 'Compact' : value >= 0.44 ? 'Near-true' : 'Balanced'),
-        'How much the real distances are compressed. Higher is closer to true ' +
-          'proportions, and much emptier.'
+        (value) => (value <= 0.5 ? 'Compact' : value >= 0.6 ? 'Spacious' : 'Balanced'),
+        'Higher is closer to true proportions: smaller bodies, wider orbits.'
       ),
       this._slider(
         'beltDensity',
@@ -69,8 +67,7 @@ export class SettingsPanel {
         0,
         1.5,
         0.05,
-        (value) => `${Math.round(value * 100)}%`,
-        'Particle count in both debris belts.'
+        (value) => `${Math.round(value * 100)}%`
       ),
 
       el('h3', { class: 'section-title', text: 'Graphics' }),
@@ -82,13 +79,12 @@ export class SettingsPanel {
           { value: 1024, label: 'Low' },
           { value: 2048, label: 'High' },
         ],
-        'Shadow resolution follows whatever body you are focused on, so moons ' +
-          'cast onto their planet. Changing this recompiles shaders once.'
+        'Lets moons shadow their planet. Saturn’s ring shadows are always on.'
       ),
       this._toggle(
         'adaptiveResolution',
         'Adaptive resolution',
-        'Drops render scale when frame times slip, and recovers it when they improve.'
+        'Trades sharpness for frame rate when needed.'
       ),
       this._slider(
         'exposure',
@@ -103,14 +99,14 @@ export class SettingsPanel {
       this._toggle(
         'reduceMotion',
         'Reduce motion',
-        'Skips camera fly-throughs and interface transitions.'
+        'Skips camera fly-throughs and transitions.'
       ),
 
       el('div', { class: 'field' }, [
         el('button', {
-          class: 'btn',
+          class: 'btn btn--text',
           type: 'button',
-          text: 'Restore defaults',
+          text: 'Reset to defaults',
           onclick: () => this.settings.reset(),
         }),
       ])
@@ -190,7 +186,6 @@ export class SettingsPanel {
     this.isOpen = true;
     this.root.classList.add('is-open');
     this._releaseFocus = trapFocus(this.root);
-    document.addEventListener('keydown', this._onKeyDown);
     this.root.querySelector('button')?.focus();
   }
 
@@ -198,7 +193,6 @@ export class SettingsPanel {
     if (!this.isOpen) return;
     this.isOpen = false;
     this.root.classList.remove('is-open');
-    document.removeEventListener('keydown', this._onKeyDown);
     this._releaseFocus?.();
     this._releaseFocus = null;
   }

@@ -23,10 +23,10 @@ import { sampleOrbitPath, perifocalToWorld } from '../sim/kepler.js';
 const HELIOCENTRIC_SEGMENTS = 512;
 const SATELLITE_SEGMENTS = 192;
 
-const BASE_WIDTH = 1.3;
-const FOCUS_WIDTH = 2.4;
-const BASE_OPACITY = 0.26;
-const FOCUS_OPACITY = 0.7;
+const BASE_WIDTH = 1.1;
+const FOCUS_WIDTH = 1.8;
+const BASE_OPACITY = 0.2;
+const FOCUS_OPACITY = 0.55;
 
 /**
  * Two reasons to fade a path out, both of which a close-up of Earth used to hit
@@ -100,6 +100,10 @@ export class Orbits {
     line.name = `${view.id}-orbit`;
     line.frustumCulled = false; // the bounding sphere of an orbit is unhelpfully huge
     line.renderOrder = -2;
+    // The same frame SolarSystem.positionAt uses. Axial tilt is fixed, so once is enough.
+    if (view.elements.equatorial) {
+      line.quaternion.copy(this.system.bodies.get(view.body.parent).tilt.quaternion);
+    }
     this.root.add(line);
 
     const base = heliocentric ? BASE_OPACITY : BASE_OPACITY * 0.8;
@@ -122,8 +126,7 @@ export class Orbits {
   _pathPositions(view, segments) {
     const el = view.elements;
     const heliocentric = view.body.parent === SUN_ID;
-    const parentBody = heliocentric ? null : BODY_BY_ID.get(view.body.parent);
-    const parentRadius = heliocentric ? 0 : this.system.bodies.get(view.body.parent).radius;
+    const exponent = this.system.scaleExponent;
 
     const samples = sampleOrbitPath(el, segments, []);
     const positions = new Float32Array((segments + 1) * 3);
@@ -132,8 +135,8 @@ export class Orbits {
       perifocalToWorld(samples[i].px, samples[i].py, el, _point);
       const distance = Math.hypot(_point.x, _point.y, _point.z) || 1e-9;
       const scaled = heliocentric
-        ? heliocentricDistance(distance, this.system.orbitExponent)
-        : satelliteDistance(distance, parentBody, parentRadius);
+        ? heliocentricDistance(distance, exponent)
+        : satelliteDistance(distance, exponent);
       const k = scaled / distance;
 
       positions[i * 3] = _point.x * k;
@@ -201,7 +204,7 @@ export class Orbits {
   }
 
 
-  /** Rebuilds paths after the orbit-spacing setting changes. */
+  /** Rebuilds paths after the Scale setting changes. */
   rescale() {
     for (const entry of this.lines.values()) {
       const segments = entry.parentId ? SATELLITE_SEGMENTS : HELIOCENTRIC_SEGMENTS;

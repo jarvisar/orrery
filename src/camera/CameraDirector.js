@@ -16,6 +16,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { systemRadius } from '../scene/scaling.js';
 
 /** How many body radii of empty space to leave around a framed body. */
 const FRAMING = 2.6;
@@ -26,6 +27,10 @@ const TRANSITION_SECONDS = 1.4;
 const _delta = new THREE.Vector3();
 const _desired = new THREE.Vector3();
 const _offset = new THREE.Vector3();
+const _sunward = new THREE.Vector3();
+const _side = new THREE.Vector3();
+const _lit = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0);
 
 export class CameraDirector {
   /**
@@ -44,12 +49,22 @@ export class CameraDirector {
     this.controls.zoomSpeed = 0.9;
     this.controls.panSpeed = 0.7;
     this.controls.screenSpacePanning = true;
-    this.controls.maxDistance = 2_000_000;
+    this.setScaleExponent(system.scaleExponent);
 
     /** @type {import('../scene/SolarSystem.js').BodyView|null} */
     this.focus = null;
     this._lastFocusPosition = new THREE.Vector3();
     this._transition = null;
+  }
+
+  /**
+   * Caps zoom a little past the point where the whole system fits in view.
+   * Further out there is nothing left to see but a dot, which reads as a bug
+   * rather than a limit.
+   */
+  setScaleExponent(exponent) {
+    const halfFov = THREE.MathUtils.degToRad(this.camera.fov) / 2;
+    this.controls.maxDistance = (systemRadius(exponent) / Math.tan(halfFov)) * 1.1;
   }
 
   /** Distance at which a body of this size fills a comfortable share of the frame. */
@@ -64,6 +79,7 @@ export class CameraDirector {
    * Passing `null` releases the camera into free view without moving it.
    */
   focusOn(view, { instant = false } = {}) {
+    const previous = this.focus;
     this.focus = view;
 
     if (!view) {
@@ -76,9 +92,15 @@ export class CameraDirector {
     this.controls.minDistance = view.radius * 1.15;
 
     // Approach along the current viewing direction where that is meaningful, so
-    // the camera does not swing wildly around the system on every selection.
+    // the camera does not swing wildly around the system on every selection -
+    // but not so faithfully that it arrives looking at the night side.
     _offset.copy(this.camera.position).sub(this.controls.target);
-    if (_offset.lengthSq() < 1e-6) _offset.set(0.45, 0.32, 1).normalize();
+    const litView = daylightDirection(view, _lit);
+    if (_offset.lengthSq() < 1e-6) {
+      _offset.copy(litView ?? _offset.set(0.45, 0.32, 1));
+    } else if (litView && view !== previous && _offset.normalize().dot(_sunward) < 0) {
+      _offset.lerp(litView, 0.65);
+    }
     _offset.normalize().multiplyScalar(distance);
 
     if (instant) {
@@ -147,12 +169,40 @@ export class CameraDirector {
    * to whatever you are looking at gets both.
    */
   _updateClipping() {
-    const distance = this.camera.position.distanceTo(this.controls.target);
-    const near = THREE.MathUtils.clamp(distance * 0.002, 0.02, 50);
+    this._setNear(this.camera.position.distanceTo(this.controls.target) * 0.002);
+  }
+
+  /**
+   * The flight-mode equivalent. There is no orbit target to measure against, so
+   * this clips against the closest surface instead - otherwise a near plane left
+   * over from a wide shot slices straight through a moon you fly up to.
+   */
+  fitClippingToSurroundings() {
+    let nearest = Infinity;
+    for (const view of this.system.bodies.values()) {
+      if (!view.visible) continue;
+      const gap = this.camera.position.distanceTo(view.group.position) - view.boundingRadius;
+      nearest = Math.min(nearest, gap);
+    }
+    this._setNear(Math.max(nearest, 0) * 0.05);
+  }
+
+  _setNear(value) {
+    const near = THREE.MathUtils.clamp(value, 0.02, 50);
     if (Math.abs(near - this.camera.near) / this.camera.near > 0.15) {
       this.camera.near = near;
       this.camera.updateProjectionMatrix();
     }
+  }
+
+  /**
+   * Re-seats the orbit target straight ahead of the camera. Flight mode moves
+   * the camera without touching the target, so without this, leaving flight
+   * snaps the view back towards wherever you were looking before you took off.
+   */
+  syncTargetToView(distance) {
+    this.camera.getWorldDirection(_delta);
+    this.controls.target.copy(this.camera.position).addScaledVector(_delta, distance);
   }
 
   /** Nearest body to a world position; used when leaving flight mode. */
@@ -177,6 +227,21 @@ export class CameraDirector {
   dispose() {
     this.controls.dispose();
   }
+}
+
+/**
+ * A viewing direction that shows a body mostly lit: the Sun about fifty degrees
+ * off to one side and a little above, like a three-quarter portrait. Also
+ * leaves the direction toward the Sun in `_sunward`. Null for the Sun itself.
+ */
+function daylightDirection(view, out) {
+  if (view.group.position.lengthSq() < 1e-6) return null;
+  _sunward.copy(view.group.position).negate().normalize();
+  _side.crossVectors(_sunward, UP).normalize();
+  return out.copy(_sunward).multiplyScalar(0.6)
+    .addScaledVector(_side, 0.72)
+    .addScaledVector(UP, 0.34)
+    .normalize();
 }
 
 function easeInOutCubic(t) {

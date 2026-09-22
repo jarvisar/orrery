@@ -18,7 +18,7 @@ import * as THREE from 'three';
 import { BODIES, BODY_BY_ID, SUN_ID, periodDays } from '../data/bodies.js';
 import {
   bodyRadius, heliocentricDistance, satelliteDistance, ringRadius,
-  ORBIT_EXPONENT_RANGE,
+  SCALE_EXPONENT_RANGE,
 } from './scaling.js';
 import { orbitalPosition, spinAngle } from '../sim/kepler.js';
 import { receiveRingShadow, receivePlanetShadow, updateSunDirection } from './ringShadow.js';
@@ -26,6 +26,10 @@ import { receiveRingShadow, receivePlanetShadow, updateSunDirection } from './ri
 const DEG = Math.PI / 180;
 const _vec = new THREE.Vector3();
 const _raw = { x: 0, y: 0, z: 0 };
+const _inverseTilt = new THREE.Quaternion();
+
+/** Corona sprite size, in solar radii. */
+const CORONA_RADII = 7;
 
 /** Sphere tessellation by on-screen size. The old code used 128x128 for everything. */
 function sphereSegments(radiusUnits) {
@@ -52,7 +56,8 @@ export class SolarSystem {
     /** Everything this class owns, for disposal. */
     this._disposables = [];
 
-    this.orbitExponent = ORBIT_EXPONENT_RANGE.default;
+    /** The Scale setting; see src/scene/scaling.js. Set before build(). */
+    this.scaleExponent = SCALE_EXPONENT_RANGE.default;
 
     this.root = new THREE.Group();
     this.root.name = 'solar-system';
@@ -98,7 +103,7 @@ export class SolarSystem {
   }
 
   _buildBody(body) {
-    const radius = bodyRadius(body);
+    const radius = bodyRadius(body, this.scaleExponent);
     const view = new BodyView(body, radius);
 
     view.group.name = body.id;
@@ -191,7 +196,7 @@ export class SolarSystem {
   async _attachModel(view, body) {
     // Irregular moons ship as glTF. Until it arrives, stand in a sphere of the
     // right size so the body is still selectable and the layout does not shift.
-    const radius = bodyRadius(body);
+    const radius = view.baseRadius;
     const placeholderGeo = new THREE.IcosahedronGeometry(radius, 2);
     const placeholderMat = new THREE.MeshPhongMaterial({ color: body.color ?? 0x999999, flatShading: true });
     const placeholder = new THREE.Mesh(placeholderGeo, placeholderMat);
@@ -222,10 +227,7 @@ export class SolarSystem {
   }
 
   _attachRings(view, body, radius) {
-    const inner = ringRadius(body.rings.innerRadii, radius);
-    const outer = ringRadius(body.rings.outerRadii, radius);
     const clear = this.assets.placeholders.clear;
-    const geometry = createRadialRingGeometry(inner, outer, 256);
     const material = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       map: this.assets.placeholderFor('map'),
@@ -235,7 +237,7 @@ export class SolarSystem {
       depthWrite: false,
     });
 
-    const rings = new THREE.Mesh(geometry, material);
+    const rings = new THREE.Mesh(undefined, material);
     rings.rotation.x = Math.PI / 2;
     rings.receiveShadow = true;
     rings.castShadow = true;
@@ -244,20 +246,57 @@ export class SolarSystem {
 
     view.tilt.add(rings);
     view.rings = rings;
-    this._disposables.push(geometry, material);
+    this._disposables.push(material);
     this.pickables.push(rings);
 
     // Analytic shadows, both ways. See src/scene/ringShadow.js for why these
     // are not done with a shadow map.
-    const onPlanet = receiveRingShadow(view.material, { innerRadius: inner, outerRadius: outer });
+    const onPlanet = receiveRingShadow(view.material, { innerRadius: 0, outerRadius: 0 });
     onPlanet.uniforms.uRingMap.value = clear;
     const onRings = receivePlanetShadow(material, { planetRadius: radius });
+    view.ringShadow = onPlanet;
     this._shadowCasters.push({ view, onPlanet, onRings });
+    this._shapeRings(view);
 
     this.assets.texture(body.rings.map, 'map', 0).then((texture) => {
       material.map = texture;
       onPlanet.uniforms.uRingMap.value = texture;
     });
+  }
+
+  /**
+   * (Re)builds the ring geometry for the current Scale. Everything else about a
+   * body scales uniformly with its tilt node, but the ring-to-planet ratio is
+   * itself compressed by the exponent, so the rings need their own radii.
+   * Radii are in the tilt node's local space, where the planet has its build-time
+   * radius - the node's scale takes care of the rest.
+   */
+  _shapeRings(view) {
+    const { innerRadii, outerRadii } = view.body.rings;
+    const inner = ringRadius(innerRadii, view.baseRadius, this.scaleExponent);
+    const outer = ringRadius(outerRadii, view.baseRadius, this.scaleExponent);
+
+    view.rings.geometry.dispose();
+    view.rings.geometry = createRadialRingGeometry(inner, outer, 256);
+    view.ringOuter = outer;
+    view.ringShadow.uniforms.uRingInner.value = inner;
+    view.ringShadow.uniforms.uRingOuter.value = outer;
+  }
+
+  /**
+   * Applies a new Scale exponent in place. Positions follow on the next
+   * update(); sizes change here, by scaling each body's tilt node rather than
+   * rebuilding meshes, so textures, materials and compiled shaders are all kept.
+   */
+  setScaleExponent(exponent) {
+    this.scaleExponent = exponent;
+    for (const view of this.bodies.values()) {
+      view.radius = bodyRadius(view.body, exponent);
+      view.tilt.scale.setScalar(view.radius / view.baseRadius);
+      if (view.rings) this._shapeRings(view);
+    }
+    const sun = this.bodies.get(SUN_ID);
+    this._corona?.scale.setScalar(sun.radius * CORONA_RADII);
   }
 
   /** Cloud deck or atmospheric haze: a thin transparent shell just above the surface. */
@@ -309,9 +348,10 @@ export class SolarSystem {
       toneMapped: false,
     });
     const sprite = new THREE.Sprite(material);
-    sprite.scale.setScalar(sun.radius * 7);
+    sprite.scale.setScalar(sun.radius * CORONA_RADII);
     sprite.renderOrder = -1;
     sun.group.add(sprite);
+    this._corona = sprite;
     this._disposables.push(material, texture);
   }
 
@@ -334,6 +374,8 @@ export class SolarSystem {
       nodeLong: body.orbit.nodeLong,
       periodDays: periodDays(body),
       heliocentric: body.parent === SUN_ID,
+      // Measured from the primary's equator, so the orbit tilts with it.
+      equatorial: body.parent !== SUN_ID && body.orbit.plane !== 'ecliptic',
       parentId: body.parent,
       parentBody: parent,
     };
@@ -348,12 +390,13 @@ export class SolarSystem {
     const distance = Math.hypot(_raw.x, _raw.y, _raw.z) || 1e-9;
 
     if (el.heliocentric) {
-      const scaled = heliocentricDistance(distance, this.orbitExponent);
+      const scaled = heliocentricDistance(distance, this.scaleExponent);
       target.set(_raw.x, _raw.y, _raw.z).multiplyScalar(scaled / distance);
     } else {
       const parentView = this.bodies.get(el.parentId);
-      const scaled = satelliteDistance(distance, el.parentBody, parentView.radius);
+      const scaled = satelliteDistance(distance, this.scaleExponent);
       target.set(_raw.x, _raw.y, _raw.z).multiplyScalar(scaled / distance);
+      if (el.equatorial) target.applyQuaternion(parentView.tilt.quaternion);
       target.add(parentView.group.position);
     }
     return target;
@@ -367,7 +410,9 @@ export class SolarSystem {
       if (view.elements) this.positionAt(view, tDays, view.group.position);
 
       const spin = view.body.spin;
-      if (spin?.periodHours && view.spinNode) {
+      if (view.body.tidallyLocked && view.spinNode) {
+        this._faceParent(view);
+      } else if (spin?.periodHours && view.spinNode) {
         view.spinNode.rotation.y = spinAngle(spin.periodHours, tDays);
       }
 
@@ -377,6 +422,25 @@ export class SolarSystem {
     }
 
     this._updateRingShadows();
+  }
+
+  /**
+   * Turns a tidally locked moon so its prime meridian faces its primary.
+   *
+   * A free spin at the catalogue period would lock too, but only in rate - the
+   * phase would be arbitrary, and the Moon would show Earth its far side.
+   * Parents update before children (the map is built in depth order), so the
+   * primary's position is already current here.
+   */
+  _faceParent(view) {
+    const parent = this.bodies.get(view.body.parent);
+    if (!parent) return;
+
+    _vec.copy(parent.group.position).sub(view.group.position);
+    _vec.applyQuaternion(_inverseTilt.copy(view.tilt.quaternion).invert());
+    // SphereGeometry puts the middle of an equirectangular map - longitude 0 -
+    // on local +X, and a Y rotation of `a` carries +X to (cos a, 0, -sin a).
+    view.spinNode.rotation.y = Math.atan2(-_vec.z, _vec.x);
   }
 
   /**
@@ -452,6 +516,7 @@ export class SolarSystem {
 
   dispose() {
     for (const item of this._disposables) item.dispose?.();
+    for (const view of this.bodies.values()) view.rings?.geometry.dispose();
     this._disposables.length = 0;
     this.root.removeFromParent();
     this.bodies.clear();
@@ -466,7 +531,10 @@ class BodyView {
     this.id = body.id;
     this.name = body.name;
     this.kind = body.kind;
+    /** Current on-screen radius. Follows the Scale setting. */
     this.radius = radius;
+    /** Radius the meshes were built at; the tilt node scales them to `radius`. */
+    this.baseRadius = radius;
     this.visible = true;
 
     this.group = new THREE.Group();
@@ -477,13 +545,15 @@ class BodyView {
     this.spinNode = null;
     this.material = null;
     this.rings = null;
+    this.ringOuter = 0;
+    this.ringShadow = null;
     this.shells = [];
     this.elements = null;
   }
 
   /** Outermost extent, so the camera knows how far back to sit. */
   get boundingRadius() {
-    return this.rings ? this.rings.geometry.boundingSphere?.radius ?? this.radius * 2 : this.radius;
+    return Math.max(this.radius, this.ringOuter * this.tilt.scale.x);
   }
 }
 
