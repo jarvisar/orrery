@@ -179,6 +179,18 @@ async function boot() {
   await assets.drain({ concurrency: 4 });
   // One more compile pass, in case a streamed model brought its own materials.
   await renderer.compileAsync(scene, camera).catch(() => {});
+
+  // Last, so filling the offline copy never competes with the first load, and
+  // mostly revalidates what the HTTP cache already holds.
+  registerServiceWorker();
+}
+
+/** Offline support and installability; see sw.js. */
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('sw.js').catch((error) => {
+    console.warn('[orrery] offline support unavailable', error);
+  });
 }
 
 /* ========================================================================== */

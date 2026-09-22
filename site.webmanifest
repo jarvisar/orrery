@@ -1,16 +1,38 @@
 {
+  "id": "./",
   "name": "Orrery — An Interactive Solar System",
   "short_name": "Orrery",
   "description": "An interactive 3D model of the solar system: real orbits, the real sky, guided tours.",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "science"],
   "icons": [
-    { "src": "public/icon/orrery.svg", "sizes": "any", "type": "image/svg+xml" },
-    { "src": "public/icon/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "public/icon/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "public/icon/orrery.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "public/icon/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "public/icon/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "public/icon/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "public/icon/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
-  "start_url": ".",
-  "scope": ".",
-  "theme_color": "#05070f",
-  "background_color": "#05070f",
+  "screenshots": [
+    {
+      "src": "public/screenshots/phone.webp",
+      "sizes": "780x1688",
+      "type": "image/webp",
+      "form_factor": "narrow",
+      "label": "Saturn, with its rings and moons"
+    },
+    {
+      "src": "public/screenshots/wide.webp",
+      "sizes": "1600x1000",
+      "type": "image/webp",
+      "form_factor": "wide",
+      "label": "The whole solar system, with every orbit drawn"
+    }
+  ],
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
-  "orientation": "any"
+  "orientation": "any",
+  "theme_color": "#05070f",
+  "background_color": "#05070f"
 }

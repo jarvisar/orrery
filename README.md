@@ -89,6 +89,14 @@ scene, camera and clock on `window.orrery` in the console.
 `main`. It runs the checks, stages only the files that are actually served, and
 uploads them - there is nothing to compile.
 
+The one thing staging does besides copying is `scripts/stamp-sw.js`, which
+writes the list of staged files, each with a content hash, into the staged
+`sw.js`. That is what makes the site installable as an app and able to run
+offline: the service worker precaches that exact release and serves it
+cache-first, and a new deploy is a new worker that re-downloads only the files
+whose hash changed. The committed `sw.js` has an empty list, so under
+`npm run dev` it goes to the network first and never serves a stale file.
+
 **One-time setup:** in the repository, go to *Settings → Pages* and set
 **Source** to **GitHub Actions**. Until that is switched over, the workflow will
 run but the deployment step will fail.

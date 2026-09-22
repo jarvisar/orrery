@@ -35,7 +35,7 @@ const exists = (path) =>
   access(join(ROOT, path)).then(() => true, () => false);
 
 // ---------------------------------------------------------------- 1. syntax
-const sources = [...(await jsFiles('src')), ...(await jsFiles('scripts'))];
+const sources = [...(await jsFiles('src')), ...(await jsFiles('scripts')), 'sw.js'];
 for (const file of sources) {
   try {
     await run(process.execPath, ['--check', join(ROOT, file)]);
@@ -115,7 +115,31 @@ for (const path of new Set(linked)) {
 }
 console.log(`links     ${new Set(linked).size} files the page and stylesheet name`);
 
-// ------------------------------------------------------------ 7. the star field
+// ------------------------------------------ 7. what installing the app needs
+// Browsers do not report a broken manifest; the install option just never
+// appears. These are the parts of it that decide whether it does.
+const webManifest = JSON.parse(await readFile(join(ROOT, 'site.webmanifest'), 'utf8'));
+for (const key of ['name', 'short_name', 'start_url', 'display', 'icons']) {
+  if (!webManifest[key]) fail(`site.webmanifest has no "${key}"`);
+}
+const images = [...(webManifest.icons ?? []), ...(webManifest.screenshots ?? [])];
+for (const image of images) {
+  if (!(await exists(image.src))) fail(`site.webmanifest names ${image.src}, which is missing`);
+}
+const iconSizes = new Set((webManifest.icons ?? []).map((icon) => icon.sizes));
+for (const size of ['192x192', '512x512']) {
+  if (!iconSizes.has(size)) fail(`site.webmanifest needs a ${size} PNG icon to be installable`);
+}
+if (!(webManifest.icons ?? []).some((icon) => icon.purpose?.includes('maskable'))) {
+  fail('site.webmanifest has no maskable icon, so Android will shrink the icon onto a white disc');
+}
+const worker = await readFile(join(ROOT, 'sw.js'), 'utf8');
+if (!/^const BUILD = .*;$/m.test(worker) || !/^const PRECACHE = \[\];$/m.test(worker)) {
+  fail('sw.js no longer has the BUILD and empty PRECACHE lines that scripts/stamp-sw.js fills in');
+}
+console.log(`install   ${images.length} manifest images, service worker ready to stamp`);
+
+// ------------------------------------------------------------ 8. the star field
 const stars = await readFile(join(ROOT, 'public/data/stars.bin')).catch(() => null);
 if (!stars) fail('public/data/stars.bin is missing - run scripts/build-sky.py');
 else if (stars.length % 8 !== 0) fail(`public/data/stars.bin is ${stars.length} bytes, not a whole number of stars`);

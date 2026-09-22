@@ -81,6 +81,13 @@ try {
   const jumped = await page.evaluate(() => new URL(location.href).searchParams.get('t'));
   assert(jumped?.startsWith('1846-'), `jumping to the first moment left t=${jumped}`);
 
+  // The service worker registers once background loading is done, and has to
+  // take control of the page for the site to be installable and work offline.
+  const controlled = await page
+    .waitForFunction(() => Boolean(navigator.serviceWorker?.controller), { timeout: 120_000 })
+    .then(() => true, () => false);
+  assert(controlled, 'the service worker never took control of the page');
+
   if (problems.length === 0) {
     console.log(
       `smoke: ok — ${state.bodies} bodies, focused ${state.focus}, ${state.facts} facts, ${state.date}`

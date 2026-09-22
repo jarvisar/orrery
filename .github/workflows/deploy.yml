@@ -44,11 +44,16 @@ jobs:
       - name: Stage the site
         run: |
           mkdir -p _site
-          cp index.html style.css site.webmanifest favicon.ico tetris.html _site/
+          cp index.html style.css site.webmanifest favicon.ico tetris.html sw.js _site/
           cp -r src vendor public _site/
           # Pages serves the artifact as-is, but this keeps the site working
           # if the source is ever switched back to branch deployment.
           touch _site/.nojekyll
+
+      - name: Stamp the service worker
+        # Lists every staged file, with a content hash, in _site/sw.js, so
+        # installed copies precache exactly this release and work offline.
+        run: node scripts/stamp-sw.js _site
 
       - uses: actions/configure-pages@v5
 

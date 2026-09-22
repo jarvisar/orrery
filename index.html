@@ -10,6 +10,14 @@
 <meta name="theme-color" content="#05070f">
 <meta name="color-scheme" content="dark">
 
+<!-- Installed to a home screen: full screen, no browser chrome. The status bar
+     draws over the scene, which the interface already insets itself from. -->
+<meta name="application-name" content="Orrery">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Orrery">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
 <meta property="og:type" content="website">
 <meta property="og:title" content="Orrery — An Interactive Solar System">
 <meta property="og:description" content="An interactive 3D model of the solar system: real orbits, the real sky, and guided tours.">
@@ -24,10 +32,21 @@
 <link rel="preload" as="font" type="font/woff2" href="public/fonts/jost.woff2" crossorigin>
 
 <!-- The first three textures the loading screen waits on, requested before the
-     module graph has even been parsed. -->
-<link rel="preload" as="fetch" href="public/textures/manifest.json" crossorigin>
-<link rel="preload" as="image" href="public/textures/stars_milkyway.webp" crossorigin="anonymous">
-<link rel="preload" as="image" href="public/textures/sun.webp" crossorigin="anonymous">
+     module graph has even been parsed. Only when the network is serving them:
+     Chrome will not match a preload to a request the service worker answers,
+     so on an installed or returning visit they would just be read twice. -->
+<script>
+  if (!navigator.serviceWorker?.controller) {
+    for (const [as, href] of [
+      ['fetch', 'public/textures/manifest.json'],
+      ['image', 'public/textures/stars_milkyway.webp'],
+      ['image', 'public/textures/sun.webp'],
+    ]) {
+      document.head.append(Object.assign(document.createElement('link'),
+        { rel: 'preload', as, href, crossOrigin: 'anonymous' }));
+    }
+  }
+</script>
 
 <!-- three.js is vendored under vendor/, not pulled from a CDN at runtime.
      Run `npm run vendor` after bumping the version in package.json. -->
