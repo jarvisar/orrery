@@ -2,7 +2,7 @@
 
 An interactive 3D model of the solar system, built with [three.js](https://threejs.org/).
 
-**[Open it →](https://jarvisar.github.io/solar-system/)**
+**[Open it →](https://jarvisar.github.io/orrery/)**
 
 Every body is placed by solving Kepler's equation against its real J2000 orbital
 elements, so what you see is roughly where things actually are on the date shown

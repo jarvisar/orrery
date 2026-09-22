@@ -54,4 +54,4 @@ createServer(async (req, res) => {
   } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain' }).end('404 Not Found');
   }
-}).listen(PORT, () => console.log(`solar-system dev server -> http://localhost:${PORT}`));
+}).listen(PORT, () => console.log(`orrery dev server -> http://localhost:${PORT}`));

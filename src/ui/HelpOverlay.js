@@ -90,7 +90,7 @@ export class HelpOverlay {
         'a',
         {
           class: 'btn help__source',
-          href: 'https://github.com/jarvisar/solar-system',
+          href: 'https://github.com/jarvisar/orrery',
           target: '_blank',
           rel: 'noopener',
         },
