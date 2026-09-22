@@ -1,0 +1,127 @@
+/**
+ * Two-body orbital mechanics.
+ *
+ * Replaces the old "add a small number to an angle each frame" approach. Every
+ * body's position is a pure function of the simulated date, which means time can
+ * be paused, reversed or scrubbed without the system drifting out of alignment,
+ * and eccentric or inclined orbits (Pluto, Eris, Triton) come out right for free.
+ */
+
+const DEG = Math.PI / 180;
+const TAU = Math.PI * 2;
+
+/** Milliseconds at the J2000.0 epoch: 2000-01-01 12:00 TT. */
+export const J2000_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
+
+/** Days elapsed since J2000 for a wall-clock date. */
+export function daysSinceJ2000(date = new Date()) {
+  return (date.getTime() - J2000_MS) / 86_400_000;
+}
+
+/** Wall-clock date for a simulated day offset from J2000. */
+export function dateFromDays(days) {
+  return new Date(J2000_MS + days * 86_400_000);
+}
+
+/**
+ * Solves Kepler's equation `M = E - e·sin E` for the eccentric anomaly.
+ *
+ * Newton-Raphson, seeded so that even Eris (e = 0.44) converges in three or four
+ * iterations. The iteration cap only matters for parabolic-ish orbits we do not
+ * have.
+ */
+export function eccentricAnomaly(meanAnomaly, e) {
+  const M = normalizeSigned(meanAnomaly);
+  let E = e < 0.8 ? M : Math.PI;
+
+  for (let i = 0; i < 12; i++) {
+    const dE = (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+    E -= dE;
+    if (Math.abs(dE) < 1e-10) break;
+  }
+  return E;
+}
+
+/**
+ * Position of a body on its orbit at `tDays`, in the same length unit as
+ * `elements.a`, expressed in three.js axes (XZ is the reference plane, +Y is
+ * its north pole).
+ *
+ * @param {{a:number, e:number, inc:number, meanLong:number, periLong:number,
+ *          nodeLong:number, periodDays:number}} el Elements in degrees / days.
+ * @param {number} tDays Days since the J2000 epoch.
+ * @param {{x:number,y:number,z:number}} out Written in place to avoid garbage.
+ */
+export function orbitalPosition(el, tDays, out) {
+  // Mean anomaly advances linearly; everything else is fixed for our purposes.
+  const n = 360 / el.periodDays;
+  const M = (el.meanLong - el.periLong + n * tDays) * DEG;
+  const E = eccentricAnomaly(M, el.e);
+
+  // Position in the orbital plane, perifocal frame.
+  const px = el.a * (Math.cos(E) - el.e);
+  const py = el.a * Math.sqrt(1 - el.e * el.e) * Math.sin(E);
+
+  return perifocalToWorld(px, py, el, out);
+}
+
+/**
+ * Rotates a perifocal (x, y) pair out to the reference frame and into three.js
+ * axes. Shared by the body positions and the orbit-path geometry so the two can
+ * never disagree about where an orbit is.
+ */
+export function perifocalToWorld(px, py, el, out) {
+  const w = (el.periLong - el.nodeLong) * DEG; // argument of perihelion
+  const O = el.nodeLong * DEG;
+  const i = el.inc * DEG;
+
+  const cw = Math.cos(w), sw = Math.sin(w);
+  const cO = Math.cos(O), sO = Math.sin(O);
+  const ci = Math.cos(i), si = Math.sin(i);
+
+  const xEcl = (cw * cO - sw * sO * ci) * px + (-sw * cO - cw * sO * ci) * py;
+  const yEcl = (cw * sO + sw * cO * ci) * px + (-sw * sO + cw * cO * ci) * py;
+  const zEcl = sw * si * px + cw * si * py;
+
+  // Ecliptic (+Z north) to three.js (+Y up), preserving handedness.
+  out.x = xEcl;
+  out.y = zEcl;
+  out.z = -yEcl;
+  return out;
+}
+
+/**
+ * Samples one full revolution as perifocal coordinates, for drawing the path.
+ * Sampling by eccentric anomaly rather than by angle spaces points evenly along
+ * the arc, so eccentric orbits stay smooth at perihelion without wasting
+ * vertices on the slow far side.
+ */
+export function sampleOrbitPath(el, segments, out) {
+  const points = out ?? [];
+  for (let s = 0; s <= segments; s++) {
+    const E = (s / segments) * TAU;
+    points.push({
+      px: el.a * (Math.cos(E) - el.e),
+      py: el.a * Math.sqrt(1 - el.e * el.e) * Math.sin(E),
+    });
+  }
+  return points;
+}
+
+/** Wraps an angle in radians to (-π, π]. */
+function normalizeSigned(radians) {
+  const wrapped = radians % TAU;
+  if (wrapped > Math.PI) return wrapped - TAU;
+  if (wrapped <= -Math.PI) return wrapped + TAU;
+  return wrapped;
+}
+
+/**
+ * Rotation angle about a body's own axis at `tDays`.
+ * Negative periods mean retrograde rotation, which is how Venus and Uranus are
+ * stored in the catalogue.
+ */
+export function spinAngle(periodHours, tDays) {
+  if (!periodHours) return 0;
+  return ((tDays * 24) / periodHours) * TAU;
+}

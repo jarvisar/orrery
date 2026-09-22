@@ -1,0 +1,34 @@
+name: Checks
+
+# Runs the same verification the deploy does, but on pull requests, so a broken
+# reference is caught before it reaches main rather than on the way out to Pages.
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [main] # main is already covered by the deploy workflow
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run check
+
+      - name: Check that the site boots
+        # A syntax check cannot tell you the app throws on startup. This loads
+        # the real page in headless Chrome (the one preinstalled on the runner,
+        # so nothing has to download a browser) and fails on any uncaught error,
+        # any failed request, or a loading screen that never lifts.
+        run: npm run smoke -- --strict

@@ -1,89 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<script src="./tween.umd.js"></script>
-	<meta name="viewport" content="width=device-width,initial-scale=1">
-	<meta charset="utf-8">
-	<title>Solar System</title>
-	<meta name="description" content="Solar System created with Three.js">
-	<meta name="keywords" content="Three.js, Solar System, Space">
-	<meta name="author" content="Jarvisar">
-	<meta name="theme-color" content="#000220">
-	<link href='https://fonts.googleapis.com/css?family=Roboto' rel='stylesheet' type='text/css'>
-	<link rel="apple-touch-icon" sizes="180x180" href="public/icon/apple-touch-icon.png">
-	<link rel="icon" type="image/png" sizes="32x32" href="public/icon/favicon-32x32.png">
-	<link rel="icon" type="image/png" sizes="16x16" href="public/icon/favicon-16x16.png">
-	<script src="https://cdn.jsdelivr.net/npm/cannon@0.6.2/build/cannon.min.js"></script>
-	<link rel="manifest" href="site.webmanifest">
-	<canvas class="webgl"></canvas>
-	<script  type="importmap">{
-		"imports": {
-			"three": "https://unpkg.com/three@0.140.0/build/three.module.js"
-		}
-	}</script>
-	<link rel="stylesheet" type="text/css" href="style.css">
-	<script type="module" src="main.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Orrery — An Interactive Solar System</title>
+
+<meta name="description" content="An interactive 3D model of the solar system. Real orbital elements, real scale relationships, and a free-flight mode — built with three.js.">
+<meta name="author" content="Adam Jarvis">
+<meta name="theme-color" content="#05070f">
+<meta name="color-scheme" content="dark">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Orrery — An Interactive Solar System">
+<meta property="og:description" content="An interactive 3D model of the solar system, driven by real orbital elements.">
+
+<link rel="apple-touch-icon" sizes="180x180" href="public/icon/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="public/icon/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="public/icon/favicon-16x16.png">
+<link rel="manifest" href="site.webmanifest">
+<link rel="stylesheet" href="style.css">
+
+<!-- The first three textures the loading screen waits on, requested before the
+     module graph has even been parsed. -->
+<link rel="preload" as="fetch" href="public/textures/manifest.json">
+<link rel="preload" as="image" href="public/textures/stars_milkyway.webp" crossorigin="anonymous">
+<link rel="preload" as="image" href="public/textures/sun.webp" crossorigin="anonymous">
+
+<!-- three.js is vendored under vendor/, not pulled from a CDN at runtime.
+     Run `npm run vendor` after bumping the version in package.json. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/"
+  }
+}
+</script>
+<script type="module" src="src/main.js"></script>
 </head>
-<body style="background-color: black;">
-	<div id="dat-gui-container"></div>
-	<button id="toggle-flight-button" title="Toggle Flight Mode">
-		<img src="public/ufo.svg"></button>
-	<div>
-		<select id="title" style="text-align: center;">
-			<option value="sun">Sun</option>
-			<option value="mercury">Mercury</option>
-			<option value="venus">Venus</option>
-			<option value="earth">Earth</option>
-			<option value="moon" hidden>Moon</option>
-			<option value="mars">Mars</option>
-			<option value="phobos" hidden>Phobos</option> 
-			<option value="deimos" hidden>Deimos</option>
-			<option value="jupiter">Jupiter</option>
-			<option value="io" hidden>Io</option> <!-- Hide moons -->
-			<option value="europa" hidden>Europa</option>
-			<option value="ganymede" hidden>Ganymede</option>
-			<option value="callisto" hidden>Callisto</option>
-			<option value="saturn">Saturn</option>
-			<option value="titan" hidden>Titan</option>
-			<option value="enceladus" hidden>Enceladus</option>
-			<option value="iapetus" hidden>Iapetus</option>
-			<option value="uranus">Uranus</option>
-			<option value="neptune">Neptune</option>
-			<option value="triton" hidden>Triton</option>
-			<option value="pluto">Pluto</option>
-			<!-- Optgroup for dwarf -->
-			<optgroup label="Dwarf Planets">
-				<option value="ceres">Ceres</option>
-				<option value="eris">Eris</option>
-				<option value="makemake">Makemake</option>
-			</optgroup>
-			<option value="free" hidden>Free View</option>
-			<!-- Spaceship ption should not appear in drop down -->
-			<option value="spaceship" hidden>Flight Mode</option>
-		</select> 
-	</div>
-	<div class="speed-container" style="text-align: center; min-height: 70px; min-width: 50px;">
-		<p id="speed"></p>
-		<p style="width: 100%; position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%);">Speed</p>
-	</div>
-	
-	<!-- Add increase speed and decrease speed buttons if on screen less than 600 px wide. emit event if clicked-->
-	<div id="speedButtons">
-		<button id="speedUp">Speed Up</button>
-		<button id="speedDown">Speed Down</button>
-	</div>
 
-	<!-- VR --> 
-	<!-- <button aria-label="Enter VR" title="Enter VR" style="position: absolute; bottom: 65px; right: 5px; z-index: 25; border: none; " id="vr-button">
-		<img style="margin-right: 10px;" width="40" alt="GitHub Logo" src="public/vr-headset-icon.svg" style="stroke: white;" />
-	</button>  -->
+<body>
+<canvas id="viewport" aria-label="Interactive 3D solar system"></canvas>
 
-	<!-- GitHub Button --> 
-	<a aria-label="Source Code" target="_blank" rel="noopener" href="https://github.com/jarvisar/solar-system/" title="Project Source Code" style="position: absolute; bottom: 15px; right: 5px; z-index: 25;" class="github">
-		<img style="margin-right: 10px;" width="40" alt="GitHub Logo" src="public/icon/github.png" />
-	</a> 
+<!-- Static so it paints before any JavaScript runs. -->
+<div id="loading" class="loading" role="status" aria-live="polite">
+  <div class="loading__inner">
+    <div class="loading__orbit" aria-hidden="true">
+      <span class="loading__sun"></span>
+      <span class="loading__planet"></span>
+    </div>
+    <h1 class="loading__title">Orrery</h1>
+    <p class="loading__subtitle">An interactive solar system</p>
+    <div class="loading__track"><div class="loading__bar" id="loading-bar"></div></div>
+    <p class="loading__status" id="loading-status">Starting up…</p>
+  </div>
+</div>
 
-	<!-- Need a reticule shape that slowly animates to the mouse cursor like a flight reticule -->
-	<div id="reticule" ></div>
+<div id="ui" class="ui" hidden></div>
+
+<noscript>
+  <div class="fallback">
+    <h1>Orrery</h1>
+    <p>This is a real-time 3D simulation, so it needs JavaScript enabled.</p>
+  </div>
+</noscript>
+
+<div id="unsupported" class="fallback" hidden>
+  <h1>WebGL unavailable</h1>
+  <p>This browser could not create a WebGL context, so the simulation cannot run.</p>
+  <p class="fallback__hint">Enabling hardware acceleration in your browser settings usually fixes it.</p>
+</div>
 </body>
 </html>

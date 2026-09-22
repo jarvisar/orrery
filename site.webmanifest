@@ -1,1 +1,15 @@
-{"name":"","short_name":"","icons":[{"src":"/public/icon/android-chrome-192x192.png","sizes":"192x192","type":"image/png"},{"src":"/public/icon/android-chrome-512x512.png","sizes":"512x512","type":"image/png"}],"theme_color":"#ffffff","background_color":"#ffffff","display":"standalone"}
+{
+  "name": "Orrery — An Interactive Solar System",
+  "short_name": "Orrery",
+  "description": "An interactive 3D model of the solar system, driven by real orbital elements.",
+  "icons": [
+    { "src": "public/icon/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "public/icon/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "start_url": ".",
+  "scope": ".",
+  "theme_color": "#05070f",
+  "background_color": "#05070f",
+  "display": "standalone",
+  "orientation": "any"
+}

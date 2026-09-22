@@ -1,0 +1,21 @@
+{
+  "name": "solar-system",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "An interactive, physically-grounded 3D orrery of the solar system built with three.js.",
+  "scripts": {
+    "dev": "node scripts/serve.js",
+    "check": "node scripts/check.js",
+    "smoke": "node scripts/smoke.js",
+    "vendor": "node scripts/vendor.js"
+  },
+  "dependencies": {
+    "three": "^0.186.0",
+    "lil-gui": "^0.20.0"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "^4.1.1",
+    "puppeteer-core": "^23.11.1"
+  }
+}

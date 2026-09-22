@@ -1,0 +1,274 @@
+{
+  "callisto": {
+    "bytes": 450320,
+    "file": "callisto.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "callisto_bump": {
+    "bytes": 76935,
+    "file": "callisto_bump.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "ceres": {
+    "bytes": 619118,
+    "file": "ceres.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "ceres_bump": {
+    "bytes": 66798,
+    "file": "ceres_bump.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "earth": {
+    "bytes": 475482,
+    "file": "earth.webp",
+    "h": 2048,
+    "w": 4096
+  },
+  "earth_bump": {
+    "bytes": 103945,
+    "file": "earth_bump.jpg",
+    "h": 1024,
+    "w": 2048
+  },
+  "earth_clouds": {
+    "alphaOnly": true,
+    "bytes": 614846,
+    "file": "earth_clouds.jpg",
+    "h": 1024,
+    "w": 2048
+  },
+  "earth_night": {
+    "bytes": 68660,
+    "file": "earth_night.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "earth_specular": {
+    "bytes": 57196,
+    "file": "earth_specular.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "enceladus": {
+    "bytes": 314962,
+    "file": "enceladus.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "enceladus_bump": {
+    "bytes": 87561,
+    "file": "enceladus_bump.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "eris": {
+    "bytes": 521172,
+    "file": "eris.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "eris_bump": {
+    "bytes": 66288,
+    "file": "eris_bump.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "europa": {
+    "bytes": 242532,
+    "file": "europa.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "europa_bump": {
+    "bytes": 145623,
+    "file": "europa_bump.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "ganymede": {
+    "bytes": 217668,
+    "file": "ganymede.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "ganymede_bump": {
+    "bytes": 55986,
+    "file": "ganymede_bump.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "iapetus": {
+    "bytes": 257530,
+    "file": "iapetus.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "iapetus_bump": {
+    "bytes": 41643,
+    "file": "iapetus_bump.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "io": {
+    "bytes": 186548,
+    "file": "io.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "io_bump": {
+    "bytes": 66938,
+    "file": "io_bump.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "jupiter": {
+    "bytes": 117318,
+    "file": "jupiter.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "makemake": {
+    "bytes": 499696,
+    "file": "makemake.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "mars": {
+    "bytes": 195490,
+    "file": "mars.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "mars_bump": {
+    "bytes": 28392,
+    "file": "mars_bump.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "mercury": {
+    "bytes": 387560,
+    "file": "mercury.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "mercury_bump": {
+    "bytes": 75644,
+    "file": "mercury_bump.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "moon": {
+    "bytes": 592996,
+    "file": "moon.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "moon_bump": {
+    "bytes": 72688,
+    "file": "moon_bump.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "neptune": {
+    "bytes": 17452,
+    "file": "neptune.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "pluto": {
+    "bytes": 229436,
+    "file": "pluto.webp",
+    "h": 720,
+    "w": 1440
+  },
+  "pluto_bump": {
+    "bytes": 105601,
+    "file": "pluto_bump.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "pluto_specular": {
+    "bytes": 71018,
+    "file": "pluto_specular.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "saturn": {
+    "bytes": 34132,
+    "file": "saturn.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "saturn_rings": {
+    "bytes": 1712,
+    "file": "saturn_rings.webp",
+    "h": 1,
+    "radialStrip": true,
+    "w": 1024
+  },
+  "stars_milkyway": {
+    "bytes": 118926,
+    "file": "stars_milkyway.webp",
+    "h": 2048,
+    "w": 4096
+  },
+  "sun": {
+    "bytes": 216164,
+    "file": "sun.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "titan": {
+    "bytes": 93712,
+    "file": "titan.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "titan_bump": {
+    "bytes": 75725,
+    "file": "titan_bump.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "triton": {
+    "bytes": 69196,
+    "file": "triton.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "triton_bump": {
+    "bytes": 32914,
+    "file": "triton_bump.jpg",
+    "h": 512,
+    "w": 1024
+  },
+  "uranus": {
+    "bytes": 8598,
+    "file": "uranus.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "venus": {
+    "bytes": 278998,
+    "file": "venus.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "venus_atmosphere": {
+    "bytes": 36904,
+    "file": "venus_atmosphere.webp",
+    "h": 1024,
+    "w": 2048
+  },
+  "venus_bump": {
+    "bytes": 63655,
+    "file": "venus_bump.jpg",
+    "h": 512,
+    "w": 1024
+  }
+}

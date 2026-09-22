@@ -1,0 +1,9 @@
+node_modules/
+
+# Staging directory the Pages workflow builds; never committed.
+_site/
+
+*.local
+*.log
+.DS_Store
+Thumbs.db

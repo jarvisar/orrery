@@ -1,0 +1,67 @@
+name: Deploy to GitHub Pages
+
+# The site is plain ES modules with an import map and no build step, so this
+# workflow does not compile anything. It stages the files that are actually
+# served — leaving out the dev server, the asset pipeline and the README
+# screenshots — verifies them, and hands the result to Pages.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a run in progress finish rather than cancelling it: a half-deployed
+# Pages site is worse than a slightly stale one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify the build
+        # Catches the failure modes a bundler would normally catch for us:
+        # a syntax error, a stale vendored three.js, a texture in the
+        # catalogue that is not actually shipped.
+        run: npm run check
+
+      - name: Stage the site
+        run: |
+          mkdir -p _site
+          cp index.html style.css site.webmanifest favicon.ico tetris.html _site/
+          cp -r src vendor public _site/
+          # Pages serves the artifact as-is, but this keeps the site working
+          # if the source is ever switched back to branch deployment.
+          touch _site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
