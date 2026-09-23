@@ -54,6 +54,12 @@ const KM_PER_UNIT = EARTH_RADIUS_KM / EARTH_RADIUS_UNITS;
 /** The one thing in the scene that is not in the catalogue. */
 const VISITOR_ID = 'visitor';
 
+/** Keys flight mode takes over from the rest of the interface while it is active. */
+const FLIGHT_KEYS = [
+  'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'Space', 'ShiftLeft', 'ShiftRight',
+  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+];
+
 /** Framing, in AU, for the whole-system view: Neptune with a little room. */
 const OVERVIEW_AU = 33;
 
@@ -134,9 +140,7 @@ async function boot() {
   belts.update(clock.days);
 
   const director = new CameraDirector(camera, canvas, system);
-  const flight = new FlightControls(camera, canvas);
-  flight.maxSpeed = 450;
-  flight.boostFactor = 12;
+  const flight = new FlightControls(camera, canvas, system);
 
   const picker = new Picker(canvas, camera, system);
   picker.addSelectable(VISITOR_ID, visitor.meshes);
@@ -234,7 +238,7 @@ function buildInterface(ctx) {
     },
     onCopyLink: () => copyLink(),
   });
-  const flightHud = new FlightHud(flight);
+  const flightHud = new FlightHud(flight, KM_PER_UNIT);
   const settingsPanel = new SettingsPanel(settings);
   const helpOverlay = new HelpOverlay();
   const markers = new Markers(system, camera, (id) => selectBody(id));
@@ -477,6 +481,8 @@ function buildInterface(ctx) {
     }
 
     if (enabled) {
+      // Pressing G or the button counts as the gesture capturing the mouse needs.
+      flight.capture();
       director.focusOn(null);
       bodyPicker.select(null);
       infoPanel.show(null);
@@ -485,8 +491,11 @@ function buildInterface(ctx) {
       hideTooltip();
       dismissHint();
     } else if (refocus) {
+      // Land on whatever you were flying round; out in deep space, stay put.
       const nearest = director.nearestBody(camera.position);
-      if (nearest) selectBody(nearest.id);
+      if (nearest && camera.position.distanceTo(nearest.group.position) < nearest.radius * 40) {
+        selectBody(nearest.id);
+      }
     }
   }
 
@@ -614,9 +623,8 @@ function buildInterface(ctx) {
     // The controls dialog is modal: while it is up, only the keys that close it count.
     if (helpOverlay.isOpen && event.code !== 'Escape' && event.code !== 'Slash') return;
 
-    // Flight mode owns WASD, Shift and Space while it is active.
-    const flightOwns = state.flying &&
-      ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight'].includes(event.code);
+    // Flight mode owns WASD, QE, the arrows, Shift and Space while it is active.
+    const flightOwns = state.flying && FLIGHT_KEYS.includes(event.code);
     if (flightOwns) return;
 
     switch (event.code) {
@@ -702,7 +710,7 @@ function startLoop(ctx) {
     } else if (ui.state.flying) {
       flight.update(dt);
       director.fitClippingToSurroundings();
-      ui.flightHud.update(Math.abs(flight.speed) * KM_PER_UNIT / 1000);
+      ui.flightHud.update();
     } else {
       director.update(dt);
       picker.update();

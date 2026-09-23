@@ -46,8 +46,11 @@ and the address bar keeps the date, so a link takes someone to the same moment.
 | **G** | Flight mode |
 | **?** | Full list of controls |
 
-In flight mode, **W**/**S** work the throttle, **A**/**D** roll, the mouse steers,
-**Shift** boosts and **Space** is a full stop.
+In flight mode the mouse steers (click to capture it), **W**/**S** or the scroll
+wheel work the throttle, **A**/**D** roll, **Shift** boosts and **Space** brakes.
+Speed scales with your distance from the nearest surface, so the same throttle
+crosses the gap between planets in seconds and still lets you ease up to a moon.
+On a phone, drag anywhere to steer and slide the throttle on the left.
 
 ### In a headset
 

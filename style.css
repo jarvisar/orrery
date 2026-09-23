@@ -747,14 +747,26 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
   will-change: transform;
 }
 
-.hud__throttle {
+.hud__controls {
   position: absolute;
   left: max(var(--edge), env(safe-area-inset-left));
   top: 50%;
   transform: translateY(-50%);
-  width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.hud.is-active .hud__controls > * { pointer-events: auto; }
+
+.hud__throttle {
+  width: 56px;
   padding: 12px 6px;
   text-align: center;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .hud__throttle-track {
   height: 110px;
@@ -787,6 +799,74 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
   font-variant-numeric: tabular-nums;
 }
 .hud__speed-unit { font-size: 10px; color: var(--text-faint); letter-spacing: 0.12em; }
+
+.hud.is-boosting .hud__reticle { border-color: var(--accent); }
+.hud.is-boosting .hud__speed { color: var(--accent); }
+
+/* Touch only: a keyboard has Shift. */
+.hud__boost {
+  display: none;
+  width: 56px;
+  padding: 0;
+  font-size: 12px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.hud__boost.is-active { background: var(--accent); color: #000; }
+
+/* The body you are nearest, just under the reticle. */
+.hud__near {
+  position: absolute;
+  top: calc(50% + 40px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+.hud__near-name { font-family: var(--display); font-weight: 500; }
+.hud__near-distance { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+.hud__prompt {
+  position: absolute;
+  top: calc(50% + 100px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s var(--ease);
+}
+.hud__prompt.is-visible { opacity: 1; }
+
+/* Where a drag-to-steer started, and how far it has been pushed. */
+.hud__stick {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 140px;
+  height: 140px;
+  margin: -70px 0 0 -70px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 50%;
+  display: none;
+}
+.hud__stick.is-visible { display: block; }
+.hud__stick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
 
 .hud__hint {
   /* Below the body picker rather than above the time bar, which owns the
@@ -1454,6 +1534,8 @@ kbd {
    full 44px (WCAG 2.5.5), whatever it draws. */
 @media (pointer: coarse) {
   .btn { min-height: 44px; min-width: 44px; }
+  .hud__boost { display: inline-flex; height: 56px; }
+  .hud__throttle-track { height: 150px; }
   .btn--icon { width: 44px; }
   .btn--text { min-height: 44px; }
   .tour__close { width: 44px; min-height: 44px; min-width: 44px; margin-right: -12px; }
