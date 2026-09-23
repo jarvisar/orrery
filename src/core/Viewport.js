@@ -130,6 +130,10 @@ export class Viewport {
   }
 
   resize() {
+    // While a headset is presenting, three owns the drawing buffer and puts the
+    // page's size back itself when the session ends.
+    if (this.renderer.xr.isPresenting) return;
+
     const width = this.width;
     const height = this.height;
     const pixelRatio = this.nativePixelRatio * this.renderScale;
@@ -185,7 +189,7 @@ export class Viewport {
    * pause - does not drag the whole scene down a notch.
    */
   sample(frameMs) {
-    if (!this.adaptiveResolution) return;
+    if (!this.adaptiveResolution || this.renderer.xr.isPresenting) return;
 
     const now = performance.now();
     if (this._frameTimes.length === 0) this._windowStart = now;

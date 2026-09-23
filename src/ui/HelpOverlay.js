@@ -54,6 +54,18 @@ export const SHORTCUTS = [
     ],
   },
   {
+    group: 'Virtual reality',
+    items: [
+      { keys: ['Trigger'], desc: 'Select a body or a button' },
+      { keys: ['Grip'], desc: 'Grab and move the system' },
+      { keys: ['Both grips'], desc: 'Scale and turn it' },
+      { keys: ['Left stick'], desc: 'Fly (click to go faster)' },
+      { keys: ['Right stick'], desc: 'Turn, and zoom' },
+      { keys: ['A', 'B'], desc: 'Play or pause / whole system' },
+      { keys: ['X', 'Y'], desc: 'Previous or next body' },
+    ],
+  },
+  {
     group: 'Interface',
     items: [
       { keys: ['O'], desc: 'Toggle orbit paths' },

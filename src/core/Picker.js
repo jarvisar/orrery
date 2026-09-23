@@ -116,6 +116,19 @@ export class Picker {
   /** Returns the id of the frontmost visible body under the pointer, or null. */
   _pick() {
     this.raycaster.setFromCamera(this._pointer, this.camera);
+    return this._firstHit()?.id ?? null;
+  }
+
+  /**
+   * The frontmost visible body along a world-space ray, and how far along it,
+   * or null. For pointers that are not on the screen: VR controllers.
+   */
+  pickRay(origin, direction) {
+    this.raycaster.set(origin, direction);
+    return this._firstHit();
+  }
+
+  _firstHit() {
     const targets = this.system.pickables.filter((mesh) => isRenderable(mesh));
     for (const meshes of this._extras.values()) {
       for (const mesh of meshes) if (isRenderable(mesh)) targets.push(mesh);
@@ -124,7 +137,7 @@ export class Picker {
 
     for (const hit of hits) {
       const id = hit.object.userData.bodyId;
-      if (id && (this.system.isVisible(id) || this._extras.has(id))) return id;
+      if (id && (this.system.isVisible(id) || this._extras.has(id))) return { id, distance: hit.distance };
     }
     return null;
   }

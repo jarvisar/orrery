@@ -70,7 +70,10 @@ export class Post {
   }
 
   render(deltaSeconds) {
-    if (this.enabled) this.composer.render(deltaSeconds);
+    // A headset draws both eyes into a framebuffer of its own, which the
+    // composer's offscreen passes cannot target. In VR the frame goes straight
+    // there, tone mapped per material as it is with effects off.
+    if (this.enabled && !this.renderer.xr.isPresenting) this.composer.render(deltaSeconds);
     else this.renderer.render(this.scene, this.camera);
   }
 

@@ -391,6 +391,15 @@ export class SolarSystem {
     const corona = new THREE.Sprite(coronaMaterial);
     corona.scale.setScalar(sun.radius * CORONA_RADII);
     corona.renderOrder = -1;
+    // A sprite's corners are added after the view transform, so its size is in
+    // view units rather than world units. On screen the two are the same. In a
+    // headset the view is scaled down to metres, and the corona would come out
+    // hundreds of times too big, so it is sized against the camera's own scale.
+    corona.onBeforeRender = (renderer, scene, camera) => {
+      const viewScale = _vec.setFromMatrixColumn(camera.matrixWorldInverse, 0).length();
+      corona.scale.setScalar(sun.radius * CORONA_RADII * viewScale);
+      corona.updateMatrixWorld();
+    };
     sun.group.add(corona);
     this._corona = corona;
 

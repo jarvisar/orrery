@@ -17,7 +17,7 @@ import { el, icon, formatKm } from './dom.js';
 import { AU_KM, BODIES, BODY_BY_ID, SUN_ID, childrenOf } from '../data/bodies.js';
 import { orbitalPosition, eccentricAnomaly, perifocalToWorld } from '../sim/kepler.js';
 
-const KIND_LABEL = {
+export const KIND_LABEL = {
   star: 'Star',
   planet: 'Planet',
   dwarf: 'Dwarf planet',

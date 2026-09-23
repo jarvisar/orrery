@@ -159,6 +159,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 }
 .btn:hover { color: var(--text); }
 .btn:disabled { opacity: 0.3; pointer-events: none; }
+.btn[hidden] { display: none; }
 /* On, marked the way an instrument marks it: the control lights, and a small
    index sits under it. */
 .btn[aria-pressed="true"],
@@ -1443,6 +1444,9 @@ kbd {
 }
 @media (max-width: 360px) {
   .timebar__date-main { font-size: 14px; }
+  /* One touch target too many for the top bar. A headset is not going to be
+     driven from a phone this narrow. */
+  .topbar__vr { display: none; }
   .timebar__scale { margin: 0 4px; }
 }
 

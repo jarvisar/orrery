@@ -45,6 +45,7 @@ import { HelpOverlay } from './ui/HelpOverlay.js';
 import { Markers } from './ui/Markers.js';
 import { TourGuide } from './ui/TourGuide.js';
 import { InstallToast } from './ui/InstallToast.js';
+import { VRMode } from './xr/VRMode.js';
 import { el, icon } from './ui/dom.js';
 
 /** Scene units to kilometres, using the body-size scale rather than the orbit scale. */
@@ -157,7 +158,7 @@ async function boot() {
 
   // --- interface -----------------------------------------------------------
   const ui = buildInterface({
-    settings, clock, scene, assets, system, orbits, belts,
+    settings, clock, scene, assets, system, orbits, belts, sky,
     director, flight, picker, viewport, visitor, post,
   });
   ui.selectBody(initialBodyId(), { instant: true });
@@ -203,7 +204,7 @@ function registerServiceWorker() {
 /* ========================================================================== */
 
 function buildInterface(ctx) {
-  const { settings, clock, scene, assets, system, orbits, belts,
+  const { settings, clock, scene, assets, system, orbits, belts, sky,
           director, flight, picker, viewport, visitor, post } = ctx;
   const root = document.getElementById('ui');
   const camera = viewport.camera;
@@ -256,6 +257,70 @@ function buildInterface(ctx) {
   const stats = el('div', { class: 'stats panel', hidden: true });
   const hint = el('div', { class: 'hint panel', hidden: true });
 
+  const vr = new VRMode({
+    renderer: viewport.renderer, camera, scene, system, clock, picker, settings,
+    actions: {
+      select: (id) => selectBody(id),
+      overview: () => showOverview(),
+      step: (delta) => stepBody(delta),
+      togglePause: () => timeBar.togglePause(),
+      stepRate: (delta) => timeBar.stepRate(delta),
+      now: () => timeBar.jumpToNow(),
+    },
+    onStart: () => {
+      tours.stop();
+      setFlight(false, { refocus: false });
+      helpOverlay.close();
+      settingsPanel.close();
+      director.setEnabled(false);
+      picker.setEnabled(false);
+      hideTooltip();
+      dismissHint();
+      setPressed(vrButton, true);
+      // Star sizes are in pixels, and a headset's pixels are about as far
+      // apart, by angle, as a monitor's at 1x.
+      sky.setPixelRatio(1);
+      const view = state.focusedId ? lookup(state.focusedId) : null;
+      if (view) vr.focusOn(view, { instant: true });
+      else vr.overview(OVERVIEW_AU, { instant: true });
+    },
+    onEnd: () => {
+      director.setEnabled(true);
+      picker.setEnabled(true);
+      setPressed(vrButton, false);
+      const size = viewport.drawingBufferSize();
+      orbits.setResolution(size.x, size.y);
+      sky.setPixelRatio(viewport.pixelRatio);
+      // Back on the page, looking at whatever was last looked at in the headset.
+      if (state.focusedId) director.focusOn(lookup(state.focusedId), { instant: true });
+      else director.overview(OVERVIEW_AU, { instant: true });
+    },
+    onResolution: (width, height) => orbits.setResolution(width, height),
+  });
+
+  // Only offered where a headset (or a runtime for one) is actually there,
+  // and rechecked whenever one is plugged in or taken away.
+  const vrButton = el(
+    'button',
+    {
+      class: 'btn btn--icon topbar__vr',
+      type: 'button',
+      title: 'View in VR',
+      'aria-label': 'View in VR',
+      'aria-pressed': 'false',
+      hidden: true,
+      onclick: () => vr.toggle(),
+    },
+    [icon('vr')]
+  );
+  const detectVR = async () => {
+    const supported = await VRMode.isSupported();
+    vrButton.hidden = !supported;
+    if (supported) VRMode.preload();
+  };
+  detectVR();
+  navigator.xr?.addEventListener?.('devicechange', detectVR);
+
   const flightButton = el(
     'button',
     {
@@ -289,6 +354,7 @@ function buildInterface(ctx) {
         tours.root,
         el('span', { class: 'topbar__divider', 'aria-hidden': 'true' }),
         flightButton,
+        vrButton,
         el(
           'button',
           {
@@ -331,7 +397,8 @@ function buildInterface(ctx) {
     if (id && !view) return;
 
     state.focusedId = id;
-    director.focusOn(view, { instant: instant || reduceMotion(), duration });
+    if (vr.active) vr.focusOn(view, { instant });
+    else director.focusOn(view, { instant: instant || reduceMotion(), duration });
     bodyPicker.select(id, view?.body);
     if (!state.touring) infoPanel.show(view);
     orbits.setFocus(id);
@@ -351,7 +418,8 @@ function buildInterface(ctx) {
     if (state.flying) setFlight(false, { refocus: false });
     tours.stop();
     state.focusedId = null;
-    director.overview(radiusAU, { instant: instant || reduceMotion() });
+    if (vr.active) vr.overview(radiusAU, { instant });
+    else director.overview(radiusAU, { instant: instant || reduceMotion() });
     bodyPicker.select(null, { name: 'Whole system' });
     infoPanel.show(null);
     orbits.setFocus(null);
@@ -390,7 +458,8 @@ function buildInterface(ctx) {
   /* --- flight ------------------------------------------------------------ */
 
   function setFlight(enabled, { refocus = true } = {}) {
-    if (enabled === state.flying) return;
+    // A headset has its own way of flying.
+    if (enabled === state.flying || (enabled && vr.active)) return;
     state.flying = enabled;
     if (enabled) tours.stop();
 
@@ -400,8 +469,7 @@ function buildInterface(ctx) {
     picker.setEnabled(!enabled);
     flightHud.setActive(enabled);
     markers.setFocus(null);
-    flightButton.setAttribute('aria-pressed', String(enabled));
-    flightButton.classList.toggle('is-active', enabled);
+    setPressed(flightButton, enabled);
 
     if (!enabled) {
       const nearest = director.nearestBody(camera.position);
@@ -434,6 +502,19 @@ function buildInterface(ctx) {
   });
 
   function hideTooltip() { tooltip.classList.remove('is-visible'); }
+
+  function setPressed(button, pressed) {
+    button.setAttribute('aria-pressed', String(pressed));
+    button.classList.toggle('is-active', pressed);
+  }
+
+  /** Back to the standard framing of the focused body. */
+  function reframe({ instant = false } = {}) {
+    const view = state.focusedId ? lookup(state.focusedId) : null;
+    if (!view) return;
+    if (vr.active) vr.focusOn(view, { instant });
+    else director.focusOn(view, { instant });
+  }
 
   /* --- first visit ------------------------------------------------------- */
 
@@ -510,7 +591,7 @@ function buildInterface(ctx) {
     system.update(clock.days);
     orbits.rescale();
     belts.rescale();
-    if (state.focusedId) director.focusOn(lookup(state.focusedId), { instant: true });
+    reframe({ instant: true });
   }, 120));
 
   settings.on('beltDensity', debounce((value) => belts.build(value), 200));
@@ -562,9 +643,7 @@ function buildInterface(ctx) {
       case 'ArrowRight': if (state.touring) tours.step(1); break;
       case 'BracketLeft': stepBody(-1); break;
       case 'BracketRight': stepBody(1); break;
-      case 'KeyF':
-        if (state.focusedId) director.focusOn(lookup(state.focusedId));
-        break;
+      case 'KeyF': reframe(); break;
       case 'KeyO': settings.set('showOrbits', !settings.get('showOrbits')); break;
       case 'KeyI': infoPanel.setCollapsed(!infoPanel.collapsed); break;
       case 'KeyP':
@@ -581,7 +660,7 @@ function buildInterface(ctx) {
   installKonamiCode();
 
   return {
-    state, stats, tooltip, timeBar, infoPanel, flightHud, bodyPicker, markers, tours,
+    state, stats, tooltip, timeBar, infoPanel, flightHud, bodyPicker, markers, tours, vr,
     selectBody, setFlight, hideTooltip, welcome,
   };
 }
@@ -593,6 +672,7 @@ function buildInterface(ctx) {
 function startLoop(ctx) {
   const { viewport, system, orbits, belts, director, flight, picker, clock, assets, ui, visitor, post } = ctx;
   const { renderer, camera } = viewport;
+  const { vr } = ui;
 
   let lastFrame = performance.now();
   let sinceUiUpdate = 0;
@@ -610,12 +690,16 @@ function startLoop(ctx) {
 
     clock.advance(dt);
     system.update(clock.days);
-    orbits.update(camera.position, clock.days);
     belts.update(clock.days);
     visitor.update(dt);
     ui.tours.update(dt);
 
-    if (ui.state.flying) {
+    // In a headset the viewer's head is the camera, and it sits inside a rig
+    // that the VR controls move; camera.position is then relative to that rig.
+    const immersive = vr.presenting;
+    if (immersive) {
+      vr.update(dt);
+    } else if (ui.state.flying) {
       flight.update(dt);
       director.fitClippingToSurroundings();
       ui.flightHud.update(Math.abs(flight.speed) * KM_PER_UNIT / 1000);
@@ -624,7 +708,8 @@ function startLoop(ctx) {
       picker.update();
     }
 
-    ui.markers.update(viewport.width, viewport.height);
+    orbits.update(immersive ? vr.viewerPosition : camera.position, clock.days);
+    if (!immersive) ui.markers.update(viewport.width, viewport.height);
     assets.pumpUploads();
     post.render(dt);
 
@@ -638,7 +723,8 @@ function startLoop(ctx) {
     if (sinceUiUpdate > 0.25) {
       ui.timeBar.tick();
       ui.infoPanel.updateLive(clock.days);
-      if (director.focus && !director.isTransitioning) system.focusShadows(director.focus);
+      const settled = immersive ? vr.focus : !director.isTransitioning && director.focus;
+      if (settled) system.focusShadows(settled);
       sinceUiUpdate = 0;
     }
     if (ui.state.showStats && sinceStats > 0.5) {

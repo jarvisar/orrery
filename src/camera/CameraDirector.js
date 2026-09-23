@@ -284,7 +284,7 @@ export class CameraDirector {
  * off to one side and a little above, like a three-quarter portrait. Also
  * leaves the direction toward the Sun in `_sunward`. Null for the Sun itself.
  */
-function daylightDirection(view, out) {
+export function daylightDirection(view, out) {
   if (view.group.position.lengthSq() < 1e-6) return null;
   _sunward.copy(view.group.position).negate().normalize();
   _side.crossVectors(_sunward, UP).normalize();

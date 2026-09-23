@@ -35,6 +35,12 @@ const FILES = [
   ['examples/jsm/postprocessing/UnrealBloomPass.js', 'addons/postprocessing/UnrealBloomPass.js'],
   ['examples/jsm/shaders/CopyShader.js', 'addons/shaders/CopyShader.js'],
   ['examples/jsm/shaders/LuminosityHighPassShader.js', 'addons/shaders/LuminosityHighPassShader.js'],
+  // VR: controller and hand models. Only loaded once a headset session starts.
+  ['examples/jsm/webxr/XRControllerModelFactory.js', 'addons/webxr/XRControllerModelFactory.js'],
+  ['examples/jsm/webxr/XRHandModelFactory.js', 'addons/webxr/XRHandModelFactory.js'],
+  ['examples/jsm/webxr/XRHandMeshModel.js', 'addons/webxr/XRHandMeshModel.js'],
+  ['examples/jsm/webxr/XRHandPrimitiveModel.js', 'addons/webxr/XRHandPrimitiveModel.js'],
+  ['examples/jsm/libs/motion-controllers.module.js', 'addons/libs/motion-controllers.module.js'],
   ['LICENSE', 'LICENSE'],
 ];
 

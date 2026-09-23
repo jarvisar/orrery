@@ -49,6 +49,28 @@ and the address bar keeps the date, so a link takes someone to the same moment.
 In flight mode, **W**/**S** work the throttle, **A**/**D** roll, the mouse steers,
 **Shift** boosts and **Space** is a full stop.
 
+### In a headset
+
+Where a VR headset is available - a Quest's browser, or desktop Chrome or Edge
+with a PC headset connected - a headset button appears in the top bar. In VR a
+focused planet is a globe a couple of metres away, and **B** turns the whole
+system into a model on a table. Moving between bodies fades through black
+rather than flying, which is what keeps it comfortable.
+
+| | |
+| --- | --- |
+| **Trigger** | Point at a body or a panel button, and select it |
+| **Grip** | Grab the system and move it |
+| **Both grips** | Scale it and turn it: pull apart to zoom in |
+| **Left stick** | Fly where the left controller points (click it to go faster) |
+| **Right stick** | Snap turn left and right; push forward or back to zoom |
+| **A** / **B** | Play or pause / the whole system |
+| **X** / **Y** | Previous / next body |
+
+A panel floats above the left controller with the date, what you are pointing
+at, and buttons for everything else, including leaving VR. Hand tracking works
+too: pinch to select, and the panel floats in front of you instead.
+
 Links take `?body=saturn` and `?t=2017-05-01` (any ISO date or date-time, UTC).
 
 ![Saturn in May 2017, rings open and the north-pole hexagon in sunlight](docs/screenshot-saturn.jpg)
@@ -116,6 +138,7 @@ src/
   camera/              focus and framing, the overview, free flight
   core/                renderer, post-processing, asset streaming, settings, picking
   ui/                  every panel, built in JS so each owns its own markup
+  xr/                  VR: the scaled rig, controllers, the hand-held panel, labels
 vendor/three/          three.js, vendored - see below
 public/                textures, models, fonts, the star catalogue
 scripts/               dev server, checks, asset pipeline, vendoring
@@ -152,7 +175,11 @@ be switched off in Settings.
 `vendor/three/` holds the exact three.js files the app imports, copied out of
 `node_modules` by `scripts/vendor.js` and mapped in through an import map. The
 page loads nothing from a third-party CDN at runtime; the two typefaces, Inter
-and Jost, are self-hosted in `public/fonts/`.
+and Jost, are self-hosted in `public/fonts/`. The one exception is in VR: the
+3D models of the controllers in your hands come from the WebXR input profiles
+on jsDelivr, fetched only once a headset session starts, since there is one per
+make of controller. Without them everything still works; there is just no
+controller drawn in your hand.
 
 To upgrade, bump `three` in `package.json` and run `npm run vendor`.
 
