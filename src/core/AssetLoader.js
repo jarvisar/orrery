@@ -12,9 +12,11 @@
  *    - it never triggers a shader recompile, which is what used to lock the tab
  *    for a second the first time you looked at a planet.
  *
- * 3. Paced GPU uploads. Decoded images are pushed to the GPU a couple per frame
- *    via `renderer.initTexture`, instead of all at once during the first draw
- *    that happens to reference them.
+ * 3. Paced GPU uploads. Images are decoded off the main thread, then pushed to
+ *    the GPU one per frame via `renderer.initTexture`. A texture is only handed
+ *    to the material that asked for it once it is uploaded, so no draw call
+ *    ever finds itself uploading - and decoding - a texture mid-frame. That
+ *    used to happen whenever a moon's maps arrived while it was on screen.
  */
 
 import * as THREE from 'three';
@@ -103,9 +105,9 @@ export class AssetLoader {
     return changed;
   }
 
-  /** How many textures are still queued or decoding. Shown in the stats readout. */
+  /** How many textures are still queued, decoding or uploading. Shown in the stats readout. */
   get pending() {
-    return this._queue.length + this._inFlight.size;
+    return this._queue.length + this._inFlight.size + this._uploadQueue.length;
   }
 
   /**
@@ -158,6 +160,11 @@ export class AssetLoader {
     try {
       const url = `${TEXTURE_DIR}${await resolveFile(name)}`;
       const texture = await this._textureLoader.loadAsync(url);
+      // Left to itself the browser decodes an image lazily, synchronously,
+      // inside the texImage2D call that uploads it: tens of milliseconds for a
+      // 2k map on a phone, charged to whichever frame did the upload. decode()
+      // does it on another thread, ahead of time.
+      await texture.image.decode?.().catch(() => {});
 
       texture.name = name;
       texture.colorSpace = COLOR_SLOTS.has(slot) ? THREE.SRGBColorSpace : THREE.NoColorSpace;
@@ -178,8 +185,8 @@ export class AssetLoader {
       }
 
       this.textures.set(name, texture);
-      this._uploadQueue.push(texture);
-      resolve(texture);
+      // Resolved by pumpUploads(), once the texture is on the GPU.
+      this._uploadQueue.push({ texture, resolve });
     } catch (err) {
       console.warn(`[assets] texture "${name}" failed to load`, err);
       const fallback = this.placeholderFor(slot);
@@ -208,17 +215,20 @@ export class AssetLoader {
   }
 
   /**
-   * Pushes a few decoded textures to the GPU. Called once per frame; uploading
-   * everything in one go is exactly the stall we are avoiding.
+   * Pushes decoded textures to the GPU and hands them to whoever asked. Called
+   * once per frame with a budget of one; uploading everything in one go is
+   * exactly the stall we are avoiding.
    */
-  pumpUploads(budget = 2) {
+  pumpUploads(budget = 1) {
     for (let i = 0; i < budget && this._uploadQueue.length; i++) {
-      const texture = this._uploadQueue.shift();
+      const { texture, resolve } = this._uploadQueue.shift();
       try {
         this.renderer.initTexture(texture);
       } catch {
-        // A context loss mid-upload is not worth taking the frame down for.
+        // A context loss mid-upload is not worth taking the frame down for;
+        // the first draw that uses the texture will upload it instead.
       }
+      resolve(texture);
     }
   }
 

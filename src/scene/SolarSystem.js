@@ -172,6 +172,7 @@ export class SolarSystem {
     mesh.castShadow = !isStar;
     mesh.receiveShadow = !isStar;
     mesh.userData.bodyId = body.id;
+    mesh.raycast = raycastSphere;
 
     view.tilt.add(mesh);
     view.mesh = mesh;
@@ -348,6 +349,7 @@ export class SolarSystem {
     shell.receiveShadow = true;
     shell.renderOrder = 2;
     shell.userData.bodyId = view.id;
+    shell.raycast = raycastSphere;
 
     view.tilt.add(shell);
     view.shells.push({
@@ -708,6 +710,28 @@ function makeGlowTexture(size, stops) {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
+}
+
+/**
+ * Picking against the true sphere rather than its triangles. Mesh.raycast tests
+ * every triangle once the bounding sphere lets the ray through - all 16,000 of
+ * the Sun's, on every frame the mouse moves across it. The sphere answers the
+ * same question in one step, and more exactly. Assign as a sphere mesh's
+ * `raycast`.
+ */
+const _sphere = new THREE.Sphere();
+const _hit = new THREE.Vector3();
+function raycastSphere(raycaster, intersects) {
+  const { ray } = raycaster;
+  _sphere.center.setFromMatrixPosition(this.matrixWorld);
+  _sphere.radius = this.geometry.parameters.radius * this.matrixWorld.getMaxScaleOnAxis();
+  // Only front faces are drawn, so from inside there is nothing to hit - as
+  // with the triangle test this replaces.
+  if (_sphere.containsPoint(ray.origin) || !ray.intersectSphere(_sphere, _hit)) return;
+
+  const distance = ray.origin.distanceTo(_hit);
+  if (distance < raycaster.near || distance > raycaster.far) return;
+  intersects.push({ distance, point: _hit.clone(), object: this });
 }
 
 /** Uniformly scales a loaded model so its longest half-extent equals `radius`. */

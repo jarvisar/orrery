@@ -9,23 +9,7 @@
 
 import { el, icon, trapFocus } from './dom.js';
 import { SCALE_EXPONENT_RANGE } from '../scene/scaling.js';
-
-// Chromium offers installation through this event, which can arrive before the
-// panel exists, so it is caught as soon as the module loads. It is not
-// cancelled: the browser's own install prompt still shows as usual, and this
-// is just a second way in. Other browsers never send it, and the install link
-// simply stays hidden there.
-let installPrompt = null;
-const installListeners = new Set();
-const notifyInstall = () => installListeners.forEach((listener) => listener());
-window.addEventListener('beforeinstallprompt', (event) => {
-  installPrompt = event;
-  notifyInstall();
-});
-window.addEventListener('appinstalled', () => {
-  installPrompt = null;
-  notifyInstall();
-});
+import { canInstall, install, onInstallChange } from './install.js';
 
 export class SettingsPanel {
   /** @param {import('../core/Settings.js').Settings} settings */
@@ -144,22 +128,15 @@ export class SettingsPanel {
         {
           class: 'btn btn--text install__button',
           type: 'button',
-          onclick: async () => {
-            const prompt = installPrompt;
-            if (!prompt) return;
-            // A prompt event can only be used once, whatever the answer.
-            installPrompt = null;
-            notifyInstall();
-            await prompt.prompt();
-          },
+          onclick: () => install(),
         },
         [icon('download', 15), el('span', { text: 'Install app' })]
       ),
       el('p', { class: 'field__hint', text: 'Opens in its own window and works offline.' }),
     ]);
 
-    const update = () => { field.hidden = !installPrompt; };
-    installListeners.add(update);
+    const update = () => { field.hidden = !canInstall(); };
+    onInstallChange(update);
     update();
     return field;
   }

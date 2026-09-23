@@ -71,6 +71,9 @@ export class Markers {
         view, node, isMoon, shown: false, crowded: false,
         lastX: -1, lastY: -1, lastOpacity: -1,
         labelWidth: LABEL_LEAD + measureText(view.name) + LABEL_TRAIL,
+        // This frame's placement, kept on the entry so a frame allocates nothing.
+        x: 0, y: 0, distance: 0, opacity: 0,
+        box: { x: 0, y: 0, w: 0, h: LABEL_HEIGHT },
       });
     }
 
@@ -141,7 +144,11 @@ export class Markers {
         this._hide(entry);
         continue;
       }
-      candidates.push({ entry, x, y, distance, opacity });
+      entry.x = x;
+      entry.y = y;
+      entry.distance = distance;
+      entry.opacity = opacity;
+      candidates.push(entry);
     }
 
     // Nearest first, so when the inner planets stack up on a wide shot the one
@@ -151,14 +158,17 @@ export class Markers {
     const reserved = this._reserved;
     reserved.length = 0;
 
-    for (const candidate of candidates) {
-      const { entry, x, y, opacity } = candidate;
-      const top = y - LABEL_HEIGHT / 2;
-      const full = { x: x - 9, y: top, w: entry.labelWidth, h: LABEL_HEIGHT };
-      const crowded = reserved.some((rect) => overlaps(rect, full));
+    for (const entry of candidates) {
+      const { x, y, box } = entry;
+      box.x = x - 9;
+      box.y = y - LABEL_HEIGHT / 2;
+      box.w = entry.labelWidth;
+      const crowded = reserved.some((rect) => overlaps(rect, box));
 
-      reserved.push(crowded ? { x: x - 9, y: top, w: LABEL_LEAD, h: LABEL_HEIGHT } : full);
-      this._place(entry, x, y, opacity, crowded);
+      // Crowded out, it keeps only the dot.
+      if (crowded) box.w = LABEL_LEAD;
+      reserved.push(box);
+      this._place(entry, x, y, entry.opacity, crowded);
     }
   }
 

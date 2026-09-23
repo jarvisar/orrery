@@ -11,7 +11,9 @@
  * - A drag no longer counts as a click, so releasing the mouse after rotating
  *   the camera does not snap focus to whatever happened to be under the cursor.
  * - Hover testing is throttled to animation frames rather than running on every
- *   pointermove event.
+ *   pointermove event, and skipped altogether for touch and mid-drag: a finger
+ *   has no hover, and during a drag the camera is moving under the pointer, so
+ *   a raycast every frame would buy nothing.
  */
 
 import * as THREE from 'three';
@@ -69,17 +71,20 @@ export class Picker {
         this._pressPosition.set(event.clientX, event.clientY);
       },
       pointermove: (event) => {
-        if (this._pressed &&
+        if (this._pressed && !this._moved &&
             this._pressPosition.distanceTo(TEMP.set(event.clientX, event.clientY)) > DRAG_THRESHOLD) {
           this._moved = true;
+          this._setHover(null);
         }
         this._updatePointer(event);
-        this._hoverDirty = true;
+        if (event.pointerType !== 'touch' && !this._moved) this._hoverDirty = true;
       },
       pointerup: (event) => {
         if (!event.isPrimary) return;
         const wasClick = this._pressed && !this._moved;
         this._pressed = false;
+        // Whatever is under the pointer now that the drag is over.
+        if (event.pointerType !== 'touch') this._hoverDirty = true;
         if (!wasClick || !this.enabled || event.button !== 0) return;
 
         this._updatePointer(event);

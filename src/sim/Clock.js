@@ -50,6 +50,24 @@ const RATE_UNITS = [
   { days: 1 / 86_400, singular: 'sec', plural: 'sec' },
 ];
 
+/**
+ * The time bar's formats, built once. toLocaleDateString with options builds a
+ * fresh Intl.DateTimeFormat - locale data and all - on every call, and during a
+ * jump through time the date is redrawn every frame.
+ */
+const DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+});
+const TIME_FORMAT = new Intl.DateTimeFormat(undefined, {
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'UTC',
+  hour12: false,
+});
+
 export class Clock {
   constructor() {
     this.days = daysSinceJ2000(new Date());
@@ -145,22 +163,12 @@ export class Clock {
     // Dates beyond the Gregorian range the formatter handles gracefully are
     // reachable at 10 years/s within a couple of minutes of scrubbing.
     if (Number.isNaN(date.getTime())) return '—';
-    return date.toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      timeZone: 'UTC',
-    });
+    return DATE_FORMAT.format(date);
   }
 
   formatTime() {
     const date = this.date;
     if (Number.isNaN(date.getTime())) return '';
-    return date.toLocaleTimeString(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'UTC',
-      hour12: false,
-    });
+    return TIME_FORMAT.format(date);
   }
 }

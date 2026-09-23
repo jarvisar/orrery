@@ -44,6 +44,7 @@ import { SettingsPanel } from './ui/SettingsPanel.js';
 import { HelpOverlay } from './ui/HelpOverlay.js';
 import { Markers } from './ui/Markers.js';
 import { TourGuide } from './ui/TourGuide.js';
+import { InstallToast } from './ui/InstallToast.js';
 import { el, icon } from './ui/dom.js';
 
 /** Scene units to kilometres, using the body-size scale rather than the orbit scale. */
@@ -85,6 +86,10 @@ async function boot() {
 
   system.scaleExponent = settings.get('scale');
   viewport.setAdaptiveResolution(settings.get('adaptiveResolution'));
+  // If even the lowest render scale cannot hold the frame rate, the frosted
+  // glass goes too: blurring whatever is behind a panel means re-reading and
+  // re-blurring that part of the canvas every single frame. See style.css.
+  viewport.onConstrained(() => document.documentElement.classList.add('is-constrained'));
   renderer.toneMappingExposure = settings.get('exposure');
 
   // --- scene ---------------------------------------------------------------
@@ -232,6 +237,7 @@ function buildInterface(ctx) {
   const settingsPanel = new SettingsPanel(settings);
   const helpOverlay = new HelpOverlay();
   const markers = new Markers(system, camera, (id) => selectBody(id));
+  const installToast = new InstallToast();
   markers.setEnabled(settings.get('showLabels'));
 
   const tours = new TourGuide({
@@ -311,7 +317,8 @@ function buildInterface(ctx) {
 
   root.append(topbar, infoPanel.root, tours.caption, timeBar.root);
   document.body.append(
-    markers.root, flightHud.root, tooltip, stats, hint, settingsPanel.root, helpOverlay.root
+    markers.root, flightHud.root, tooltip, stats, hint, installToast.root,
+    settingsPanel.root, helpOverlay.root
   );
 
   /* --- focus ------------------------------------------------------------- */
@@ -430,9 +437,11 @@ function buildInterface(ctx) {
 
   /* --- first visit ------------------------------------------------------- */
 
+  // The hint goes first; the install toast waits until it has gone, since on a
+  // phone the two would share the same spot.
   let hintTimer = 0;
   function welcome() {
-    if (readFlag('orrery:welcomed') || state.touring) return;
+    if (readFlag('orrery:welcomed') || state.touring) return installToast.offer();
     writeFlag('orrery:welcomed');
     const touch = window.matchMedia('(pointer: coarse)').matches;
     hint.replaceChildren(
@@ -454,7 +463,10 @@ function buildInterface(ctx) {
     if (hint.hidden) return;
     clearTimeout(hintTimer);
     hint.classList.remove('is-visible');
-    setTimeout(() => { hint.hidden = true; }, 400);
+    setTimeout(() => {
+      hint.hidden = true;
+      installToast.offer();
+    }, 400);
   }
 
   /* --- settings ---------------------------------------------------------- */
@@ -613,7 +625,7 @@ function startLoop(ctx) {
     }
 
     ui.markers.update(viewport.width, viewport.height);
-    assets.pumpUploads(2);
+    assets.pumpUploads();
     post.render(dt);
 
     // Interface readouts change slowly; four times a second is plenty and keeps
@@ -633,7 +645,7 @@ function startLoop(ctx) {
       const info = renderer.info.render;
       ui.stats.textContent =
         `${Math.round(frames / sinceStats)} fps · ${info.calls} draws · ` +
-        `${(info.triangles / 1000).toFixed(0)}k tris · ${(viewport.renderScale * 100).toFixed(0)}% scale` +
+        `${(info.triangles / 1000).toFixed(0)}k tris · ${(viewport.renderScale * 100).toFixed(0)}% scale (${viewport.pixelRatio.toFixed(2)}x)` +
         (assets.pending ? ` · ${assets.pending} loading` : '');
       sinceStats = 0;
       frames = 0;

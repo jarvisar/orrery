@@ -1335,6 +1335,33 @@ kbd {
 .hint.is-visible { opacity: 1; transform: translate(-50%, 0); }
 .hint__dot { width: 3px; height: 3px; border-radius: 50%; background: var(--accent); opacity: 0.7; }
 
+/* --- install suggestion -------------------------------------------------- */
+
+/* A small plate in the corner, clear of the info panel and the time bar. */
+.toast {
+  position: fixed;
+  right: max(var(--edge), env(safe-area-inset-right));
+  bottom: calc(max(var(--edge), env(safe-area-inset-bottom)) + 64px);
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100vw - 2 * var(--edge));
+  padding: 8px 6px 8px 16px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.4s var(--ease), transform 0.4s var(--ease);
+}
+.toast[hidden] { display: none; }
+.toast.is-visible { opacity: 1; transform: none; }
+.toast__text { margin-right: 8px; line-height: 1.35; }
+.toast__title { font-family: var(--display); font-size: 14px; font-weight: 500; }
+.toast__note { font-size: 12px; color: var(--text-dim); }
+.toast__install { color: var(--accent); }
+.toast__install:hover { color: var(--sun); }
+.toast__install svg { width: 15px; height: 15px; }
+.toast__close svg { width: 16px; height: 16px; }
+
 /* --- fallbacks ----------------------------------------------------------- */
 
 .fallback {
@@ -1391,6 +1418,14 @@ kbd {
     gap: 8px;
   }
   .hint span:nth-child(n + 4) { display: none; }
+  /* Likewise the toast, which only comes once the hint has gone. */
+  .toast {
+    top: calc(max(var(--edge), env(safe-area-inset-top)) + 54px);
+    bottom: auto;
+    left: max(var(--edge), env(safe-area-inset-left));
+    transform: translateY(-6px);
+  }
+  .toast__text { flex: 1; min-width: 0; }
   .timebar { width: 100%; justify-content: space-between; }
   .timebar__date { min-width: 0; padding-left: 0; align-items: flex-start; text-align: left; }
   .timebar__date-main { font-size: 15px; }
@@ -1447,6 +1482,12 @@ kbd {
   :root { --plate: rgba(8, 9, 13, 0.96); }
   .panel, .help { backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
+
+/* The same plates, for a device that cannot hold its frame rate even at the
+   lowest render scale (src/core/Viewport.js). A backdrop blur over a canvas
+   that changes every frame is recomputed every frame. */
+:root.is-constrained { --plate: rgba(8, 9, 13, 0.96); }
+.is-constrained .panel, .is-constrained .help { backdrop-filter: none; -webkit-backdrop-filter: none; }
 
 /* Windows High Contrast and similar: the system picks the colours, so the
    shapes that were drawn only with fills get real borders. */

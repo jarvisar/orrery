@@ -12,6 +12,14 @@
  *
  * It costs a few full-screen passes, so it can be switched off in Settings; the
  * scene looks the same without it, minus the glow.
+ *
+ * The bloom is added back in the final pass rather than by the bloom pass
+ * itself. Out of the box, UnrealBloomPass ends by blending its result into the
+ * scene target - on every sample of a 4x multisampled half-float buffer, which
+ * then has to be resolved a second time - only for the final pass to read the
+ * whole frame straight back out. Folding the add into the final pass is the
+ * same sum for two full-screen passes less, which matters most on phones,
+ * where memory bandwidth is the scarcest thing there is.
  */
 
 import * as THREE from 'three';
@@ -44,10 +52,10 @@ export class Post {
 
     // Threshold just above white, so only genuinely bright light blooms: the
     // Sun, the lit limb of an atmosphere, the brightest stars.
-    this.bloom = new UnrealBloomPass(size.clone(), 0.5, 0.45, 0.9);
+    this.bloom = new Bloom(size.clone(), 0.5, 0.45, 0.9);
     this.composer.addPass(this.bloom);
 
-    this.finish = new FinishPass();
+    this.finish = new FinishPass(this.bloom);
     this.composer.addPass(this.finish);
   }
 
@@ -74,14 +82,80 @@ export class Post {
 }
 
 /**
+ * three's bloom, stopping one step short: the blurred glow is left in
+ * {@link Bloom#texture} for FinishPass to add, instead of being blended back
+ * into the scene target. Otherwise the same passes, in the same order, as
+ * UnrealBloomPass.render in the vendored three.js - keep the two in step when
+ * three is upgraded.
+ */
+class Bloom extends UnrealBloomPass {
+  /** The finished glow, at half resolution. */
+  get texture() {
+    return this.renderTargetsHorizontal[0].texture;
+  }
+
+  render(renderer, writeBuffer, readBuffer) {
+    renderer.getClearColor(this._oldClearColor);
+    this._oldClearAlpha = renderer.getClearAlpha();
+    const oldAutoClear = renderer.autoClear;
+    renderer.autoClear = false;
+    renderer.setClearColor(this.clearColor, 0);
+
+    // 1. Extract the bright areas.
+    this.highPassUniforms.tDiffuse.value = readBuffer.texture;
+    this.highPassUniforms.luminosityThreshold.value = this.threshold;
+    this._fsQuad.material = this.materialHighPassFilter;
+    renderer.setRenderTarget(this.renderTargetBright);
+    renderer.clear();
+    this._fsQuad.render(renderer);
+
+    // 2. Blur each mip, horizontally then vertically.
+    let input = this.renderTargetBright;
+    for (let i = 0; i < this.nMips; i++) {
+      const material = this.separableBlurMaterials[i];
+      this._fsQuad.material = material;
+
+      material.uniforms.colorTexture.value = input.texture;
+      material.uniforms.direction.value = UnrealBloomPass.BlurDirectionX;
+      renderer.setRenderTarget(this.renderTargetsHorizontal[i]);
+      renderer.clear();
+      this._fsQuad.render(renderer);
+
+      material.uniforms.colorTexture.value = this.renderTargetsHorizontal[i].texture;
+      material.uniforms.direction.value = UnrealBloomPass.BlurDirectionY;
+      renderer.setRenderTarget(this.renderTargetsVertical[i]);
+      renderer.clear();
+      this._fsQuad.render(renderer);
+
+      input = this.renderTargetsVertical[i];
+    }
+
+    // 3. Composite the mips into one glow. No blend back: FinishPass adds it.
+    this._fsQuad.material = this.compositeMaterial;
+    this.compositeMaterial.uniforms.bloomStrength.value = this.strength;
+    this.compositeMaterial.uniforms.bloomRadius.value = this.radius;
+    this.compositeMaterial.uniforms.bloomTintColors.value = this.bloomTintColors;
+    renderer.setRenderTarget(this.renderTargetsHorizontal[0]);
+    renderer.clear();
+    this._fsQuad.render(renderer);
+
+    renderer.setClearColor(this._oldClearColor, this._oldClearAlpha);
+    renderer.autoClear = oldAutoClear;
+  }
+}
+
+/**
  * Tone mapping and colour-space conversion, as three's OutputPass does, plus
  * the two things that make a render look photographed rather than drawn.
  */
 class FinishPass extends Pass {
-  constructor() {
+  /** @param {Bloom} bloom Whose glow to add; see the note at the top of this file. */
+  constructor(bloom) {
     super();
+    this.bloom = bloom;
     this.uniforms = {
       tDiffuse: { value: null },
+      tBloom: { value: null },
       toneMappingExposure: { value: 1 },
       uResolution: { value: new THREE.Vector2(1, 1) },
       uSeed: { value: 0 },
@@ -104,6 +178,7 @@ class FinishPass extends Pass {
       fragmentShader: /* glsl */ `
         precision highp float;
         uniform sampler2D tDiffuse;
+        uniform sampler2D tBloom;
         uniform vec2 uResolution;
         uniform float uSeed;
         varying vec2 vUv;
@@ -119,6 +194,7 @@ class FinishPass extends Pass {
 
         void main() {
           vec4 color = texture2D( tDiffuse, vUv );
+          color.rgb += texture2D( tBloom, vUv ).rgb;
 
           #if defined( ACES_FILMIC_TONE_MAPPING )
             color.rgb = ACESFilmicToneMapping( color.rgb );
@@ -157,6 +233,7 @@ class FinishPass extends Pass {
 
   render(renderer, writeBuffer, readBuffer) {
     this.uniforms.tDiffuse.value = readBuffer.texture;
+    this.uniforms.tBloom.value = this.bloom.texture;
     this.uniforms.toneMappingExposure.value = renderer.toneMappingExposure;
     this.uniforms.uSeed.value = (this.uniforms.uSeed.value + 0.618) % 1;
 
