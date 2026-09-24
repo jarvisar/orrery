@@ -37,7 +37,8 @@ try {
     if (r.status() >= 400) problems.push(`HTTP ${r.status()}: ${r.url()}`);
   });
 
-  await page.goto(`${ORIGIN}/?body=saturn`, { waitUntil: 'load', timeout: 60_000 });
+  // ?debug exposes the internals the resolution check below drives.
+  await page.goto(`${ORIGIN}/?debug&body=saturn`, { waitUntil: 'load', timeout: 60_000 });
 
   await waitForApp(page);
   await sleep(4000);
@@ -80,6 +81,66 @@ try {
   await sleep(3500);
   const jumped = await page.evaluate(() => new URL(location.href).searchParams.get('t'));
   assert(jumped?.startsWith('1846-'), `jumping to the first moment left t=${jumped}`);
+
+  // The adaptive resolution controller, fed made-up frame timings on a made-up
+  // clock: it has to step down for a slow GPU and stay down, but give the
+  // pixels back when frames are late for some other reason.
+  const adaptive = await page.evaluate(() => {
+    const { viewport, renderer } = window.orrery;
+    renderer.setAnimationLoop(null);
+    const realNow = performance.now;
+    let now = realNow.call(performance) + 1e6;
+    performance.now = () => now;
+    const reset = () => {
+      viewport.setAdaptiveResolution(false);
+      viewport.setAdaptiveResolution(true);
+      Object.assign(viewport, {
+        _lastAdjust: 0, _ceiling: Infinity, _ceilingUntil: 0, _trial: null, _holdUntil: 0, _retryMs: 15_000, _holdMs: 30_000,
+      });
+      viewport._frameTimes.length = 0;
+    };
+    const run = (seconds, interval) => {
+      for (let t = 0; t < seconds * 1000;) {
+        const ms = interval();
+        now += ms;
+        t += ms;
+        viewport.sample(ms);
+      }
+    };
+    const rung = () => `${viewport.renderScale}${viewport.multisample ? '+msaa' : ''}`;
+    const out = {};
+    try {
+      // Held at 30fps whatever the resolution, as iOS does in Low Power Mode.
+      reset();
+      run(20, () => 1000 / 30);
+      out.capped = rung();
+      out.cappedConstrained = viewport.constrained;
+      // A GPU that needs 30ms for a full-quality frame, less for fewer pixels.
+      reset();
+      const top = viewport.ladder[0];
+      const cost = (r) => r.scale ** 2 * (r.multisample ? 1.3 : 1);
+      run(20, () => Math.max(1000 / 60, 30 * cost({ scale: viewport.renderScale, multisample: viewport.multisample }) / cost(top)));
+      out.gpuBound = rung();
+      // A healthy GPU, with every other frame held up by a texture upload.
+      reset();
+      let upload = false;
+      run(20, () => {
+        upload = !upload;
+        if (upload) viewport.discardNextSample();
+        return upload ? 1000 / 60 : 120;
+      });
+      out.uploads = rung();
+    } finally {
+      performance.now = realNow;
+      reset();
+    }
+    return out;
+  });
+  assert(adaptive.capped === '1+msaa' && !adaptive.cappedConstrained,
+    `a frame rate capped by the browser cost resolution: ended at ${adaptive.capped}`);
+  assert(!['1+msaa', '1'].includes(adaptive.gpuBound),
+    `a slow GPU did not get a lower resolution: stayed at ${adaptive.gpuBound}`);
+  assert(adaptive.uploads === '1+msaa', `texture uploads were counted against the GPU: ended at ${adaptive.uploads}`);
 
   // The service worker registers once background loading is done, and has to
   // take control of the page for the site to be installable and work offline.

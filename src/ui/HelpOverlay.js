@@ -71,6 +71,16 @@ export const SHORTCUTS = [
     ],
   },
   {
+    group: 'Virtual reality, by hand',
+    items: [
+      { keys: ['Pinch'], desc: 'Select a body or a button' },
+      { keys: ['Pinch and drag'], desc: 'Grab and move the system' },
+      { keys: ['Both hands'], desc: 'Pinch and pull to scale and turn it' },
+      { keys: ['Fingertip'], desc: 'Touch a panel button' },
+      { keys: ['Left palm'], desc: 'Turn it to you to bring the panel' },
+    ],
+  },
+  {
     group: 'Interface',
     items: [
       { keys: ['O'], desc: 'Toggle orbit paths' },

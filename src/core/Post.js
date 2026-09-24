@@ -28,6 +28,9 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 
+/** Samples per pixel for the multisampled scene target. */
+const MULTISAMPLES = 4;
+
 export class Post {
   /**
    * @param {THREE.WebGLRenderer} renderer
@@ -44,7 +47,9 @@ export class Post {
     const target = new THREE.WebGLRenderTarget(size.x, size.y, {
       type: THREE.HalfFloatType,
       // The canvas's own antialiasing does not apply to an offscreen target.
-      samples: 4,
+      // Whether this one gets it is the resolution controller's call; see
+      // setSize() and src/core/Viewport.js.
+      samples: MULTISAMPLES,
     });
 
     this.composer = new EffectComposer(renderer, target);
@@ -56,6 +61,12 @@ export class Post {
     this.composer.addPass(this.bloom);
 
     this.finish = new FinishPass(this.bloom);
+    // The composer keeps two targets and swaps them after any pass that asks,
+    // which by default this one does. The scene would then go to each target on
+    // alternate frames, and both would be allocated: two full-size HDR buffers,
+    // multisampled, where one does. This pass draws to the screen, so it
+    // leaves nothing behind that needs swapping in.
+    this.finish.needsSwap = false;
     this.composer.addPass(this.finish);
   }
 
@@ -63,8 +74,18 @@ export class Post {
     this.enabled = enabled;
   }
 
-  /** Follows the canvas. `pixelRatio` is the renderer's, render scale included. */
-  setSize(width, height, pixelRatio) {
+  /**
+   * Follows the canvas. `pixelRatio` is the renderer's, render scale included;
+   * `multisample` is whether the scene target is to be multisampled.
+   */
+  setSize(width, height, pixelRatio, multisample = true) {
+    const samples = multisample ? MULTISAMPLES : 0;
+    for (const target of [this.composer.renderTarget1, this.composer.renderTarget2]) {
+      if (target.samples === samples) continue;
+      target.samples = samples;
+      // Reallocated at the right sample count the next time it is drawn to.
+      target.dispose();
+    }
     this.composer.setPixelRatio(pixelRatio);
     this.composer.setSize(width, height);
   }

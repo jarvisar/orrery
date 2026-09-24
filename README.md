@@ -64,7 +64,8 @@ Where a VR headset is available - a Quest's browser, or desktop Chrome or Edge
 with a PC headset connected - a headset button appears in the top bar. In VR a
 focused planet is a globe a couple of metres away, and **B** turns the whole
 system into a model on a table. Moving between bodies fades through black
-rather than flying, which is what keeps it comfortable.
+rather than flying, which is what keeps it comfortable, and while a thumbstick
+is moving you the edges of the view close in a little, as most Quest games do.
 
 | | |
 | --- | --- |
@@ -77,8 +78,21 @@ rather than flying, which is what keeps it comfortable.
 | **X** / **Y** | Previous / next body |
 
 A panel floats above the left controller with the date, what you are pointing
-at, and buttons for everything else, including leaving VR. Hand tracking works
-too: pinch to select, and the panel floats in front of you instead.
+at, and buttons for everything else, including leaving VR.
+
+Put the controllers down and it works with bare hands, using the gestures
+Quest's own interface uses rather than a copy of the controller buttons:
+
+| | |
+| --- | --- |
+| **Pinch** | Point at a body or a panel button, and select it |
+| **Pinch and drag** | Grab the system and move it |
+| **Pinch with both hands** | Scale it and turn it: pull apart to zoom in |
+| **Fingertip** | Touch a panel button to press it |
+| **Left palm towards you** | Bring the panel to your hand; lower it and the panel stays put |
+
+Holding the Meta button to recentre brings whatever you were looking at back in
+front of you.
 
 Links take `?body=saturn` and `?t=2017-05-01` (any ISO date or date-time, UTC).
 
@@ -96,8 +110,9 @@ see locally is byte-for-byte what gets deployed.
 
 ```sh
 npm run check   # syntax, vendored three.js, every texture, model, font and link
-npm run smoke   # loads the real page in headless Chrome, runs a tour and a time jump
+npm run smoke   # loads the real page in headless Chrome: a tour, a time jump, the resolution controller
 npm run responsive  # layout and accessibility at ten screen sizes, 320px to 1080p
+npm run vr      # an emulated Quest 3: controllers, hands, the panel, in and out of VR
 npm run vendor  # re-copy three.js out of node_modules after a version bump
 ```
 
@@ -105,13 +120,20 @@ Because nothing is bundled, `npm run check` stands in for the errors a bundler
 would normally catch: a stale vendored three.js, or a texture named in the
 catalogue that is not actually shipped. `npm run smoke` catches the rest, by
 loading the page, driving it, and failing on any uncaught error, failed
-request or loading screen that never lifts. It uses whatever Chrome is already
+request or loading screen that never lifts. It also feeds the adaptive
+resolution controller made-up frame timings, and checks it steps down for a
+slow GPU but not for a browser capping the frame rate or a texture upload. It uses whatever Chrome is already
 installed and skips itself if there is none. `npm run responsive` opens every
 panel at each of ten common screen sizes and fails if anything runs off screen,
 overlaps, wraps or clips, if a control is too small to tap, if Tab reaches a
 control without a visible focus ring, if text on a plate falls below 4.5:1
 contrast, or if axe-core finds a WCAG 2.2 AA violation. Pass `--shots=dir` to
-keep a screenshot of every size and state. Add `?debug` to the URL to get the
+keep a screenshot of every size and state. `npm run vr` puts the page in a
+Quest 3 that is not there, using [IWER](https://github.com/meta-quest/immersive-web-emulation-runtime),
+Meta's WebXR emulator, and uses it: it points, pulls triggers, grabs, turns,
+flies, then puts the controllers down and pinches, drags, turns a palm up and
+presses panel buttons with a fingertip, checking each does what it should. Set
+`VR_SHOTS=dir` to keep a screenshot of each step. Add `?debug` to the URL to get the
 scene, camera and clock on `window.orrery` in the console.
 
 ## Deploying
@@ -187,8 +209,9 @@ page loads nothing from a third-party CDN at runtime; the two typefaces, Inter
 and Jost, are self-hosted in `public/fonts/`. The one exception is in VR: the
 3D models of the controllers in your hands come from the WebXR input profiles
 on jsDelivr, fetched only once a headset session starts, since there is one per
-make of controller. Without them everything still works; there is just no
-controller drawn in your hand.
+make of controller. When jsDelivr cannot be reached, say in an installed copy
+used offline, plain stand-ins are drawn instead: a simple controller shape, and
+hands made of a sphere per joint.
 
 To upgrade, bump `three` in `package.json` and run `npm run vendor`.
 
