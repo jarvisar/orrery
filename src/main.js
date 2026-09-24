@@ -238,7 +238,11 @@ function buildInterface(ctx) {
     },
     onCopyLink: () => copyLink(),
   });
-  const flightHud = new FlightHud(flight, KM_PER_UNIT);
+  const flightHud = new FlightHud(flight, KM_PER_UNIT, camera, {
+    onStep: (delta) => stepBody(delta),
+    onAutopilot: () => toggleAutopilot(),
+  });
+  flight.onArrive = (view) => flightHud.notify(`Arrived at ${view.name}`);
   const settingsPanel = new SettingsPanel(settings);
   const helpOverlay = new HelpOverlay();
   const markers = new Markers(system, camera, (id) => selectBody(id));
@@ -394,6 +398,11 @@ function buildInterface(ctx) {
   /* --- focus ------------------------------------------------------------- */
 
   function selectBody(id, { instant = false, fromTour = false, duration } = {}) {
+    // Choosing a body mid-flight means "fly me there", not "stop flying".
+    if (state.flying && id && !fromTour) {
+      setDestination(id, { engage: true });
+      return;
+    }
     if (state.flying) setFlight(false, { refocus: false });
     if (!fromTour) tours.stop();
 
@@ -434,11 +443,14 @@ function buildInterface(ctx) {
   function stepBody(delta) {
     const available = BODIES.filter((body) => system.isVisible(body.id));
     if (available.length === 0) return;
-    const index = available.findIndex((body) => body.id === state.focusedId);
+    // In flight, [ and ] choose the destination instead, starting from wherever you are.
+    const current = state.flying ? (flight.target ?? flight.nearest)?.id : state.focusedId;
+    const index = available.findIndex((body) => body.id === current);
     // From free view, [ and ] start at either end of the list.
     const start = index < 0 ? (delta > 0 ? -1 : 0) : index;
     const next = available[(start + delta + available.length) % available.length];
-    selectBody(next.id);
+    if (state.flying) setDestination(next.id);
+    else selectBody(next.id);
   }
 
   /* --- time -------------------------------------------------------------- */
@@ -481,6 +493,7 @@ function buildInterface(ctx) {
     }
 
     if (enabled) {
+      flight.setTarget(null);
       // Pressing G or the button counts as the gesture capturing the mouse needs.
       flight.capture();
       director.focusOn(null);
@@ -497,6 +510,28 @@ function buildInterface(ctx) {
         selectBody(nearest.id);
       }
     }
+  }
+
+  /** Sets where flight is headed; `engage` also hands the controls to the autopilot. */
+  function setDestination(id, { engage = false } = {}) {
+    const view = lookup(id);
+    if (!view) return;
+    flight.setTarget(view);
+    // Its moons are only marked while their system is the one in focus.
+    markers.setFocus(id);
+    if (engage) {
+      flight.setAutopilot(true);
+      flightHud.notify(`Autopilot: flying to ${view.name} · steer to take over`);
+    }
+  }
+
+  function toggleAutopilot() {
+    if (!flight.target) {
+      flightHud.notify('Choose a destination first');
+      return;
+    }
+    flight.setAutopilot(!flight.autopilot);
+    if (flight.autopilot) flightHud.notify(`Autopilot: flying to ${flight.target.name}`);
   }
 
   /* --- hover tooltip ----------------------------------------------------- */
@@ -651,7 +686,10 @@ function buildInterface(ctx) {
       case 'ArrowRight': if (state.touring) tours.step(1); break;
       case 'BracketLeft': stepBody(-1); break;
       case 'BracketRight': stepBody(1); break;
-      case 'KeyF': reframe(); break;
+      case 'KeyF':
+        if (state.flying) toggleAutopilot();
+        else reframe();
+        break;
       case 'KeyO': settings.set('showOrbits', !settings.get('showOrbits')); break;
       case 'KeyI': infoPanel.setCollapsed(!infoPanel.collapsed); break;
       case 'KeyP':
@@ -710,7 +748,7 @@ function startLoop(ctx) {
     } else if (ui.state.flying) {
       flight.update(dt);
       director.fitClippingToSurroundings();
-      ui.flightHud.update();
+      ui.flightHud.update(viewport.width, viewport.height);
     } else {
       director.update(dt);
       picker.update();

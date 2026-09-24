@@ -69,6 +69,10 @@ const DEAD_ZONE = 0.15;
 /** Flying speed at full deflection, in metres per second at the current scale. */
 const FLY_SPEED_M = 1.8;
 const BOOST = 4;
+/** Within this many metres of a surface, flying eases off, so you arrive rather than hit. */
+const EASE_M = 0.6;
+/** Closest the viewer may get to a surface, as a fraction of its radius. */
+const CLEARANCE = 0.08;
 /** Zoom rate at full deflection, in e-folds of scale per second. */
 const ZOOM_RATE = 1.5;
 /** One press of a panel zoom button. */
@@ -650,12 +654,14 @@ export class VRMode {
 
       if (hand.side === 'left') {
         if (!fading && Math.hypot(x, y) > DEAD_ZONE) {
-          const step = FLY_SPEED_M * this.scale * (pressed(STICK_BUTTON) ? BOOST : 1) * dt;
+          const step = FLY_SPEED_M * this.scale * (pressed(STICK_BUTTON) ? BOOST : 1) *
+            this._easeNearSurface() * dt;
           _v.set(0, 0, -1).transformDirection(hand.ray.matrixWorld);
           _w.set(1, 0, 0).transformDirection(hand.ray.matrixWorld);
           this.rig.position
             .addScaledVector(_v, response(-y) * step)
             .addScaledVector(_w, response(x) * step);
+          this._keepOutside();
           // Flying moves the viewer, not whatever they are holding.
           this._regrab();
         }
@@ -683,6 +689,34 @@ export class VRMode {
     this._applyGrab();
   }
 
+  /** 1 in open space, down to a quarter close to a surface. */
+  _easeNearSurface() {
+    this._refreshViewer();
+    let altitude = Infinity;
+    for (const view of this.system.bodies.values()) {
+      if (!view.visible) continue;
+      altitude = Math.min(altitude, this.viewerPosition.distanceTo(view.group.position) - view.radius);
+    }
+    return THREE.MathUtils.clamp(altitude / this.scale / EASE_M, 0.25, 1);
+  }
+
+  /**
+   * Surfaces are solid, as they are in desktop flight: from inside, a planet's
+   * surface is culled away and the viewer is suddenly nowhere.
+   */
+  _keepOutside() {
+    this._refreshViewer();
+    for (const view of this.system.bodies.values()) {
+      if (!view.visible) continue;
+      const minimum = view.radius * (1 + CLEARANCE);
+      _v.copy(this.viewerPosition).sub(view.group.position);
+      const distance = _v.length();
+      if (distance >= minimum || distance === 0) continue;
+      this.rig.position.addScaledVector(_v, minimum / distance - 1);
+      this._refreshViewer();
+    }
+  }
+
   /** Turns on the spot: about the viewer's head, not the rig's origin. */
   _turn(angle) {
     this._refreshViewer();
@@ -699,13 +733,14 @@ export class VRMode {
    * would grow and recede in exact proportion.
    */
   _zoom(factor) {
-    const pivot = this.focus?.group.position ?? this.system.bodies.get(SUN_ID).group.position;
+    const body = this.focus ?? this.system.bodies.get(SUN_ID);
+    const pivot = body.group.position;
     let k = clampScale(this.scale * factor) / this.scale;
-    if (this.focus && k < 1) {
+    if (k < 1) {
       // Stop at the surface, rather than zooming the viewer inside the body.
       this._refreshViewer();
       const distance = this.viewerPosition.distanceTo(pivot);
-      k = Math.max(k, Math.min(1, (this.focus.radius * 1.2) / Math.max(distance, 1e-9)));
+      k = Math.max(k, Math.min(1, (body.radius * 1.2) / Math.max(distance, 1e-9)));
     }
     if (Math.abs(k - 1) < 1e-6) return;
     this.rig.position.sub(pivot).multiplyScalar(k).add(pivot);

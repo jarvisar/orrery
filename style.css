@@ -830,6 +830,92 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 .hud__near-name { font-family: var(--display); font-weight: 500; }
 .hud__near-distance { color: var(--text-dim); font-variant-numeric: tabular-nums; }
 
+/* Where you are headed, mirroring the throttle on the other side. */
+.hud__dest {
+  position: absolute;
+  right: max(var(--edge), env(safe-area-inset-right));
+  top: 50%;
+  transform: translateY(-50%);
+  width: 156px;
+  padding: 10px 6px 6px;
+  text-align: center;
+}
+.hud.is-active .hud__dest { pointer-events: auto; }
+.hud__dest-row { display: flex; align-items: center; justify-content: space-between; }
+.hud__dest-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 500;
+}
+.hud__dest.is-empty .hud__dest-name { color: var(--text-faint); }
+.hud__dest-distance {
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.hud__autopilot { width: 100%; border-top: 1px solid var(--line); border-radius: 0; }
+
+/* The destination, bracketed when it is in view... */
+.hud__bracket {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  translate: -50% -50%;
+  border: 1px dashed var(--accent);
+  border-radius: 50%;
+  opacity: 0.8;
+}
+.hud__bracket.is-visible { display: block; }
+.hud__bracket-label {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--accent);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+}
+/* ...and otherwise an arrow round the reticle, pointing the way to turn. */
+.hud__pointer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  width: 0;
+  height: 0;
+  margin: -9px 0 0 -6px;
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  border-left: 14px solid var(--accent);
+  transform-origin: 6px 9px;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.8));
+}
+.hud__pointer.is-visible { display: block; }
+.hud.is-autopilot .hud__reticle { border-color: var(--accent); }
+
+.hud__notice {
+  position: absolute;
+  top: calc(50% - 90px);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 2 * var(--edge));
+  padding: 6px 14px;
+  font-size: 12px;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.3s var(--ease);
+}
+.hud__notice.is-visible { opacity: 1; }
+
 .hud__prompt {
   position: absolute;
   top: calc(50% + 100px);
@@ -1517,6 +1603,8 @@ kbd {
   .picker__label { font-size: 16px; }
   .marker__label { font-size: 10.5px; }
   .hud__hint { white-space: normal; }
+  /* Clear of the reticle; the info panel that lives down here is hidden in flight. */
+  .hud__dest { top: auto; bottom: 76px; transform: none; }
 }
 
 @media (max-width: 420px) {
@@ -1536,6 +1624,11 @@ kbd {
   .btn { min-height: 44px; min-width: 44px; }
   .hud__boost { display: inline-flex; height: 56px; }
   .hud__throttle-track { height: 150px; }
+  .hud__dest { width: 184px; }
+}
+/* A phone on its side: the full-height lever would run up into the top bar. */
+@media (pointer: coarse) and (max-height: 500px) {
+  .hud__throttle-track { height: 72px; }
   .btn--icon { width: 44px; }
   .btn--text { min-height: 44px; }
   .tour__close { width: 44px; min-height: 44px; min-width: 44px; margin-right: -12px; }

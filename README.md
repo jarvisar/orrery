@@ -52,6 +52,12 @@ Speed scales with your distance from the nearest surface, so the same throttle
 crosses the gap between planets in seconds and still lets you ease up to a moon.
 On a phone, drag anywhere to steer and slide the throttle on the left.
 
+To go somewhere, click a planet's label (or pick it from the body menu) and
+the autopilot turns towards it, flies there and parks a few radii out; touch
+the controls at any time to take over. **`[`** / **`]`** choose a destination
+without engaging it, **F** switches the autopilot on and off, and an arrow
+round the reticle points the way whenever the destination is off screen.
+
 ### In a headset
 
 Where a VR headset is available - a Quest's browser, or desktop Chrome or Edge

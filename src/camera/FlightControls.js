@@ -10,6 +10,10 @@
  *     you while time is running.
  *   - Surfaces are solid. Fly into one and you skim along it.
  *
+ * On top of that there is an optional destination and an autopilot that turns
+ * towards it, flies there and parks a few radii out. Touching the controls
+ * takes over from it at once.
+ *
  * Steering is a virtual stick. With a mouse the pointer is captured and moving
  * it pushes the stick, which drifts back to centre on its own, so it feels like
  * mouse-look with a little weight. With a finger (or a mouse where capture is
@@ -25,6 +29,7 @@ const _quaternion = new THREE.Quaternion();
 const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
 const _toCamera = new THREE.Vector3();
 const _delta = new THREE.Vector3();
+const _toTarget = new THREE.Vector3();
 
 /** Small stick deflections that do nothing at all. */
 const DEAD_ZONE = 0.04;
@@ -42,6 +47,10 @@ const MIN_SPEED = 4;
 const ANCHOR_RADII = 12;
 /** Closest you can get to a surface, as a fraction of its radius (clears the atmosphere). */
 const CLEARANCE = 0.08;
+/** Autopilot parks this many radii above the destination's surface. */
+const ARRIVE_RADII = 3;
+/** Autopilot opens the throttle only once the nose is within this angle of the destination. */
+const ALIGNED = 0.35;
 
 export class FlightControls {
   /**
@@ -72,6 +81,12 @@ export class FlightControls {
     this.altitude = Infinity;
     /** The body you are closest to, or null. */
     this.nearest = null;
+    /** The body you are flying to, or null. */
+    this.target = null;
+    /** True while the autopilot is flying to {@link target}. */
+    this.autopilot = false;
+    /** Called with the destination when the autopilot gets there. */
+    this.onArrive = null;
 
     this._keys = new Set();
     this._stick = new THREE.Vector2();
@@ -227,7 +242,10 @@ export class FlightControls {
     // --- throttle ---------------------------------------------------------
     if (this._keys.has('KeyW')) this.adjustThrottle(this.throttleRate * step);
     if (this._keys.has('KeyS')) this.adjustThrottle(-this.throttleRate * step);
-    if (this._keys.has('Space')) this.throttle *= Math.exp(-6 * step);
+    if (this._keys.has('Space')) {
+      this.autopilot = false;
+      this.throttle *= Math.exp(-6 * step);
+    }
 
     // --- steering ---------------------------------------------------------
     if (this.captured) this._stick.multiplyScalar(Math.exp(-RECENTER * step));
@@ -237,9 +255,17 @@ export class FlightControls {
     if (this._keys.has('ArrowRight')) x += 1;
     if (this._keys.has('ArrowUp')) y -= 1;
     if (this._keys.has('ArrowDown')) y += 1;
+    x = applyCurve(THREE.MathUtils.clamp(x, -1, 1));
+    y = applyCurve(THREE.MathUtils.clamp(y, -1, 1));
+
+    // Any real stick input is the pilot taking over.
+    if (this.autopilot && (x !== 0 || y !== 0)) this.autopilot = false;
+    if (this.autopilot && !this.target?.visible) this.autopilot = false;
+    if (this.autopilot) [x, y] = this._flyToTarget(step);
+
     const blend = 1 - Math.exp(-8 * step);
-    this._steer.x += (applyCurve(THREE.MathUtils.clamp(x, -1, 1)) - this._steer.x) * blend;
-    this._steer.y += (applyCurve(THREE.MathUtils.clamp(y, -1, 1)) - this._steer.y) * blend;
+    this._steer.x += (x - this._steer.x) * blend;
+    this._steer.y += (y - this._steer.y) * blend;
 
     let roll = 0;
     if (this._keys.has('KeyA') || this._keys.has('KeyQ')) roll += 1;
@@ -270,6 +296,36 @@ export class FlightControls {
     this._keepOutside();
   }
 
+  /**
+   * One frame of autopilot: returns the steering that turns the nose towards
+   * the destination, opens the throttle once it is lined up, and stops on arrival.
+   */
+  _flyToTarget(step) {
+    const view = this.target;
+    _toTarget.copy(view.group.position).sub(this.camera.position);
+    const altitude = _toTarget.length() - view.radius;
+    if (altitude < view.radius * ARRIVE_RADII) {
+      this.autopilot = false;
+      this.throttle = 0;
+      this.onArrive?.(view);
+      return [0, 0];
+    }
+
+    // The destination in the camera's own frame: -z ahead, +x right, +y up.
+    _toTarget.applyQuaternion(_quaternion.copy(this.camera.quaternion).invert());
+    const yaw = Math.atan2(_toTarget.x, -_toTarget.z);
+    const pitch = Math.atan2(_toTarget.y, Math.hypot(_toTarget.x, _toTarget.z));
+    // Proportional, and firm enough to hold a moving planet dead ahead.
+    const x = THREE.MathUtils.clamp(yaw * 2.5, -1, 1);
+    const y = THREE.MathUtils.clamp(-pitch * 2.5, -1, 1);
+
+    const aligned = Math.hypot(yaw, pitch) < ALIGNED;
+    const wanted = aligned ? 1 : 0.1;
+    const change = this.throttleRate * step;
+    this.throttle += THREE.MathUtils.clamp(wanted - this.throttle, -change * 2, change);
+    return [x, y];
+  }
+
   /** Sets {@link nearest} and {@link altitude} from the visible bodies. */
   _findNearest() {
     this.nearest = null;
@@ -285,10 +341,16 @@ export class FlightControls {
     this.altitude = Math.max(this.altitude, 0);
   }
 
-  /** Moves the camera by however far the body it is near has moved. */
+  /**
+   * Moves the camera by however far the body it is near has moved. Close to
+   * the destination that body is the destination, so a small moon whipping
+   * past cannot drag you off round the planet you came to see.
+   */
   _carryAlong() {
-    const near = this.nearest && this.altitude < this.nearest.radius * ANCHOR_RADII
-      ? this.nearest : null;
+    const target = this.target?.visible && this.targetAltitude < this.target.radius * ANCHOR_RADII
+      ? this.target : null;
+    const near = target ?? (this.nearest && this.altitude < this.nearest.radius * ANCHOR_RADII
+      ? this.nearest : null);
     if (near && near === this._anchor) {
       _delta.copy(near.group.position).sub(this._anchorLast);
       this.camera.position.add(_delta);
@@ -313,9 +375,27 @@ export class FlightControls {
     this.setThrottle(this.throttle + amount);
   }
 
-  /** Sets the throttle outright, for the on-screen lever. */
+  /** Sets the throttle outright, for the on-screen lever. Takes over from the autopilot. */
   setThrottle(value) {
+    this.autopilot = false;
     this.throttle = THREE.MathUtils.clamp(value, -0.3, 1);
+  }
+
+  /** Sets (or with null, clears) the destination. A new one drops the autopilot. */
+  setTarget(view) {
+    if (view !== this.target) this.autopilot = false;
+    this.target = view;
+  }
+
+  /** Engages or drops the autopilot. Needs a destination to engage. */
+  setAutopilot(on) {
+    this.autopilot = Boolean(on && this.target);
+  }
+
+  /** Distance from the camera to the destination's surface, or Infinity. */
+  get targetAltitude() {
+    if (!this.target) return Infinity;
+    return Math.max(0, this.camera.position.distanceTo(this.target.group.position) - this.target.radius);
   }
 
   /** Held boost from the on-screen button. */
@@ -326,6 +406,7 @@ export class FlightControls {
   reset() {
     this.throttle = 0;
     this.speed = 0;
+    this.autopilot = false;
     this._anchor = null;
     this._releaseAll();
   }

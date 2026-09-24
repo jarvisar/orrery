@@ -47,6 +47,9 @@ export const SHORTCUTS = [
     group: 'Flight mode',
     items: [
       { keys: ['G'], desc: 'Enter or leave flight' },
+      { keys: ['Click a label'], desc: 'Fly there on autopilot' },
+      { keys: ['[', ']'], desc: 'Previous or next destination' },
+      { keys: ['F'], desc: 'Autopilot on or off' },
       { keys: ['Mouse'], desc: 'Steer (click to take the controls)' },
       { keys: ['W', 'S'], desc: 'Throttle up and down (or scroll)' },
       { keys: ['A', 'D'], desc: 'Roll' },
