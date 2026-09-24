@@ -15,7 +15,7 @@ const HIDE_ABOVE = 0.03;
 const SHOW_BELOW = 0.01;
 
 /** Label height as an angle: about the size of the page's marker text at arm's length. */
-const LABEL_ANGLE = 0.028;
+const LABEL_ANGLE = 0.034;
 
 /** Canvas geometry for one label, in pixels. */
 const LABEL_HEIGHT = 64;

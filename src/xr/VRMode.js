@@ -19,7 +19,8 @@
  * is exactly the kind of motion a headset turns into nausea: the eyes see
  * acceleration the inner ear never feels. Moving between bodies is a short fade
  * through black instead. The only continuous motion is what the viewer makes
- * with a thumbstick or their own hands.
+ * with a thumbstick or their own hands, and a thumbstick narrows the view a
+ * little while it is moving them, which takes most of the sting out of it.
  *
  * Controls, on any controller with the xr-standard mapping:
  *
@@ -30,7 +31,19 @@
  *   A / B        play or pause / the whole system
  *   X / Y        previous / next body
  *
- * Hand tracking works too: a pinch is the trigger, and the panel covers the rest.
+ * With bare hands, the gestures follow what Quest's own interface has taught
+ * people rather than mapping controller buttons onto fingers:
+ *
+ *   Pinch             point and select, as the trigger does
+ *   Pinch and drag    grab the system and move it, as the grip does; both
+ *                     hands to scale and turn it
+ *   Fingertip         press the panel's buttons by touching them
+ *   Left palm up      bring the panel to hand; it stays put when the hand drops
+ *
+ * A pinch has to do the grip's job too: Quest reserves the palm-up pinch for
+ * its own menu and sends no squeeze for a hand. So a pinch that stays put is a
+ * click, and one that moves a few centimetres becomes a grab. What a click selects is whatever the ray was on when the
+ * fingers met, since the act of pinching tugs the ray off its target.
  */
 
 import * as THREE from 'three';
@@ -83,6 +96,33 @@ const RAY_LENGTH_M = 6;
 /** Framing for the whole system, in AU, matching the desktop overview. */
 const OVERVIEW_AU = 33;
 
+/** A pinch that travels this far, in metres, is a grab rather than a click. */
+const DRAG_START_M = 0.03;
+/**
+ * Pressing the panel with a fingertip, in metres from its face: close enough
+ * to hide that hand's ray, close enough to light a button up, touching it
+ * (the tip joint sits about this far inside the pad of the finger), and far
+ * enough back out to let go.
+ */
+const POKE_NEAR_M = 0.08;
+const POKE_HOVER_M = 0.04;
+const POKE_PRESS_M = 0.008;
+const POKE_RELEASE_M = 0.025;
+/** Cosines: how squarely a palm must face the eyes to bring the panel, and to let it go. */
+const PALM_SHOW = 0.7;
+const PALM_HIDE = 0.35;
+/** ...and how near the middle of the view the hand must be. */
+const PALM_IN_VIEW = 0.6;
+
+/** Controllers and hands, plus room for momentary pointers such as a gaze-and-pinch. */
+const INPUT_SLOTS = 4;
+
+/** The comfort vignette's easing rate, per second. */
+const VIGNETTE_RATE = 8;
+
+/** Where three looks for controller and hand models; see VRMode.preload. */
+const PROFILES_URL = 'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets@1.0/dist/profiles';
+
 /** xr-standard gamepad buttons. */
 const STICK_BUTTON = 3;
 const FACE_LOWER = 4; // A or X
@@ -118,13 +158,19 @@ export class VRMode {
    * not have to wait for it. Only worth calling once VR is known to be there.
    */
   static preload() {
+    // The models themselves come from a CDN, one per make of controller. An
+    // installed copy used offline cannot reach it, and three would then show
+    // nothing at all: no controllers, and no hands. Asking first means falling
+    // back to shapes that need no download.
     modelFactories ??= Promise.all([
       import('three/addons/webxr/XRControllerModelFactory.js'),
       import('three/addons/webxr/XRHandModelFactory.js'),
+      canReach(`${PROFILES_URL}/generic-hand/left.glb`),
     ]).then(
-      ([controllers, hands]) => ({
-        controllers: new controllers.XRControllerModelFactory(),
+      ([controllers, hands, online]) => ({
+        controllers: online ? new controllers.XRControllerModelFactory() : null,
         hands: new hands.XRHandModelFactory(),
+        handProfile: online ? 'mesh' : 'spheres',
       }),
       (error) => {
         console.warn('[vr] controller models unavailable', error);
@@ -183,6 +229,13 @@ export class VRMode {
 
     this.panel = new VRPanel();
     this._fade = buildFade();
+    this._vignette = buildVignette();
+    this._motion = 0;
+    this._overviewAU = OVERVIEW_AU;
+    /** The hand whose open palm is holding the panel up, if one is, and where that palm is. */
+    this._summoner = null;
+    this._palm = new THREE.Vector3();
+    this._recentred = false;
 
     this.hands = [];
     this._hovered = new Set();
@@ -227,6 +280,11 @@ export class VRMode {
       this._enter();
       try {
         await this.renderer.xr.setSession(session);
+        // Recentring (holding the Meta button) swings the world round the
+        // viewer. Whatever they were looking at is then off to one side.
+        this.renderer.xr.getReferenceSpace()?.addEventListener('reset', () => {
+          this._recentred = true;
+        });
       } catch (error) {
         session.end().catch(() => {});
         this._exit();
@@ -258,6 +316,7 @@ export class VRMode {
   /** The whole system, as a model on a table. */
   overview(radiusAU = OVERVIEW_AU, { instant = false } = {}) {
     if (!this.active) return;
+    this._overviewAU = radiusAU;
     this._setFocus(null);
     this._goTo(() => this._frameSystem(radiusAU), instant);
   }
@@ -375,7 +434,7 @@ export class VRMode {
 
     this.scene.add(this.rig);
     this.rig.add(camera);
-    camera.add(this._fade);
+    camera.add(this._fade, this._vignette);
     camera.near = NEAR_M;
     this._setFade(1);
 
@@ -395,17 +454,17 @@ export class VRMode {
     this.renderer.xr.enabled = false;
     this.renderer.xr.cameraAutoUpdate = true;
 
-    for (const hand of this.hands) {
-      hand.squeezing = false;
-      hand.hoverType = null;
-      hand.hoverId = null;
-    }
+    for (const hand of this.hands) this._release(hand);
+    this._summoner = null;
+    this._recentred = false;
+    this._motion = 0;
+    this._setVignette(0);
     this._hovered.clear();
     this.labels.setActive(false);
     this.panel.detach();
 
     const camera = this.camera;
-    camera.remove(this._fade);
+    camera.remove(this._fade, this._vignette);
     this.rig.remove(camera);
     this.scene.remove(this.rig);
     const saved = this._saved;
@@ -430,16 +489,22 @@ export class VRMode {
     if (!this._ready) this._firstFrame();
 
     this._follow();
+    if (this._recentred) this._recentre();
     this._advanceTransition(dt);
+    this._updatePinches();
     this._readInput(dt);
     this._syncHead();
 
-    this.panel.follow(this.camera);
+    this._updatePalm();
+    if (this._summoner) this.panel.besidePalm(this.rig, this._palm, 'left', this.camera);
+    else this.panel.follow(this.camera);
+    this._updatePoke();
     this._updatePointers();
     this._headUp.setFromMatrixColumn(this.camera.matrixWorld, 1).normalize();
     this.labels.update(this.viewerPosition, this._headUp, this.scale, this._hovered);
     this.panel.update(this._describe());
     this._updateClipping();
+    this._updateVignette(dt);
   }
 
   /**
@@ -563,6 +628,36 @@ export class VRMode {
     this._fade.visible = opacity > 0.001;
   }
 
+  /**
+   * After a recentre: the same view again, straight ahead. A floating panel
+   * comes back in front too; one in a hand is already wherever the hand is.
+   */
+  _recentre() {
+    this._recentred = false;
+    if (this.focus) this._goTo(() => this._frameBody(this.focus), false);
+    else this._goTo(() => this._frameSystem(this._overviewAU), false);
+    if (!this.panel.holder) this.panel.float(this.rig, this.camera);
+  }
+
+  /**
+   * Closes the view in from the edges while a thumbstick is moving the
+   * viewer. Motion seen out of the corner of the eye is most of what makes
+   * artificial locomotion uncomfortable; motion seen straight ahead, much
+   * less. A grab never triggers it: moving the world by hand is motion the
+   * body is making, and the eyes and ears agree about it.
+   */
+  _updateVignette(dt) {
+    const target = this._motion;
+    this._motion = 0;
+    const current = this._vignette.material.uniforms.strength.value;
+    this._setVignette(current + (target - current) * Math.min(1, dt * VIGNETTE_RATE));
+  }
+
+  _setVignette(strength) {
+    this._vignette.material.uniforms.strength.value = strength;
+    this._vignette.visible = strength > 0.01;
+  }
+
   /** Near and far, in metres. The far plane moves out as the viewer shrinks. */
   _updateClipping() {
     const far = THREE.MathUtils.clamp((sceneRadius() * 2) / this.scale, 1000, MAX_FAR_M);
@@ -576,12 +671,10 @@ export class VRMode {
   _setupHands(factories) {
     if (this.hands.length) return;
     const xr = this.renderer.xr;
-    if (factories) {
-      factories.controllers.onLoad = brighten;
-      factories.hands.onLoad = brighten;
-    }
+    if (factories?.controllers) factories.controllers.onLoad = brighten;
+    if (factories) factories.hands.onLoad = brighten;
 
-    for (let index = 0; index < 2; index++) {
+    for (let index = 0; index < INPUT_SLOTS; index++) {
       const hand = {
         index,
         ray: xr.getController(index),
@@ -598,26 +691,46 @@ export class VRMode {
         hoverId: null,
         hit: { type: null, id: null, distance: 0 },
         laser: buildLaser(),
+        /** A hand's pinch in progress: where it started, what it was on, and whether it became a grab. */
+        pinch: null,
+        lastPinch: null,
+        /** Fingertip on the panel: near enough to hide the ray, the button under it, and pressed. */
+        pokeNear: false,
+        pokeHover: null,
+        poked: false,
+        pokeZ: NaN,
       };
       hand.ray.add(hand.laser);
 
+      // A stand-in, when the real model cannot be fetched.
+      const standIn = factories?.controllers ? null : buildControllerStandIn();
+      if (factories?.controllers) hand.grip.add(factories.controllers.createControllerModel(hand.grip));
+      if (standIn) hand.grip.add(standIn);
       if (factories) {
-        hand.grip.add(factories.controllers.createControllerModel(hand.grip));
-        hand.hand.add(factories.hands.createHandModel(hand.hand, 'mesh'));
+        const model = factories.hands.createHandModel(hand.hand, factories.handProfile);
+        hand.hand.add(model);
+        // The primitive hand is lit for a room too. Its spheres exist once it has connected.
+        if (factories.handProfile !== 'mesh') hand.hand.addEventListener('connected', () => brighten(model));
       }
 
       hand.ray.addEventListener('connected', (event) => {
-        hand.source = event.data;
-        hand.side = event.data.handedness === 'left' ? 'left' : 'right';
+        const source = event.data;
+        hand.source = source;
+        hand.side = source.handedness === 'left' ? 'left' : 'right';
         hand.was.length = 0;
-        this._placePanel();
+        if (standIn) standIn.visible = source.targetRayMode === 'tracked-pointer' && !source.hand;
+        // A momentary pointer comes and goes with every pinch; the panel stays where it is.
+        if (source.targetRayMode !== 'transient-pointer') this._placePanel();
       });
       hand.ray.addEventListener('disconnected', () => {
+        const transient = hand.source?.targetRayMode === 'transient-pointer';
+        this._release(hand);
         hand.source = null;
-        hand.squeezing = false;
         hand.laser.visible = false;
-        this._placePanel();
+        if (!transient) this._placePanel();
       });
+      hand.ray.addEventListener('selectstart', () => this._onPinchStart(hand));
+      hand.ray.addEventListener('selectend', () => this._onPinchEnd(hand));
       hand.ray.addEventListener('select', () => this._onSelect(hand));
       hand.ray.addEventListener('squeezestart', () => {
         hand.squeezing = true;
@@ -639,7 +752,8 @@ export class VRMode {
 
     for (const hand of this.hands) {
       const pad = hand.source?.gamepad;
-      if (!pad) continue;
+      // A tracked hand has a gamepad too, but only to report its pinch.
+      if (!pad || hand.source.hand) continue;
       // xr-standard puts the thumbstick on axes 2 and 3; controllers with only
       // a touchpad report it on 0 and 1.
       const axes = pad.axes;
@@ -656,6 +770,7 @@ export class VRMode {
           this.rig.position
             .addScaledVector(_v, response(-y) * step)
             .addScaledVector(_w, response(x) * step);
+          this._motion = Math.max(this._motion, Math.min(1, Math.hypot(response(x), response(y))));
           // Flying moves the viewer, not whatever they are holding.
           this._regrab();
         }
@@ -671,6 +786,7 @@ export class VRMode {
         }
         if (Math.abs(y) > DEAD_ZONE && Math.abs(y) > Math.abs(x) && !fading && !this._grabbing(2)) {
           this._zoom(Math.exp(response(y) * ZOOM_RATE * dt));
+          this._motion = Math.max(this._motion, Math.abs(response(y)));
         }
         if (tapped(FACE_LOWER)) this.actions.togglePause();
         if (tapped(FACE_UPPER)) this.actions.overview();
@@ -724,7 +840,38 @@ export class VRMode {
   _regrab() {
     this.rig.updateMatrixWorld(true);
     for (const hand of this.hands) {
-      if (hand.squeezing) hand.anchor.setFromMatrixPosition(hand.ray.matrixWorld);
+      if (hand.squeezing) this._handPoint(hand, hand.anchor).applyMatrix4(this.rig.matrixWorld);
+    }
+  }
+
+  /**
+   * The point a hand holds things by, in the rig's own space, in metres: a
+   * controller's tip, or the meeting point of a pinch. A hand's pointing ray
+   * starts back near the wrist and swings as the fingers close, so it would
+   * make a shaky handle.
+   */
+  _handPoint(hand, out) {
+    const joints = hand.source?.hand ? hand.hand.joints : null;
+    const thumb = joints?.['thumb-tip'];
+    const index = joints?.['index-finger-tip'];
+    if (thumb?.visible && index?.visible) return out.addVectors(thumb.position, index.position).multiplyScalar(0.5);
+    return out.setFromMatrixPosition(hand.ray.matrix);
+  }
+
+  /** Lets go of anything a hand is doing. */
+  _release(hand) {
+    hand.squeezing = false;
+    hand.pinch = null;
+    hand.lastPinch = null;
+    hand.hoverType = null;
+    hand.hoverId = null;
+    hand.pokeNear = false;
+    hand.pokeHover = null;
+    hand.poked = false;
+    hand.pokeZ = NaN;
+    if (this._summoner === hand) {
+      this._summoner = null;
+      this.panel.holder = null;
     }
   }
 
@@ -747,15 +894,15 @@ export class VRMode {
     this.rig.updateMatrixWorld(true);
 
     if (!b) {
-      _v.setFromMatrixPosition(a.ray.matrixWorld);
+      this._handPoint(a, _v).applyMatrix4(this.rig.matrixWorld);
       this.rig.position.add(_w.copy(a.anchor).sub(_v));
       this._applyRig();
       return;
     }
 
     // Both hands' positions in the rig's own space, in metres.
-    _v.setFromMatrixPosition(a.ray.matrix);
-    _w.setFromMatrixPosition(b.ray.matrix);
+    this._handPoint(a, _v);
+    this._handPoint(b, _w);
     _localSpan.subVectors(_w, _v);
     _worldSpan.subVectors(b.anchor, a.anchor);
     const reach = _localSpan.length();
@@ -779,7 +926,11 @@ export class VRMode {
     for (const hand of this.hands) {
       const source = hand.source;
       const mode = source?.targetRayMode;
-      const pointing = (mode === 'tracked-pointer' || mode === 'gaze') && !hand.squeezing;
+      // A fingertip at the panel is about to touch it, not point at it; and
+      // a palm turned up to hold the panel is not pointing anywhere, which is
+      // also when Quest hides its own pointer.
+      const pointing = (mode === 'tracked-pointer' || mode === 'gaze') &&
+        !hand.squeezing && !hand.pokeNear && hand !== this._summoner;
       hand.laser.visible = pointing && mode === 'tracked-pointer';
       if (!pointing) {
         this._setHover(hand, null);
@@ -798,10 +949,23 @@ export class VRMode {
       cursor.position.z = -length;
       // About a third of a degree across wherever it lands: findable on a
       // planet across the room, small enough not to cover a button's label.
-      cursor.scale.setScalar(Math.max(length * 0.003, 0.0012));
+      // A hand gets no click to feel, so the dot closes up as the fingers do,
+      // as Quest's own cursor does.
+      cursor.scale.setScalar(Math.max(length * 0.003, 0.0012) * (0.45 + 0.55 * this._pinchOpenness(hand)));
     }
 
-    this.panel.setHover(panelButton);
+    // A fingertip beats a ray: it is the closer and more deliberate of the two.
+    const poked = this.hands.find((hand) => hand.pokeHover)?.pokeHover;
+    this.panel.setHover(poked ?? panelButton);
+  }
+
+  /** 1 for a hand held open, falling to 0 as the thumb and forefinger meet. Always 1 for a controller. */
+  _pinchOpenness(hand) {
+    const joints = hand.source?.hand ? hand.hand.joints : null;
+    const thumb = joints?.['thumb-tip'];
+    const index = joints?.['index-finger-tip'];
+    if (!thumb?.visible || !index?.visible) return 1;
+    return THREE.MathUtils.clamp((thumb.position.distanceTo(index.position) - 0.01) / 0.04, 0, 1);
   }
 
   /** What a hand's ray touches: the panel, then any body, then any small body near it. */
@@ -875,10 +1039,16 @@ export class VRMode {
 
   _onSelect(hand) {
     if (!this.presenting || !this._ready) return;
-    // Hit-test afresh: a tap on a screen or a gaze click may be the only
-    // frame that input source is ever seen in.
-    this.rig.updateMatrixWorld(true);
-    const hit = this._hitTest(hand);
+    const pinch = hand.pinch ?? hand.lastPinch;
+    hand.lastPinch = null;
+    let hit = pinch?.target;
+    if (pinch && (pinch.blocked || pinch.dragging)) return;
+    if (!pinch) {
+      // Hit-test afresh: a tap on a screen or a gaze click may be the only
+      // frame that input source is ever seen in.
+      this.rig.updateMatrixWorld(true);
+      hit = this._hitTest(hand);
+    }
     if (!hit) return;
     if (hit.type === 'panel') {
       if (!hit.id) return;
@@ -890,6 +1060,144 @@ export class VRMode {
     this.actions.select(hit.id);
   }
 
+  /* --- hands ------------------------------------------------------------- */
+
+  /**
+   * A pinch begins. What the ray is on now is what a click will select: the
+   * fingers closing pull the ray down and in, and by the time they part again
+   * it can be pointing at something else entirely.
+   */
+  _onPinchStart(hand) {
+    hand.lastPinch = null;
+    if (!hand.source?.hand || !this.presenting || !this._ready) return;
+    // A finger at the panel is pressing it, and a pinch there is incidental.
+    // A pinch with the palm turned up is Quest's own menu gesture.
+    if (hand.pokeNear || hand === this._summoner) {
+      hand.pinch = { blocked: true };
+      return;
+    }
+    this.rig.updateMatrixWorld(true);
+    const hit = this._hitTest(hand);
+    hand.pinch = {
+      start: this._handPoint(hand, new THREE.Vector3()),
+      target: hit ? { type: hit.type, id: hit.id } : null,
+      dragging: false,
+    };
+    // With the other hand already holding on, this is the second half of a
+    // two-handed grab: no need to wait for it to move.
+    if (hand.pinch.target?.type !== 'panel' && this._grabbing(1)) this._startDrag(hand);
+  }
+
+  _onPinchEnd(hand) {
+    if (hand.pinch?.dragging) {
+      hand.squeezing = false;
+      this._regrab();
+    }
+    // 'select' normally arrives first, but in case it comes after.
+    hand.lastPinch = hand.pinch;
+    hand.pinch = null;
+  }
+
+  /** A pinch that has moved far enough becomes a grab, held from where the fingers are now. */
+  _updatePinches() {
+    for (const hand of this.hands) {
+      const pinch = hand.pinch;
+      if (!pinch || pinch.blocked || pinch.dragging || pinch.target?.type === 'panel') continue;
+      if (this._handPoint(hand, _v).distanceTo(pinch.start) > DRAG_START_M) this._startDrag(hand);
+    }
+  }
+
+  _startDrag(hand) {
+    hand.pinch.dragging = true;
+    hand.squeezing = true;
+    this._regrab();
+  }
+
+  /**
+   * Pressing the panel with a fingertip. A press needs the finger to arrive
+   * from in front and cross the face; it lets go once the finger is back out,
+   * so resting a finger on a button presses it once, not once a frame.
+   */
+  _updatePoke() {
+    for (const hand of this.hands) {
+      hand.pokeNear = false;
+      hand.pokeHover = null;
+      const tip = hand.source?.hand && hand !== this.panel.holder ? hand.hand.joints['index-finger-tip'] : null;
+      const local = tip?.visible ? this.panel.toLocal(tip.getWorldPosition(_v)) : null;
+      if (!local) {
+        hand.poked = false;
+        hand.pokeZ = NaN;
+        continue;
+      }
+
+      const z = local.z;
+      hand.pokeNear = this.panel.covers(local, 0.02) && z > -0.04 && z < POKE_NEAR_M;
+      const button = hand.pokeNear ? this.panel.buttonAtLocal(local) : null;
+      if (z < POKE_HOVER_M) hand.pokeHover = button;
+
+      if (hand.poked) {
+        if (z > POKE_RELEASE_M || !hand.pokeNear) hand.poked = false;
+      } else if (button && z < POKE_PRESS_M && hand.pokeZ >= POKE_PRESS_M) {
+        hand.poked = true;
+        this._onPanel(button);
+      }
+      hand.pokeZ = z;
+    }
+  }
+
+  /**
+   * Turn the left palm to the eyes and the panel comes to it, beside the
+   * hand, where the other hand can reach it; lower the hand and the panel
+   * stays where it was left. The same gesture as Quest's own menus, but with
+   * no pinch, since that one belongs to the system.
+   */
+  _updatePalm() {
+    if (this.panel.holder && this.panel.holder !== this._summoner) return; // on a controller
+    const hand = this.hands.find((h) => h.source?.hand && h.source.handedness === 'left');
+    if (!hand) {
+      if (this._summoner) this._release(this._summoner);
+      return;
+    }
+    const facing = this._palmFacing(hand, this._palm);
+    if (this._summoner === hand) {
+      if (facing < PALM_HIDE) {
+        this._summoner = null;
+        this.panel.holder = null;
+      }
+    } else if (facing > PALM_SHOW && !hand.pinch && !hand.squeezing) {
+      this._summoner = hand;
+      this.panel.holder = hand;
+    }
+  }
+
+  /**
+   * How squarely a hand's palm faces the eyes, as a cosine, with the palm's
+   * centre left in `centre`; -1 when the hand is not tracked or not in view.
+   * The palm's normal comes from the knuckles either side of it rather than a
+   * joint's orientation, which leaves nothing to get wrong about axes.
+   */
+  _palmFacing(hand, centre) {
+    const joints = hand.hand.joints;
+    const wrist = joints.wrist;
+    const index = joints['index-finger-metacarpal'];
+    const pinky = joints['pinky-finger-metacarpal'];
+    const middle = joints['middle-finger-metacarpal'];
+    if (!wrist?.visible || !index?.visible || !pinky?.visible || !middle?.visible) return -1;
+
+    _v.subVectors(index.position, wrist.position);
+    _w.subVectors(pinky.position, wrist.position);
+    // Out of the palm, not the back of the hand: the knuckles run the other
+    // way round on a left hand.
+    const normal = _dir.crossVectors(_v, _w).normalize();
+    if (hand.source.handedness === 'left') normal.negate();
+
+    centre.copy(middle.position);
+    const toEyes = _v.copy(this.camera.position).sub(centre).normalize();
+    const ahead = _w.set(0, 0, -1).applyQuaternion(this.camera.quaternion);
+    if (-toEyes.dot(ahead) < PALM_IN_VIEW) return -1;
+    return normal.dot(toEyes);
+  }
+
   /* --- panel -------------------------------------------------------------- */
 
   /**
@@ -898,11 +1206,21 @@ export class VRMode {
    * low enough to look over.
    */
   _placePanel() {
-    if (!this.active) return;
+    // Controllers announce themselves before the first head pose arrives, and
+    // a panel floated then would be placed from where the page's camera was.
+    // The first frame places it instead.
+    if (!this.active || !this._ready) return;
     const left = this.hands.find((hand) =>
       hand.source?.handedness === 'left' && hand.source.gamepad && !hand.source.hand);
-    if (left) this.panel.attach(this.rig, left);
-    else this.panel.float(this.rig, this.camera);
+    const onController = this.panel.holder && this.panel.holder !== this._summoner;
+    if (left) {
+      this._summoner = null;
+      this.panel.attach(this.rig, left);
+    } else if (!this.panel.mesh.parent || onController) {
+      // Put down in front, unless it is already floating somewhere.
+      this._summoner = null;
+      this.panel.float(this.rig, this.camera);
+    }
   }
 
   _onPanel(id) {
@@ -922,7 +1240,7 @@ export class VRMode {
       case 'exit': this.end(); break;
       default: break;
     }
-    this.panel.invalidate();
+    this.panel.flash(id);
   }
 
   /** The body some hand's ray is on, if any. */
@@ -935,7 +1253,11 @@ export class VRMode {
     const pointedId = this._pointedId();
     // The visitor is not in the catalogue, and is not about to introduce itself.
     const pointing = pointedId && (this.system.bodies.get(pointedId)?.name ?? 'Something');
+    // Hands, when there are no controllers: the panel's hints then talk about pinching.
+    const controllers = this.hands.some((hand) =>
+      hand.source && !hand.source.hand && hand.source.targetRayMode === 'tracked-pointer');
     return {
+      hands: !controllers && this.hands.some((hand) => hand.source?.hand),
       body: this.focus?.body ?? null,
       date: this.clock.formatDate(),
       time: this.clock.formatTime(),
@@ -950,6 +1272,16 @@ export class VRMode {
 
 /** Resolved once, on the first call to VRMode.preload(). */
 let modelFactories = null;
+
+/** Whether a URL answers, within a few seconds. */
+async function canReach(url) {
+  try {
+    const response = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
 function clampScale(scale) {
   return THREE.MathUtils.clamp(scale, MIN_SCALE, MAX_SCALE);
@@ -1010,6 +1342,71 @@ function buildFade() {
 }
 
 /**
+ * The comfort vignette: another sphere round the eyes, clear straight ahead
+ * and darkening towards the edges of the view. `strength` runs from 0, where
+ * the dark begins behind the viewer and nothing shows, to 1, where only the
+ * middle forty degrees or so stay clear.
+ */
+function buildVignette() {
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.25, 32, 16),
+    new THREE.ShaderMaterial({
+      uniforms: { strength: { value: 0 } },
+      vertexShader: /* glsl */ `
+        varying vec3 vDirection;
+        void main() {
+          vDirection = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform float strength;
+        varying vec3 vDirection;
+        void main() {
+          float angle = acos(clamp(-normalize(vDirection).z, -1.0, 1.0));
+          float inner = mix(1.9, 0.38, strength);
+          float alpha = smoothstep(inner, inner + 0.5, angle) * min(1.0, strength * 2.0) * 0.92;
+          gl_FragColor = vec4(0.0, 0.0, 0.0, alpha);
+        }`,
+      side: THREE.BackSide,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false,
+    })
+  );
+  mesh.name = 'vr-vignette';
+  mesh.renderOrder = 1e9 - 1;
+  mesh.frustumCulled = false;
+  mesh.visible = false;
+  return mesh;
+}
+
+/**
+ * A plain controller, for when the real model cannot be fetched: something
+ * to see where the hand is, and where the ray comes from.
+ */
+function buildControllerStandIn() {
+  const group = new THREE.Group();
+  group.name = 'vr-controller-stand-in';
+  group.visible = false;
+  const body = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.016, 0.07, 4, 12),
+    new THREE.MeshBasicMaterial({ color: 0x55585f, toneMapped: false })
+  );
+  // Along the grip, tipped forward the way a hand holds one.
+  body.rotation.x = Math.PI / 2 - 0.35;
+  body.position.set(0, -0.005, 0.02);
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.028, 0.004, 8, 32),
+    new THREE.MeshBasicMaterial({ color: ACCENT, toneMapped: false })
+  );
+  ring.position.set(0, 0.01, -0.035);
+  ring.rotation.x = -0.35;
+  group.add(body, ring);
+  return group;
+}
+
+/**
  * The pointer: a beam that fades out along its length, and a dot where it
  * touches something. Drawn over everything, since the only thing it can meet
  * is what it is pointing at.
@@ -1051,16 +1448,23 @@ function buildLaser() {
  * Controller and hand models are lit for a room, and the only light here is
  * the Sun - on the night side of a planet they would be black. A little
  * emission of their own keeps them visible anywhere.
+ *
+ * They are also drawn after the panel, which is drawn over everything else: a
+ * fingertip pressing a button has to be seen to touch it, not vanish behind
+ * it. Only the transparent pass is ordered that way, hence the flag; at full
+ * opacity it changes nothing else about how they look.
  */
 function brighten(object) {
   object.traverse((child) => {
     if (!child.isMesh) return;
     child.castShadow = false;
     child.receiveShadow = false;
+    child.renderOrder = 1e8 + 3;
     for (const material of [child.material].flat()) {
       if (!material?.isMeshStandardMaterial) continue;
       material.emissive.copy(material.color).multiplyScalar(0.45);
       material.emissiveMap = material.map;
+      material.transparent = true;
       material.needsUpdate = true;
     }
   });

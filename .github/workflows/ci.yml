@@ -39,3 +39,9 @@ jobs:
         # visible focus ring on every Tab stop, readable contrast on the
         # plates, and axe-core's WCAG 2.2 AA rules at one phone and one desktop.
         run: npm run responsive -- --strict
+
+      - name: Check VR with an emulated headset
+        # IWER stands in for a Quest 3, so the whole VR path runs in headless
+        # Chrome: controllers, hands, the panel by ray and by fingertip, the
+        # palm gesture, recentring, and leaving VR with the page intact.
+        run: npm run vr -- --strict
