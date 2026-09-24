@@ -104,7 +104,7 @@ see locally is byte-for-byte what gets deployed.
 
 ```sh
 npm run check   # syntax, vendored three.js, every texture, model, font and link
-npm run smoke   # loads the real page in headless Chrome, runs a tour and a time jump
+npm run smoke   # loads the real page in headless Chrome: a tour, a time jump, the resolution controller
 npm run responsive  # layout and accessibility at ten screen sizes, 320px to 1080p
 npm run vr      # an emulated Quest 3: controllers, hands, the panel, in and out of VR
 npm run vendor  # re-copy three.js out of node_modules after a version bump
@@ -114,7 +114,9 @@ Because nothing is bundled, `npm run check` stands in for the errors a bundler
 would normally catch: a stale vendored three.js, or a texture named in the
 catalogue that is not actually shipped. `npm run smoke` catches the rest, by
 loading the page, driving it, and failing on any uncaught error, failed
-request or loading screen that never lifts. It uses whatever Chrome is already
+request or loading screen that never lifts. It also feeds the adaptive
+resolution controller made-up frame timings, and checks it steps down for a
+slow GPU but not for a browser capping the frame rate or a texture upload. It uses whatever Chrome is already
 installed and skips itself if there is none. `npm run responsive` opens every
 panel at each of ten common screen sizes and fails if anything runs off screen,
 overlaps, wraps or clips, if a control is too small to tap, if Tab reaches a

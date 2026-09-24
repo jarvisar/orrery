@@ -17,6 +17,13 @@
  *    to the material that asked for it once it is uploaded, so no draw call
  *    ever finds itself uploading - and decoding - a texture mid-frame. That
  *    used to happen whenever a moon's maps arrived while it was on screen.
+ *
+ *    Images are decoded to ImageBitmaps, already flipped the way WebGL wants
+ *    them. Uploading an <img> makes the browser flip and convert every pixel
+ *    on the main thread inside the upload call. Measured in headless Chrome,
+ *    that was 55 to 170ms for one 2k map: a visible hitch for each of the
+ *    forty-odd maps that stream in after the loading screen. The same upload
+ *    from an ImageBitmap took 5 to 13ms.
  */
 
 import * as THREE from 'three';
@@ -27,6 +34,13 @@ const MODEL_DIR = 'public/models/';
 
 /** Map slots whose contents are colour and therefore need sRGB decoding. */
 const COLOR_SLOTS = new Set(['map', 'emissiveMap']);
+
+/**
+ * Decoded as WebGL would upload an <img> with three's defaults: flipped, alpha
+ * left straight, and no colour-profile conversion (three asks for none either,
+ * for colour and data maps alike).
+ */
+const BITMAP_OPTIONS = { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' };
 
 export class AssetLoader {
   /** @param {THREE.WebGLRenderer} renderer */
@@ -159,12 +173,7 @@ export class AssetLoader {
     const { name, slot, resolve } = job;
     try {
       const url = `${TEXTURE_DIR}${await resolveFile(name)}`;
-      const texture = await this._textureLoader.loadAsync(url);
-      // Left to itself the browser decodes an image lazily, synchronously,
-      // inside the texImage2D call that uploads it: tens of milliseconds for a
-      // 2k map on a phone, charged to whichever frame did the upload. decode()
-      // does it on another thread, ahead of time.
-      await texture.image.decode?.().catch(() => {});
+      const texture = await this._decode(url);
 
       texture.name = name;
       texture.colorSpace = COLOR_SLOTS.has(slot) ? THREE.SRGBColorSpace : THREE.NoColorSpace;
@@ -195,6 +204,26 @@ export class AssetLoader {
     }
   }
 
+  /** An image, fully decoded and ready to upload, as a texture. */
+  async _decode(url) {
+    if (BITMAPS_WORK) {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      const bitmap = await createImageBitmap(await response.blob(), BITMAP_OPTIONS);
+      const texture = new THREE.Texture(bitmap);
+      texture.flipY = false; // done while decoding
+      texture.needsUpdate = true;
+      return texture;
+    }
+    const texture = await this._textureLoader.loadAsync(url);
+    // Left to itself the browser decodes an image lazily, synchronously,
+    // inside the texImage2D call that uploads it: tens of milliseconds for a
+    // 2k map on a phone, charged to whichever frame did the upload. decode()
+    // does it on another thread, ahead of time.
+    await texture.image.decode?.().catch(() => {});
+    return texture;
+  }
+
   /**
    * Loads a .glb and caches the parsed scene. The promise is what gets cached,
    * so a model the scene and the loading screen both ask for is fetched once.
@@ -217,10 +246,11 @@ export class AssetLoader {
   /**
    * Pushes decoded textures to the GPU and hands them to whoever asked. Called
    * once per frame with a budget of one; uploading everything in one go is
-   * exactly the stall we are avoiding.
+   * exactly the stall we are avoiding. Returns how many it uploaded.
    */
   pumpUploads(budget = 1) {
-    for (let i = 0; i < budget && this._uploadQueue.length; i++) {
+    let uploaded = 0;
+    for (let i = 0; i < budget && this._uploadQueue.length; i++, uploaded++) {
       const { texture, resolve } = this._uploadQueue.shift();
       try {
         this.renderer.initTexture(texture);
@@ -230,6 +260,7 @@ export class AssetLoader {
       }
       resolve(texture);
     }
+    return uploaded;
   }
 
   dispose() {
@@ -257,6 +288,22 @@ async function resolveFile(name) {
   if (!entry) throw new Error(`"${name}" is not in the texture manifest`);
   return entry.file;
 }
+
+/**
+ * Whether createImageBitmap takes the options above. The same test three's own
+ * GLTFLoader makes: Safari before 17 and Firefox before 98 either lack it or
+ * ignore the flip, and get the <img> path instead.
+ */
+const BITMAPS_WORK = (() => {
+  if (typeof createImageBitmap === 'undefined') return false;
+  const agent = navigator.userAgent;
+  const safari = /^((?!chrome|android).)*safari/i.test(agent);
+  const safariVersion = Number(agent.match(/Version\/(\d+)/)?.[1] ?? -1);
+  const firefoxVersion = Number(agent.match(/Firefox\/(\d+)\./)?.[1] ?? -1);
+  if (safari && safariVersion < 17) return false;
+  if (agent.includes('Firefox') && firefoxVersion < 98) return false;
+  return true;
+})();
 
 function makeSolidTexture(r, g, b, a = 255) {
   const data = new Uint8Array([r, g, b, a]);

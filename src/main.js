@@ -149,7 +149,8 @@ async function boot() {
   post.setEnabled(settings.get('effects'));
   viewport.onResize((size, view) => {
     orbits.setResolution(size.x, size.y);
-    post.setSize(view.width, view.height, view.pixelRatio);
+    post.setSize(view.width, view.height, view.pixelRatio, view.multisample);
+    orbits.setSmoothing(post.enabled && !view.multisample);
     sky.setPixelRatio(view.pixelRatio);
   });
 
@@ -177,7 +178,7 @@ async function boot() {
 
   // For poking at the scene from the console: ?debug exposes the internals.
   if (new URLSearchParams(window.location.search).has('debug')) {
-    window.orrery = { THREE, scene, camera, renderer, system, orbits, belts, sky, post, director, clock, ui };
+    window.orrery = { THREE, scene, camera, renderer, viewport, assets, system, orbits, belts, sky, post, director, clock, ui };
   }
 
   document.getElementById('ui').hidden = false;
@@ -284,6 +285,8 @@ function buildInterface(ctx) {
       // Star sizes are in pixels, and a headset's pixels are about as far
       // apart, by angle, as a monitor's at 1x.
       sky.setPixelRatio(1);
+      // The headset's own frame is multisampled.
+      orbits.setSmoothing(false);
       const view = state.focusedId ? lookup(state.focusedId) : null;
       if (view) vr.focusOn(view, { instant: true });
       else vr.overview(OVERVIEW_AU, { instant: true });
@@ -294,6 +297,7 @@ function buildInterface(ctx) {
       setPressed(vrButton, false);
       const size = viewport.drawingBufferSize();
       orbits.setResolution(size.x, size.y);
+      orbits.setSmoothing(post.enabled && !viewport.multisample);
       sky.setPixelRatio(viewport.pixelRatio);
       // Back on the page, looking at whatever was last looked at in the headset.
       if (state.focusedId) director.focusOn(lookup(state.focusedId), { instant: true });
@@ -569,7 +573,11 @@ function buildInterface(ctx) {
   });
   settings.on('adaptiveResolution', (value) => viewport.setAdaptiveResolution(value));
   settings.on('exposure', (value) => { viewport.renderer.toneMappingExposure = value; });
-  settings.on('effects', (value) => post.setEnabled(value));
+  settings.on('effects', (value) => {
+    post.setEnabled(value);
+    // With effects off the frame goes straight to the canvas, which is always multisampled.
+    orbits.setSmoothing(value && !viewport.multisample);
+  });
   settings.on('reduceMotion', (value) => {
     document.body.classList.toggle('reduce-motion', value);
     director.setAutoRotate(state.touring && !value);
@@ -695,6 +703,8 @@ function startLoop(ctx) {
     lastFrame = now;
     const dt = Math.min(rawDelta, 0.1);
     renderer.info.reset();
+    // The interval that just ended, which covers the previous frame's work.
+    viewport.sample(rawDelta * 1000);
 
     clock.advance(dt);
     system.update(clock.days);
@@ -718,7 +728,8 @@ function startLoop(ctx) {
 
     orbits.update(immersive ? vr.viewerPosition : camera.position, clock.days);
     if (!immersive) ui.markers.update(viewport.width, viewport.height);
-    assets.pumpUploads();
+    // An upload's cost lands in the next interval, and is not the resolution's fault.
+    if (assets.pumpUploads()) viewport.discardNextSample();
     post.render(dt);
 
     // Interface readouts change slowly; four times a second is plenty and keeps
@@ -739,7 +750,8 @@ function startLoop(ctx) {
       const info = renderer.info.render;
       ui.stats.textContent =
         `${Math.round(frames / sinceStats)} fps · ${info.calls} draws · ` +
-        `${(info.triangles / 1000).toFixed(0)}k tris · ${(viewport.renderScale * 100).toFixed(0)}% scale (${viewport.pixelRatio.toFixed(2)}x)` +
+        `${(info.triangles / 1000).toFixed(0)}k tris · ${(viewport.renderScale * 100).toFixed(0)}% scale (${viewport.pixelRatio.toFixed(2)}x` +
+        `${viewport.multisample && post.enabled ? ', MSAA' : ''})` +
         (assets.pending ? ` · ${assets.pending} loading` : '');
       sinceStats = 0;
       frames = 0;
@@ -747,8 +759,6 @@ function startLoop(ctx) {
       sinceStats = 0;
       frames = 0;
     }
-
-    viewport.sample(rawDelta * 1000);
   });
 }
 

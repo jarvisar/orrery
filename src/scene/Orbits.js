@@ -20,7 +20,14 @@ import { BODY_BY_ID, SUN_ID } from '../data/bodies.js';
 import { heliocentricDistance, satelliteDistance } from './scaling.js';
 import { sampleOrbitPath, perifocalToWorld, eccentricAnomaly } from '../sim/kepler.js';
 
-const HELIOCENTRIC_SEGMENTS = 512;
+/**
+ * Samples per revolution. Enough that the chords never show: at 256, the
+ * largest orbit on screen - Pluto's, up to 2,500 pixels in radius - strays
+ * from the true curve by a fifth of a pixel between samples. Every
+ * sample is a quad the line shader expands, every frame, so twice that buys
+ * nothing but vertex work.
+ */
+const HELIOCENTRIC_SEGMENTS = 256;
 const SATELLITE_SEGMENTS = 192;
 
 const BASE_WIDTH = 1.1;
@@ -73,6 +80,8 @@ export class Orbits {
     this.lines = new Map();
     this._resolution = new THREE.Vector2(1, 1);
     this._focusedId = null;
+    /** Shared by every path's shader: 1 while the lines smooth their own edges. See setSmoothing(). */
+    this._smooth = { value: 0 };
   }
 
   build() {
@@ -93,11 +102,12 @@ export class Orbits {
     geometry.setPositions(positions);
     geometry.setColors(pathPhases(segments));
 
+    const width = heliocentric ? BASE_WIDTH : BASE_WIDTH * 0.75;
     const material = new LineMaterial({
       // Tinted towards the body's own colour, so a dense system reads as
       // separate orbits rather than a ball of white wire.
       color: new THREE.Color(view.body.color ?? '#ffffff').lerp(new THREE.Color(0xffffff), 0.2),
-      linewidth: heliocentric ? BASE_WIDTH : BASE_WIDTH * 0.75,
+      linewidth: width + this._smooth.value,
       worldUnits: false,
       transparent: true,
       opacity: heliocentric ? BASE_OPACITY : BASE_OPACITY * 0.75,
@@ -107,7 +117,7 @@ export class Orbits {
       resolution: this._resolution,
     });
     const head = { value: 0 };
-    applyTrail(material, head);
+    applyTrail(material, head, this._smooth);
 
     const line = new Line2(geometry, material);
     line.name = `${view.id}-orbit`;
@@ -125,6 +135,7 @@ export class Orbits {
       material,
       view,
       parentId: heliocentric ? null : view.body.parent,
+      width,
       radius: meanRadius(positions),
       targetOpacity: base,
       allowed: true,
@@ -211,9 +222,23 @@ export class Orbits {
       const isParent = id === parentId;
       const emphasis = isFocus ? 1 : isParent ? 0.5 : 0;
 
-      entry.material.linewidth = BASE_WIDTH + (FOCUS_WIDTH - BASE_WIDTH) * emphasis;
+      entry.width = BASE_WIDTH + (FOCUS_WIDTH - BASE_WIDTH) * emphasis;
+      entry.material.linewidth = entry.width + this._smooth.value;
       entry.targetOpacity = BASE_OPACITY + (FOCUS_OPACITY - BASE_OPACITY) * emphasis;
     }
+  }
+
+  /**
+   * Whether the lines antialias their own edges, for a frame drawn without
+   * multisampling. A path a pixel or so wide otherwise comes out as a
+   * staircase. Each line is drawn one pixel wider, and its shader fades the
+   * margin by how much of each pixel the true line covers.
+   */
+  setSmoothing(enabled) {
+    const margin = enabled ? 1 : 0;
+    if (this._smooth.value === margin) return;
+    this._smooth.value = margin;
+    for (const entry of this.lines.values()) entry.material.linewidth = entry.width + margin;
   }
 
   setVisible(visible) {
@@ -276,17 +301,27 @@ function orbitPhase(el, tDays) {
   return E - Math.floor(E);
 }
 
-/** Replaces LineMaterial's colour multiply with the trail's fade. */
-function applyTrail(material, head) {
+/**
+ * Replaces LineMaterial's colour multiply with the trail's fade, and adds the
+ * optional edge smoothing (see Orbits#setSmoothing).
+ */
+function applyTrail(material, head, smooth) {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uHead = head;
+    shader.uniforms.uSmooth = smooth;
     shader.fragmentShader = shader.fragmentShader
-      .replace('uniform float opacity;', 'uniform float opacity;\nuniform float uHead;')
+      .replace('uniform float opacity;', 'uniform float opacity;\nuniform float uHead;\nuniform float uSmooth;')
       .replace(
         '#include <color_fragment>',
         /* glsl */ `
         float behind = fract( uHead - vColor.r );
         alpha *= mix( ${TRAIL_FLOOR.toFixed(3)}, 1.0, pow( 1.0 - behind, ${TRAIL_FALLOFF.toFixed(2)} ) );
+        // vUv.x runs -1 to 1 across the drawn width, which is the line's own
+        // width plus the one-pixel margin. How much of this pixel the true
+        // line covers is then its half-width in pixels less the distance out.
+        float halfWidth = linewidth * 0.5;
+        float coverage = clamp( halfWidth * ( 1.0 - abs( vUv.x ) ), 0.0, 1.0 );
+        alpha *= mix( 1.0, coverage, uSmooth );
         `
       );
   };
