@@ -13,7 +13,9 @@
  * the "WebGL unavailable" screen, or a loading screen that never lifts.
  */
 import { app } from 'electron';
+import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { ORIGIN } from './protocol.js';
 
 const TIMEOUT_MS = 180_000;
@@ -80,8 +82,20 @@ export async function selfTest(win, report, startUrl, screenshot) {
     expect(Boolean(state.focus), 'nothing is focused');
     expect(state.desktop?.webUrl?.startsWith('https://'), 'window.orreryDesktop.webUrl is missing');
     expect(state.desktop?.fullscreen === 'function', 'window.orreryDesktop.requestFullscreen is missing');
+    expect(state.desktop?.updates === 'function', 'window.orreryDesktop.onUpdateAvailable is missing');
+    expect(state.updateToast, 'the page has no "Update available" toast (src/ui/UpdateToast.js)');
     expect(state.workers === 0, `${state.workers} service worker(s) registered; the desktop app should skip it`);
     log(`focused ${state.focus}, ${state.bodies} bodies listed, version ${state.desktop?.version}`);
+
+    // A packaged build has to carry the updater and its feed, or installed
+    // copies would never hear of the next release (updates.js).
+    if (app.isPackaged) {
+      const updater = await import('electron-updater').then(() => true, () => false);
+      expect(updater, 'electron-updater is not in the packaged app; it must be a dependency, not a devDependency');
+      const feed = existsSync(join(process.resourcesPath, 'app-update.yml'));
+      expect(feed, 'the packaged app has no app-update.yml; is "publish" set in builder.config.js?');
+      log(`updater: ${updater ? 'packaged' : 'MISSING'}, feed: ${feed ? 'app-update.yml' : 'MISSING'}`);
+    }
 
     // The other page, reached from the Konami code: loads, and links back.
     await contents.loadURL(`${ORIGIN}/tetris.html`);
@@ -131,7 +145,9 @@ const PROBE = `(async () => {
       version: window.orreryDesktop.version,
       webUrl: window.orreryDesktop.webUrl,
       fullscreen: typeof window.orreryDesktop.requestFullscreen,
+      updates: typeof window.orreryDesktop.onUpdateAvailable,
     },
+    updateToast: Boolean(document.querySelector('[aria-label="Update available"]')),
     workers: await navigator.serviceWorker.getRegistrations().then((list) => list.length, () => 0),
     gpu,
   };

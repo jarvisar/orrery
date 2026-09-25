@@ -29,15 +29,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # gl: how the launch test gets WebGL. The Windows and Linux runners
+          # have no GPU, so SwiftShader; the Mac runner's virtual GPU does
+          # Metal, and SwiftShader will not start there.
           - name: Windows
             os: windows-latest
             platform: win
+            gl: --software-gl
           - name: Linux
             os: ubuntu-latest
             platform: linux
+            gl: --software-gl
           - name: macOS
             os: macos-latest
             platform: mac
+            gl: ''
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -83,8 +89,8 @@ jobs:
 
       - name: Launch the packaged app
         # desktop/src/self-test.js: loads, waits for the scene, fails on any
-        # error or missing file. Runners have no GPU, so WebGL is SwiftShader.
-        run: npm run smoke --prefix desktop -- --packaged --software-gl --screenshot=desktop/dist/screenshot-${{ matrix.platform }}.png
+        # error or missing file, and checks the updater is packaged.
+        run: npm run smoke --prefix desktop -- --packaged ${{ matrix.gl }} --screenshot=desktop/dist/screenshot-${{ matrix.platform }}.png
 
       - name: Keep the installers
         uses: actions/upload-artifact@v4
@@ -98,6 +104,10 @@ jobs:
             desktop/dist/*.deb
             desktop/dist/*.tar.gz
             desktop/dist/*.dmg
+            # What auto-update reads: latest.yml (Windows installer),
+            # latest-linux.yml (AppImage), and block maps for small downloads.
+            desktop/dist/latest*.yml
+            desktop/dist/*.blockmap
 
       - name: Keep the screenshot
         # What the packaged app showed on this platform: the only look at the
@@ -141,6 +151,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls -la release
+          # Installed copies update from these; a release without them would
+          # strand every Windows install and AppImage on this version.
+          for feed in latest.yml latest-linux.yml; do
+            test -f "release/$feed" || { echo "::error::release/$feed is missing"; exit 1; }
+          done
           gh release create "$GITHUB_REF_NAME" release/* \
             --draft \
             --verify-tag \

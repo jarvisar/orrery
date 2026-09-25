@@ -66,6 +66,20 @@ Mac. Look at it after any change that could affect macOS.
   `--software-gl`. `--low-power-gpu` keeps a two-GPU laptop on the integrated
   GPU.
 
+## Auto-update
+
+`desktop/src/updates.js`. The Windows installer and AppImage update
+themselves on quit (electron-updater). Portable, Mac, .deb and .tar.gz show
+the page's "Update available" toast (`src/ui/UpdateToast.js`). To test
+without a release, build the current version, then a newer one with
+`npm run build -- --version=x.y.z`. Serve the newer `latest.yml` + setup
+`.exe` + `.blockmap` locally, and run the older one with
+`ORRERY_UPDATE_FEED=http://127.0.0.1:<port>/`. Add `PORTABLE_EXECUTABLE_FILE=x`
+for the toast mode. The log lines start `[orrery] update:`. A test install
+leaves `%APPDATA%\Orrery` and `%LOCALAPPDATA%\orrery-desktop-updater` behind;
+uninstall with `"Uninstall Orrery.exe" /S` and remove both afterwards.
+`desktop/README.md`, "Updates", has the full recipe.
+
 ## When a build fails
 
 1. `npm run desktop:check`: most failures are the site changing under the app
@@ -73,7 +87,9 @@ Mac. Look at it after any change that could affect macOS.
 2. Self-test failures print the reason: `404 <path>` means a file is missing
    from `scripts/lib/served.js` or the staged copy, `console.error` means the
    page threw or the CSP blocked something, and `timed out` means a hang
-   (in CI, usually software WebGL being slow).
+   (in CI, usually software WebGL being slow). `electron-updater is not in the
+   packaged app` means it was moved to devDependencies; `no app-update.yml`
+   means `publish` was removed from `desktop/builder.config.js`.
 3. electron-builder errors: check `desktop/builder.config.js` against
    https://www.electron.build. Artifact names come from `artifactName` there;
    the workflow uploads `*.exe *.AppImage *.deb *.tar.gz *.dmg` from

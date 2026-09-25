@@ -12,7 +12,8 @@
  * The version is the root package.json's: the site and the app are released
  * together. Output lands in desktop/dist/.
  */
-import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Arch, Platform, build } from 'electron-builder';
@@ -30,7 +31,10 @@ const HOST = { win32: 'win', linux: 'linux', darwin: 'mac' }[process.platform];
 let platforms = Object.keys(PLATFORMS).filter((name) => args.includes(`--${name}`));
 if (!platforms.length) platforms = [HOST];
 
-const { version } = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
+// --version=x.y.z builds as another version, for testing an update against a
+// local feed; releases always take the root package.json's.
+const version = args.find((arg) => arg.startsWith('--version='))?.slice(10) ??
+  JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8')).version;
 
 // CI passes signing secrets that are not set as empty strings, and
 // electron-builder reads an empty CSC_LINK as a path (the current directory).
@@ -53,13 +57,48 @@ for (const name of platforms) {
   for (const [key, value] of perPlatform) targets.set(key, value);
 }
 
+const options = config({ version, macSigning });
 const artifacts = await build({
   projectDir: DESKTOP,
   targets,
-  config: config({ version, macSigning }),
+  config: options,
   publish: 'never',
 });
 
+// electron-builder only writes app-update.yml (where the updater looks for
+// releases) for installer targets. Write it into unpacked builds too, so they
+// behave like installed copies and pass the self-test's check for it.
+if (dirOnly) {
+  const [publish] = options.publish;
+  const feed = [
+    `owner: ${publish.owner}`,
+    `repo: ${publish.repo}`,
+    `provider: ${publish.provider}`,
+    `releaseType: ${publish.releaseType}`,
+    `updaterCacheDirName: ${JSON.parse(await readFile(join(DESKTOP, 'package.json'), 'utf8')).name}-updater`,
+    '',
+  ].join('\n');
+  for (const resources of await unpackedResourceDirs()) {
+    await writeFile(join(resources, 'app-update.yml'), feed);
+  }
+}
+
 for (const file of artifacts.filter((path) => !path.endsWith('.blockmap'))) {
   console.log(`build: ${file}`);
+}
+
+/** The resources directory of every unpacked app in dist/. */
+async function unpackedResourceDirs() {
+  const dist = join(DESKTOP, 'dist');
+  const found = [];
+  for (const entry of await readdir(dist, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    for (const candidate of [
+      join(dist, entry.name, 'resources'),
+      join(dist, entry.name, 'Orrery.app', 'Contents', 'Resources'),
+    ]) {
+      if (existsSync(join(candidate, 'app.asar'))) found.push(candidate);
+    }
+  }
+  return found;
 }

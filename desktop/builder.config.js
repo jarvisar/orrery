@@ -39,6 +39,12 @@ export default function config({ version, macSigning }) {
 
     artifactName: '${productName}-${version}-${os}-${arch}.${ext}',
 
+    // Where auto-updates come from (src/updates.js). electron-builder bakes
+    // this into the app as app-update.yml and writes the latest*.yml files
+    // the updater reads; the release workflow uploads those alongside the
+    // installers. Builds never publish by themselves (publish: 'never').
+    publish: [{ provider: 'github', owner: 'jarvisar', repo: 'orrery', releaseType: 'release' }],
+
     win: {
       icon: 'build/icon.png',
       target: [

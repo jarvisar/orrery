@@ -16,8 +16,9 @@ the desktop app to match before calling the work done:
 2. Run `npm run desktop:smoke` (after `npm run desktop:setup` once) and make
    sure it passes.
 3. If the change shares the page's own URL, waits on a user gesture (full
-   screen, pointer lock), needs a new browser permission, or touches the
-   service worker, update the matching `window.orreryDesktop` hook or
+   screen, pointer lock), needs a new browser permission, touches the service
+   worker, or changes the toasts (`src/ui/UpdateToast.js` is how some desktop
+   copies hear of updates), update the matching `window.orreryDesktop` hook or
    `desktop/src/` code. The desktop-sync skill has the details.
 
 The desktop app serves the site's own files. Never copy site code into
@@ -30,6 +31,9 @@ The desktop app serves the site's own files. Never copy site code into
 npm run check && npm run smoke     # the site
 npm run desktop:check && npm run desktop:smoke   # the desktop app
 ```
+
+A published GitHub release is what installed desktop copies auto-update to,
+so never publish one that is broken; ship a fix as the next patch release.
 
 ## Authorship
 

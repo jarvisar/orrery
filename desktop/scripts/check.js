@@ -132,6 +132,16 @@ for (const file of served.filter((path) => rel(path).startsWith('src/') && path.
     else fail(`${rel(file)} ${hook.why}`);
   }
 }
+// And one the page must have somewhere: the toast that announces an update to
+// copies that cannot install it themselves (desktop/src/updates.js).
+const pageSources = await Promise.all(
+  served.filter((path) => rel(path).startsWith('src/') && path.endsWith('.js')).map((path) => readFile(path, 'utf8'))
+);
+if (!pageSources.some((text) => text.includes('orreryDesktop?.onUpdateAvailable'))) {
+  fail('nothing in src/ listens for window.orreryDesktop.onUpdateAvailable, so portable and Mac users never hear of updates');
+} else {
+  hooked++;
+}
 console.log(`hooks     ${hooked} places in src/ that consult window.orreryDesktop`);
 
 // ---------------------------------------------------------------- 6. syntax

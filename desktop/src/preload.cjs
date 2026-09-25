@@ -27,4 +27,18 @@ contextBridge.exposeInMainWorld('orreryDesktop', Object.freeze({
    * Resolves to whether it worked.
    */
   requestFullscreen: () => ipcRenderer.invoke('orrery:request-fullscreen'),
+  /**
+   * Calls `callback({ version })` when a newer release is out that this copy
+   * cannot install itself (src/ui/UpdateToast.js). Also calls it straight away
+   * if one is already known, e.g. after a reload. Returns an unsubscribe function.
+   */
+  onUpdateAvailable(callback) {
+    const listener = (_event, info) => callback({ version: info.version });
+    ipcRenderer.on('orrery:update-available', listener);
+    ipcRenderer.invoke('orrery:update-available')
+      .then((info) => info && callback({ version: info.version }), () => {});
+    return () => ipcRenderer.off('orrery:update-available', listener);
+  },
+  /** Opens that release's page in the system browser. */
+  openReleasePage: () => ipcRenderer.invoke('orrery:open-release-page'),
 }));

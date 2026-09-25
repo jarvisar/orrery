@@ -36,6 +36,7 @@ npm run desktop -- --debug   # the same with ?debug and the dev tools open
   offline copies would only duplicate what is already there.
 - **Steam Deck Game Mode.** It starts full screen under gamescope, and Steam
   Input's controller works like any other.
+- **It keeps itself up to date.** See [Updates](#updates).
 
 Everything else is the web app unchanged. Browser-only features stay hidden:
 the install prompt never appears, and WebXR finds no headset. For VR, use the
@@ -53,6 +54,7 @@ desktop/
   src/menu.js           the macOS menu; keyboard shortcuts on Windows and Linux
   src/window-state.js   remembers the window between runs
   src/self-test.js      --self-test: start, check, exit 0 or 1
+  src/updates.js        auto-update from GitHub Releases
   src/identity.js       the app id and names
   builder.config.js     what each platform's installer is (electron-builder)
   build/                icons, drawn from public/icon/orrery.svg by scripts/icons.js
@@ -67,7 +69,7 @@ localStorage with them. `src/protocol.js` registers `app://orrery/` as a
 privileged, secure, standard scheme, so the page behaves exactly as it does on
 `https://`: fetch, modules, storage, clipboard and pointer lock all work.
 
-**Where the web app knows about this.** There are three short hooks, each
+**Where the web app knows about this.** There are four short hooks, each
 commented, and each checked by `npm run desktop:check`. Search `src/` for
 `orreryDesktop` to find them:
 
@@ -76,6 +78,7 @@ commented, and each checked by `npm run desktop:check`. Search `src/` for
 | `src/main.js`, `registerServiceWorker` | skips the service worker |
 | `src/main.js`, `copyLink` | shares `https://jarvisar.github.io/orrery/?…` rather than `app://` |
 | `src/ui/fullscreen.js`, `toggleFullscreen` | enters full screen without waiting for a key press |
+| `src/ui/UpdateToast.js` | the "Update available" toast, for copies that cannot update themselves |
 
 In a browser `window.orreryDesktop` is undefined, and each hook does nothing.
 
@@ -98,7 +101,7 @@ Most changes to the site need nothing here. These are the exceptions, and
 | changes `public/icon/orrery.svg` | `npm run icons` in `desktop/` | `desktop:check` |
 | changes version | nothing: `npm version` syncs `desktop/package.json` | `desktop:check` |
 | needs a new permission (camera, geolocation…) | the name in `PERMISSIONS`, `src/main.js` | self-test, if it fails at startup |
-| starts sharing its own URL, or waits on a user gesture | a hook like the three above | `desktop:check`, partly |
+| starts sharing its own URL, or waits on a user gesture | a hook like the ones above | `desktop:check`, partly |
 
 Then run it:
 
@@ -141,6 +144,48 @@ gh run list --workflow desktop.yml --branch main --limit 1
 gh run download <run id> --name orrery-linux    # or orrery-win, orrery-mac, screenshot-mac
 ```
 
+### Updates
+
+Installed copies check GitHub Releases 15 seconds after starting and every six
+hours after that. What happens next depends on how the app was installed:
+
+| Installed as | When there is a newer release |
+| --- | --- |
+| Windows installer (`…-setup.exe`) | downloads it in the background and installs it when the app quits |
+| Linux AppImage | the same: the AppImage replaces itself when the app quits |
+| Windows portable, macOS, Linux `.deb` / `.tar.gz` | an "Update available" toast in the corner; **Download** opens the release page |
+
+The portable build, unsigned Mac builds and system packages cannot replace
+themselves safely, so they only tell you. Only **published** releases count;
+a draft is invisible to every copy. Checks never run in development, in a
+self-test, or with `--no-updates`. A failed check (offline, GitHub down, a
+broken feed) is one line in the log and nothing else.
+
+Updates depend on files the release workflow uploads next to the installers:
+`latest.yml` (Windows), `latest-linux.yml` (AppImage) and the `.blockmap` files
+that let an update download only what changed. The release job refuses to
+draft a release without the two `.yml` files. The packaged app's self-test
+fails if electron-updater or its `app-update.yml` is missing from the build.
+
+**Testing an update without releasing one.** Build the current version, then
+a newer one with `--version`. Serve the newer one's `latest.yml`, setup `.exe`
+and `.blockmap` from any local web server, and point the older copy at it with
+`ORRERY_UPDATE_FEED`:
+
+```sh
+cd desktop
+npm run build                              # e.g. 2.1.1: install this one
+mv dist dist-old
+npm run build -- --version=2.1.2           # the "new release"
+npx http-server dist -p 8765               # or any static server
+ORRERY_UPDATE_FEED=http://127.0.0.1:8765/ "<install dir>/Orrery.exe"
+# log: "2.1.2 is available; downloading" … "downloaded; it installs when the app quits"
+# quit it, and the install is now 2.1.2
+```
+
+Setting `PORTABLE_EXECUTABLE_FILE=x` as well puts an unpacked build in the
+"tell, don't install" mode, which shows the toast.
+
 ### Releasing
 
 ```sh
@@ -149,13 +194,16 @@ git push --follow-tags       # the tag builds everything and drafts a GitHub rel
 ```
 
 The release is a **draft**: check the installers on the Releases page, then
-publish it. The workflow refuses a tag that does not match `package.json`.
+publish it. Publishing is also what makes installed copies update. The
+workflow refuses a tag that does not match `package.json`.
 
 ## Installing
 
 **Windows.** Run the setup `.exe`. It installs for your user only, so it needs
-no administrator rights. Or keep the portable `.exe` anywhere. Both builds are
-unsigned, so SmartScreen warns on first run: choose *More info → Run anyway*.
+no administrator rights, and keeps itself up to date. Or keep the portable
+`.exe` anywhere; it tells you about updates rather than installing them. Both
+builds are unsigned, so SmartScreen warns on first run: choose *More info →
+Run anyway*.
 
 **Steam Deck.** In Desktop Mode:
 
@@ -214,6 +262,7 @@ to the installed app:
 | `--low-power-gpu` | stay on the integrated GPU |
 | `--software-gl` | render WebGL on the CPU (chosen automatically when the GPU cannot) |
 | `--web-root=<dir>` | serve another copy of the site, e.g. `desktop/web` after `npm run stage` |
+| `--no-updates` | never check for a newer release |
 | `--self-test` | start, check everything came up, exit 0 or 1 |
 | `--screenshot=<png>` | with `--self-test`, save what the window showed |
 

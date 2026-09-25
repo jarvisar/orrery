@@ -46,6 +46,7 @@ import { HelpOverlay } from './ui/HelpOverlay.js';
 import { Markers } from './ui/Markers.js';
 import { TourGuide } from './ui/TourGuide.js';
 import { InstallToast } from './ui/InstallToast.js';
+import { UpdateToast } from './ui/UpdateToast.js';
 import { GamepadHud } from './ui/GamepadHud.js';
 import { FocusNavigator } from './ui/FocusNavigator.js';
 import { padName } from './ui/padGlyphs.js';
@@ -263,6 +264,7 @@ function buildInterface(ctx) {
   const helpOverlay = new HelpOverlay();
   const markers = new Markers(system, camera, (id) => selectBody(id));
   const installToast = new InstallToast();
+  const updateToast = new UpdateToast(); // desktop app only; see desktop/src/updates.js
   const gamepad = new GamepadInput();
   const padHud = new GamepadHud();
   markers.setEnabled(settings.get('showLabels'));
@@ -412,8 +414,8 @@ function buildInterface(ctx) {
 
   root.append(topbar, infoPanel.root, tours.caption, timeBar.root);
   document.body.append(
-    markers.root, flightHud.root, tooltip, stats, hint, installToast.root, padHud.root,
-    settingsPanel.root, helpOverlay.root
+    markers.root, flightHud.root, tooltip, stats, hint, installToast.root, updateToast.root,
+    padHud.root, settingsPanel.root, helpOverlay.root
   );
 
   /* --- focus ------------------------------------------------------------- */

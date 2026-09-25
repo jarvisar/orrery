@@ -46,17 +46,25 @@ Claude or Claude Code.
    ```sh
    gh run list --workflow desktop.yml --limit 1
    gh run watch <run id>
-   gh release view v<x.y.z>       # a draft with 7 files: 2 .exe, .AppImage, .deb, .tar.gz, 2 .dmg
+   gh release view v<x.y.z>       # a draft: 2 .exe, .AppImage, .deb, .tar.gz, 2 .dmg, latest*.yml, *.blockmap
    ```
 
    Download `screenshot-mac` from the run and look at it before publishing.
-   It is the only check on the Mac build.
+   It is the only check on the Mac build. The draft must also hold
+   `latest.yml`, `latest-linux.yml` and the `.blockmap` files; the job refuses
+   to draft without the two `.yml` files.
 
 5. Publishing is the user's call. When they say so:
 
    ```sh
    gh release edit v<x.y.z> --draft=false
    ```
+
+   Publishing is what auto-update sees. Within six hours (or at the next
+   start), Windows-installer and AppImage copies download it and install it on
+   quit, and portable, Mac, .deb and .tar.gz copies show an "Update available"
+   toast. Never publish a release that is broken: installed copies would
+   update to it. Fix it with a new patch release instead.
 
 ## If something goes wrong
 

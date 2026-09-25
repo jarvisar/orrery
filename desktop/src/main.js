@@ -16,6 +16,7 @@
  *   --low-power-gpu     stay on the integrated GPU of a laptop that has two
  *   --self-test         load, check that everything came up, and exit 0 or 1 (see self-test.js)
  *   --screenshot=<png>  with --self-test, save what the window showed
+ *   --no-updates        do not check GitHub Releases for a newer version (see updates.js)
  */
 import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
@@ -26,6 +27,7 @@ import { APP_ID, BACKGROUND, PRODUCT_NAME, SOURCE_URL } from './identity.js';
 import { handleShortcuts, installMenu } from './menu.js';
 import { ORIGIN, registerScheme, serve } from './protocol.js';
 import { selfTest } from './self-test.js';
+import { startUpdates, updateMode } from './updates.js';
 import { loadWindowState, trackWindowState } from './window-state.js';
 
 // Before anything else: schemes can only be registered before the app is ready.
@@ -141,6 +143,8 @@ async function start() {
       true
     );
   });
+
+  startUpdates(updateMode({ selfTest: SELF_TEST, disabled: flag('no-updates') }));
 
   installMenu({ webUrl: WEB_URL, sourceUrl: SOURCE_URL });
   app.setAboutPanelOptions({

@@ -65,6 +65,10 @@ clear it. Launch through them, or unset it.
   listed is refused.
 - **The service worker registration moved**: keep the `window.orreryDesktop`
   early return with it.
+- **The toast area or the install toast changed**: `src/ui/UpdateToast.js`
+  shares the `.toast` plate and corner, and is how portable and Mac users
+  hear of updates. Keep it mounted (`npm run desktop:check` fails without a
+  listener for `orreryDesktop?.onUpdateAvailable`).
 - **A new page besides index.html and tetris.html**: it is served
   automatically if it is under `SERVED`. Links between pages stay inside the
   app. Links to other sites open in the system browser.
