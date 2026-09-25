@@ -186,6 +186,36 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
   outline-offset: 2px;
 }
 
+/* A controller moves focus from across the room, so its ring is heavier and
+   glows. Matched on :focus, since focus moved by script is not always
+   :focus-visible; any other input takes the class away again. */
+.is-gamepad :where(button, a, input, [tabindex]):focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 6px rgba(243, 189, 110, 0.16);
+}
+/* Rows that fill a list, and regions that fill a panel, keep the ring inside. */
+.is-gamepad :where(.picker__option, .tours__item, .moment, .info__header, .help__body):focus {
+  outline-offset: -2px;
+  box-shadow: none;
+  background: var(--hover);
+  color: var(--text);
+}
+/* Nothing is being pointed at. */
+.is-gamepad #viewport { cursor: none !important; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* The small label used for every section: set in the display face, spaced
    like the engraving on a dial. */
 .section-title,
@@ -976,6 +1006,9 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 }
 /* Without motion there is no fade, so the hint just stays. */
 body.reduce-motion .hud.is-active .hud__hint { animation: none; opacity: 1; }
+/* The mouse's instructions, while a controller is flying; its legend says the rest. */
+.is-gamepad .hud__hint,
+.is-gamepad .hud__prompt { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .hud.is-active .hud__hint { animation: none; opacity: 1; }
 }
@@ -1098,7 +1131,9 @@ body.reduce-motion .hud.is-active .hud__hint { animation: none; opacity: 1; }
 .field__label { font-size: 13.5px; }
 .field__hint { margin: 3px 0 0; font-size: 12px; color: var(--text-faint); line-height: 1.45; }
 .field__value { font-size: 12.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
-.field:last-child { margin-top: 14px; padding-top: 16px; border-top: 1px solid var(--line); }
+.drawer__body > .field:last-child { margin-top: 14px; padding-top: 16px; border-top: 1px solid var(--line); }
+.drawer__section[hidden] { display: none; }
+.drawer__section > .section-title:first-child { margin-top: 24px; }
 .install { margin-top: 6px; }
 .install[hidden] { display: none; }
 .install__button { gap: 8px; }
@@ -1254,6 +1289,28 @@ kbd {
   text-align: center;
   color: var(--text);
 }
+
+/* Controller buttons: face buttons and sticks are round, as they are in the
+   hand; the D-pad is drawn rather than spelled. See src/ui/padGlyphs.js. */
+.pad { display: inline-flex; align-items: center; justify-content: center; gap: 0; }
+.pad--face,
+.pad--stick {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0;
+  border-width: 1px;
+  border-radius: 50%;
+  line-height: 18px;
+}
+/* A stick is a button with a ring round it. */
+.pad--stick { margin: 0 3px; outline: 1px solid var(--line-strong); outline-offset: 2px; }
+.pad svg { width: 13px; height: 13px; stroke-width: 1.6; }
+.pad--dpad { min-width: 0; padding: 0; border: none; }
+.pad--dpad svg { width: 21px; height: 21px; }
+.pad--dpad path { fill: currentColor; stroke: none; opacity: 0.3; }
+.pad--dpad path.pad__lit { opacity: 1; }
+.pad-group { display: inline-flex; align-items: center; gap: 4px; }
 
 .help__footer {
   display: flex;
@@ -1529,6 +1586,79 @@ kbd {
 .toast__install svg { width: 15px; height: 15px; }
 .toast__close svg { width: 16px; height: 16px; }
 
+/* --- controller legend --------------------------------------------------- */
+
+/* Which buttons do what, down the right-hand side under the top bar: words on
+   the sky like the first-visit hint, each line ending in its buttons. */
+.padbar {
+  position: fixed;
+  top: calc(max(var(--edge), env(safe-area-inset-top)) + 58px);
+  right: max(var(--edge), env(safe-area-inset-right));
+  z-index: 11;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  max-width: calc(100vw - 2 * var(--edge));
+  font-size: 12.5px;
+  color: var(--text-dim);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.5s var(--ease), transform 0.5s var(--ease);
+}
+.padbar[hidden] { display: none; }
+.padbar.is-visible { opacity: 1; transform: none; }
+.padbar__title {
+  margin-bottom: 2px;
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.padbar__title.is-news { color: var(--accent); letter-spacing: 0.08em; }
+.padbar__list { display: contents; }
+.padbar__row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-height: 24px;
+  white-space: nowrap;
+}
+/* Over the scene there is no plate behind them; the glyphs bring their own. */
+.padbar .pad { background: rgba(8, 9, 13, 0.55); text-shadow: none; }
+.padbar .pad--dpad { background: none; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.9)); }
+/* In flight the right-hand side is the destination's, so the legend takes
+   the place of the mouse's hint, across the top under the body picker. */
+.padbar.is-flight {
+  top: calc(max(var(--edge), env(safe-area-inset-top)) + 64px);
+  right: auto;
+  left: 50%;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  column-gap: 18px;
+  width: max-content;
+  /* Narrow enough to break four and three rather than six and one. */
+  max-width: min(480px, calc(100vw - 2 * var(--edge)));
+  transform: translate(-50%, -4px);
+}
+.padbar.is-flight.is-visible { transform: translateX(-50%); }
+.padbar.is-flight .padbar__title { flex-basis: 100%; text-align: center; }
+/* Buttons first when they read across in a row. */
+.padbar.is-flight .padbar__row { flex-direction: row-reverse; gap: 7px; }
+/* A phone on its side has the destination panel just below: one line of the
+   essentials, and the rest are in the controls list. */
+@media (max-height: 500px) {
+  .padbar.is-flight { max-width: calc(100vw - 2 * var(--edge)); flex-wrap: nowrap; }
+  .padbar.is-flight .padbar__title,
+  .padbar.is-flight .padbar__row.is-extra { display: none; }
+}
+
 /* --- fallbacks ----------------------------------------------------------- */
 
 .fallback {
@@ -1603,6 +1733,8 @@ kbd {
   .picker__label { font-size: 16px; }
   .marker__label { font-size: 10.5px; }
   .hud__hint { white-space: normal; }
+  .padbar { top: calc(max(var(--edge), env(safe-area-inset-top)) + 52px); }
+  .padbar.is-flight { top: calc(max(var(--edge), env(safe-area-inset-top)) + 52px); }
   /* Clear of the reticle; the info panel that lives down here is hidden in flight. */
   .hud__dest { top: auto; bottom: 76px; transform: none; }
 }
@@ -1625,6 +1757,8 @@ kbd {
   .hud__boost { display: inline-flex; height: 56px; }
   .hud__throttle-track { height: 150px; }
   .hud__dest { width: 184px; }
+  /* Beats the narrower phone layout's 40px, which came first. */
+  .picker__button { min-height: 44px; }
 }
 /* A phone on its side: the full-height lever would run up into the top bar. */
 @media (pointer: coarse) and (max-height: 500px) {

@@ -27,6 +27,12 @@ const TRANSITION_SECONDS = 1.4;
 /** Elevation of the overview shot above the ecliptic, radians. */
 const OVERVIEW_ELEVATION = 0.62;
 
+/** Full stick deflection: radians of orbit a second, and screen heights of pan a second. */
+const STICK_ORBIT_RATE = 1.7;
+const STICK_PAN_RATE = 0.9;
+/** Full trigger: zooms by e to this power a second, about sixfold. */
+const STICK_ZOOM_RATE = 1.8;
+
 const _delta = new THREE.Vector3();
 const _desired = new THREE.Vector3();
 const _offset = new THREE.Vector3();
@@ -164,6 +170,32 @@ export class CameraDirector {
       offset: _offset.clone(),
       toTarget: target,
     };
+  }
+
+  /**
+   * Orbits, pans and zooms from analog input - a controller's sticks and
+   * triggers - as rates, so how it feels does not depend on the frame rate.
+   * Each value runs -1 to 1; the sticks move the camera the way dragging does,
+   * and positive zoom goes in. Goes through the same accumulators as the mouse,
+   * so damping and the zoom limits apply alike.
+   *
+   * The underscored methods are three's internals, pinned by the vendored
+   * copy (see scripts/check.js). The public rotateLeft() and friends each run
+   * a whole update() as well, which on top of the one in update() below would
+   * step the damping twice a frame.
+   */
+  drive({ orbitX = 0, orbitY = 0, panX = 0, panY = 0, zoom = 0 }, dt) {
+    const { controls } = this;
+    if (!controls.enabled) return;
+    if (orbitX || orbitY) {
+      controls._rotateLeft(orbitX * STICK_ORBIT_RATE * dt);
+      controls._rotateUp(orbitY * STICK_ORBIT_RATE * dt);
+    }
+    if (panX || panY) {
+      const pixels = controls.domElement.clientHeight * STICK_PAN_RATE * dt;
+      controls._pan(-panX * pixels, -panY * pixels);
+    }
+    if (zoom) controls._dollyIn(Math.exp(-zoom * STICK_ZOOM_RATE * dt));
   }
 
   /** A slow drift round whatever is in view, for tours and idle moments. */

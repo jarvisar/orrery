@@ -17,7 +17,8 @@
  * Steering is a virtual stick. With a mouse the pointer is captured and moving
  * it pushes the stick, which drifts back to centre on its own, so it feels like
  * mouse-look with a little weight. With a finger (or a mouse where capture is
- * unavailable) the stick is wherever the drag started.
+ * unavailable) the stick is wherever the drag started. A game controller's
+ * left stick is a stick already, and adds straight in.
  *
  * Listeners are attached only while enabled.
  */
@@ -87,12 +88,15 @@ export class FlightControls {
     this.autopilot = false;
     /** Called with the destination when the autopilot gets there. */
     this.onArrive = null;
+    /** True on a frame the camera was pushed back out of a surface. */
+    this.grazing = false;
 
     this._keys = new Set();
     this._stick = new THREE.Vector2();
     this._steer = new THREE.Vector2();
     this._drag = null;
     this._touchBoost = false;
+    this._pad = { x: 0, y: 0, roll: 0, throttle: 0, boost: false };
     this._anchor = null;
     this._anchorLast = new THREE.Vector3();
 
@@ -166,9 +170,24 @@ export class FlightControls {
   _releaseAll() {
     this._keys.clear();
     this._touchBoost = false;
+    this.setPadInput(null);
     this._drag = null;
     this._stick.set(0, 0);
     this._steer.set(0, 0);
+  }
+
+  /**
+   * This frame's input from a game controller, or null for none. Steering and
+   * roll run -1 to 1 (right and down positive, as the sticks report them);
+   * throttle -1 to 1 moves the lever down or up at the rate W and S do.
+   */
+  setPadInput(input) {
+    const pad = this._pad;
+    pad.x = input?.x ?? 0;
+    pad.y = input?.y ?? 0;
+    pad.roll = input?.roll ?? 0;
+    pad.throttle = input?.throttle ?? 0;
+    pad.boost = Boolean(input?.boost);
   }
 
   _handleKeyDown(event) {
@@ -232,7 +251,8 @@ export class FlightControls {
   }
 
   get boosting() {
-    return this._touchBoost || this._keys.has('ShiftLeft') || this._keys.has('ShiftRight');
+    return this._touchBoost || this._pad.boost ||
+      this._keys.has('ShiftLeft') || this._keys.has('ShiftRight');
   }
 
   update(dt) {
@@ -242,6 +262,7 @@ export class FlightControls {
     // --- throttle ---------------------------------------------------------
     if (this._keys.has('KeyW')) this.adjustThrottle(this.throttleRate * step);
     if (this._keys.has('KeyS')) this.adjustThrottle(-this.throttleRate * step);
+    if (this._pad.throttle) this.adjustThrottle(this.throttleRate * this._pad.throttle * step);
     if (this._keys.has('Space')) {
       this.autopilot = false;
       this.throttle *= Math.exp(-6 * step);
@@ -249,8 +270,8 @@ export class FlightControls {
 
     // --- steering ---------------------------------------------------------
     if (this.captured) this._stick.multiplyScalar(Math.exp(-RECENTER * step));
-    let x = this._stick.x;
-    let y = this._stick.y;
+    let x = this._stick.x + this._pad.x;
+    let y = this._stick.y + this._pad.y;
     if (this._keys.has('ArrowLeft')) x -= 1;
     if (this._keys.has('ArrowRight')) x += 1;
     if (this._keys.has('ArrowUp')) y -= 1;
@@ -270,6 +291,7 @@ export class FlightControls {
     let roll = 0;
     if (this._keys.has('KeyA') || this._keys.has('KeyQ')) roll += 1;
     if (this._keys.has('KeyD') || this._keys.has('KeyE')) roll -= 1;
+    roll = THREE.MathUtils.clamp(roll - this._pad.roll, -1, 1);
 
     _euler.set(
       -this._steer.y * this.turnRate * step,
@@ -361,12 +383,14 @@ export class FlightControls {
 
   /** Planets are solid: anything closer than the clearance is pushed back out. */
   _keepOutside() {
+    this.grazing = false;
     const view = this.nearest;
     if (!view) return;
     const minimum = view.radius * (1 + CLEARANCE);
     _toCamera.copy(this.camera.position).sub(view.group.position);
     const distance = _toCamera.length();
     if (distance >= minimum || distance === 0) return;
+    this.grazing = true;
     this.camera.position.copy(view.group.position).addScaledVector(_toCamera, minimum / distance);
   }
 

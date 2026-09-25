@@ -45,3 +45,10 @@ jobs:
         # Chrome: controllers, hands, the panel by ray and by fingertip, the
         # palm gesture, recentring, and leaving VR with the page intact.
         run: npm run vr -- --strict
+
+      - name: Check game controllers
+        # Stands in for the Gamepad API with a pad this script presses: every
+        # binding, moving round the menus and Settings with the D-pad, full
+        # screen with and without a key press to go on, another make's labels,
+        # and the legend clear of the interface at three screen sizes.
+        run: npm run gamepad -- --strict

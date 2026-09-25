@@ -34,6 +34,12 @@ export const DEFAULTS = {
 
   // Interface
   reduceMotion: false,
+
+  // Game controller. Pushing up looks up, as in most games; inverted is the
+  // flight-simulator way round.
+  padInvertY: false,
+  padSensitivity: 1,
+  padRumble: true,
 };
 
 export class Settings {

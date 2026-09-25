@@ -46,6 +46,8 @@ and the address bar keeps the date, so a link takes someone to the same moment.
 | **G** | Flight mode |
 | **?** | Full list of controls |
 
+A game controller works too; see [below](#with-a-game-controller).
+
 In flight mode the mouse steers (click to capture it), **W**/**S** or the scroll
 wheel work the throttle, **A**/**D** roll, **Shift** boosts and **Space** brakes.
 Speed scales with your distance from the nearest surface, so the same throttle
@@ -57,6 +59,46 @@ the autopilot turns towards it, flies there and parks a few radii out; touch
 the controls at any time to take over. **`[`** / **`]`** choose a destination
 without engaging it, **F** switches the autopilot on and off, and an arrow
 round the reticle points the way whenever the destination is off screen.
+
+### With a game controller
+
+Plug in or pair any controller the browser recognises - Xbox, PlayStation,
+Switch Pro, 8BitDo and the like - and press a button. The on-screen legend and
+the controls list (**?**) switch to that controller's own labels: a cross on a
+DualSense, B at the bottom on a Nintendo pad. Buttons are bound by position,
+so the same thumb does the same thing whatever it says on it; below they are
+named as on an Xbox controller.
+
+| | |
+| --- | --- |
+| **Left stick** | Orbit (in flight: steer) |
+| **Right stick** | Pan (in flight: roll) |
+| **LT** / **RT** | Zoom out / in (in flight: throttle down / up) |
+| **D-pad ←** / **→** | Previous / next body, tour stop or destination |
+| **D-pad ↑** / **↓** | Jump to now / reverse time |
+| **LB** / **RB** | Slow down / speed up time |
+| **A** | Play or pause (in flight: hold to boost) |
+| **B** | Free view, end the tour, or leave flight |
+| **X** | Flight mode, in and out |
+| **Y** | The whole system (in flight: autopilot) |
+| **Right stick click** | Re-frame the current body |
+| **Left stick click** | Fold or unfold the info panel |
+| **Menu** | Move round the interface |
+| **View** | Full screen |
+
+**Menu** hands the controller to the interface: the D-pad moves between
+controls by where they are on screen, **A** presses, **B** goes back, the
+right stick scrolls, and **Menu** again returns to the camera. Any menu or
+panel opened with the mouse works the same way. Sliders move in notches, and
+the time-rate dial steps between its named rates. Settings gains a
+**Controller** section while one is connected: invert up and down, stick
+speed, and vibration, which marks boosting, scraping along a surface and
+arriving on autopilot.
+
+Browsers only allow full screen in answer to a click or a key press, and a
+controller's buttons do not count. So **View** goes full screen at once if
+there was one in the last few seconds; otherwise it asks for a key press or
+click and goes full screen on that.
 
 ### In a headset
 
@@ -113,6 +155,7 @@ npm run check   # syntax, vendored three.js, every texture, model, font and link
 npm run smoke   # loads the real page in headless Chrome: a tour, a time jump, the resolution controller
 npm run responsive  # layout and accessibility at ten screen sizes, 320px to 1080p
 npm run vr      # an emulated Quest 3: controllers, hands, the panel, in and out of VR
+npm run gamepad # an emulated game controller: every binding, the menus, full screen, the legend
 npm run vendor  # re-copy three.js out of node_modules after a version bump
 ```
 
@@ -133,7 +176,12 @@ Quest 3 that is not there, using [IWER](https://github.com/meta-quest/immersive-
 Meta's WebXR emulator, and uses it: it points, pulls triggers, grabs, turns,
 flies, then puts the controllers down and pinches, drags, turns a palm up and
 presses panel buttons with a fingertip, checking each does what it should. Set
-`VR_SHOTS=dir` to keep a screenshot of each step. Add `?debug` to the URL to get the
+`VR_SHOTS=dir` to keep a screenshot of each step. `npm run gamepad` does the
+same for a game controller, standing in for the browser's Gamepad API: it
+orbits, zooms, flies, works the menus and Settings with the D-pad, goes full
+screen both ways, swaps in a DualSense to check the labels change, and checks
+the legend finds a clear spot at a phone, a phone on its side and a laptop
+(`GAMEPAD_SHOTS=dir` for screenshots). Add `?debug` to the URL to get the
 scene, camera and clock on `window.orrery` in the console.
 
 ## Deploying

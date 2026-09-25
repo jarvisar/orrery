@@ -108,6 +108,21 @@ export class SettingsPanel {
         'Skips camera fly-throughs and transitions.'
       ),
 
+      // Only while there is a controller to set up.
+      (this.controller = el('div', { class: 'drawer__section', hidden: true }, [
+        el('h3', { class: 'section-title', text: 'Controller' }),
+        this._toggle('padInvertY', 'Invert up and down', 'Push up to look down, as a flight stick does.'),
+        this._slider(
+          'padSensitivity',
+          'Stick speed',
+          0.5,
+          2,
+          0.05,
+          (value) => `${Math.round(value * 100)}%`
+        ),
+        this._toggle('padRumble', 'Vibration'),
+      ])),
+
       el('div', { class: 'field' }, [
         el('button', {
           class: 'btn btn--text',
@@ -206,6 +221,11 @@ export class SettingsPanel {
       ]),
       hint ? el('p', { class: 'field__hint', text: hint }) : null,
     ]);
+  }
+
+  /** Shows the controller settings while one is connected. */
+  setControllerConnected(connected) {
+    this.controller.hidden = !connected;
   }
 
   toggle() { this.isOpen ? this.close() : this.open(); }

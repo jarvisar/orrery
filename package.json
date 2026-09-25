@@ -10,6 +10,7 @@
     "smoke": "node scripts/smoke.js",
     "responsive": "node scripts/responsive.js",
     "vr": "node scripts/vr.js",
+    "gamepad": "node scripts/gamepad.js",
     "vendor": "node scripts/vendor.js"
   },
   "dependencies": {

@@ -25,6 +25,7 @@ import { Viewport } from './core/Viewport.js';
 import { AssetLoader } from './core/AssetLoader.js';
 import { Settings } from './core/Settings.js';
 import { Picker } from './core/Picker.js';
+import { GamepadInput } from './core/Gamepads.js';
 import { Post } from './core/Post.js';
 import { SolarSystem } from './scene/SolarSystem.js';
 import { Orbits } from './scene/Orbits.js';
@@ -45,6 +46,10 @@ import { HelpOverlay } from './ui/HelpOverlay.js';
 import { Markers } from './ui/Markers.js';
 import { TourGuide } from './ui/TourGuide.js';
 import { InstallToast } from './ui/InstallToast.js';
+import { GamepadHud } from './ui/GamepadHud.js';
+import { FocusNavigator } from './ui/FocusNavigator.js';
+import { padName } from './ui/padGlyphs.js';
+import { toggleFullscreen } from './ui/fullscreen.js';
 import { VRMode } from './xr/VRMode.js';
 import { el, icon } from './ui/dom.js';
 
@@ -178,7 +183,7 @@ async function boot() {
 
   // For poking at the scene from the console: ?debug exposes the internals.
   if (new URLSearchParams(window.location.search).has('debug')) {
-    window.orrery = { THREE, scene, camera, renderer, viewport, assets, system, orbits, belts, sky, post, director, clock, ui };
+    window.orrery = { THREE, scene, camera, renderer, viewport, assets, system, orbits, belts, sky, post, director, clock, settings, ui };
   }
 
   document.getElementById('ui').hidden = false;
@@ -215,7 +220,11 @@ function buildInterface(ctx) {
   const camera = viewport.camera;
   const reduceMotion = () => settings.get('reduceMotion');
 
-  const state = { flying: false, focusedId: null, showStats: false, touring: false };
+  const state = {
+    flying: false, focusedId: null, showStats: false, touring: false,
+    // The controller is the input in use, and whether it is driving the menus.
+    padActive: false, padMenus: false,
+  };
 
   /** A catalogue body's view, or the one visitor that is not in the catalogue. */
   const lookup = (id) => (id === VISITOR_ID ? visitor.view : system.bodies.get(id));
@@ -243,11 +252,16 @@ function buildInterface(ctx) {
     onStep: (delta) => stepBody(delta),
     onAutopilot: () => toggleAutopilot(),
   });
-  flight.onArrive = (view) => flightHud.notify(`Arrived at ${view.name}`);
+  flight.onArrive = (view) => {
+    flightHud.notify(`Arrived at ${view.name}`);
+    rumble(0.4, 0.6, 180);
+  };
   const settingsPanel = new SettingsPanel(settings);
   const helpOverlay = new HelpOverlay();
   const markers = new Markers(system, camera, (id) => selectBody(id));
   const installToast = new InstallToast();
+  const gamepad = new GamepadInput();
+  const padHud = new GamepadHud();
   markers.setEnabled(settings.get('showLabels'));
 
   const tours = new TourGuide({
@@ -395,7 +409,7 @@ function buildInterface(ctx) {
 
   root.append(topbar, infoPanel.root, tours.caption, timeBar.root);
   document.body.append(
-    markers.root, flightHud.root, tooltip, stats, hint, installToast.root,
+    markers.root, flightHud.root, tooltip, stats, hint, installToast.root, padHud.root,
     settingsPanel.root, helpOverlay.root
   );
 
@@ -498,8 +512,9 @@ function buildInterface(ctx) {
 
     if (enabled) {
       flight.setTarget(null);
-      // Pressing G or the button counts as the gesture capturing the mouse needs.
-      flight.capture();
+      // Pressing G or the button counts as the gesture capturing the mouse
+      // needs. A controller's buttons do not, and it steers without the mouse.
+      if (!state.padActive) flight.capture();
       director.focusOn(null);
       bodyPicker.select(null);
       infoPanel.show(null);
@@ -656,6 +671,248 @@ function buildInterface(ctx) {
     viewport.renderer.compileAsync(scene, camera).catch(() => {});
   });
 
+  /* --- menus, drawers and dialogs ---------------------------------------- */
+
+  /** The innermost menu, drawer or dialog that is open, or null. */
+  function openSurface() {
+    if (helpOverlay.isOpen) return helpOverlay.card;
+    if (bodyPicker.isOpen) return bodyPicker.menu;
+    if (tours.isOpen) return tours.menu;
+    if (timeBar.isOpen) return timeBar.panel;
+    if (settingsPanel.isOpen) return settingsPanel.root;
+    return null;
+  }
+
+  /** Closes the innermost one, handing focus back to what opened it. False if none was open. */
+  function closeSurface() {
+    if (helpOverlay.isOpen) helpOverlay.close();
+    else if (bodyPicker.isOpen) bodyPicker.close({ restoreFocus: true });
+    else if (tours.isOpen) tours.closeMenu({ restoreFocus: true });
+    else if (timeBar.isOpen) timeBar.close({ restoreFocus: true });
+    else if (settingsPanel.isOpen) settingsPanel.close();
+    else return false;
+    return true;
+  }
+
+  /* --- game controller --------------------------------------------------- */
+
+  // Bound by position, so the same thumb does the same thing on any make; the
+  // glyphs show each make's own labels. Keep in step with the legend in
+  // src/ui/GamepadHud.js and the list in src/ui/HelpOverlay.js.
+  //
+  // The controller has three jobs: flying the camera round a body, flying the
+  // ship in flight mode, and - after Menu, or whenever a menu or panel is
+  // open - moving round the interface itself, where the D-pad moves focus, A
+  // presses and B goes back.
+
+  const focusNav = new FocusNavigator({
+    scope: () => openSurface(),
+    home: () => bodyPicker.button,
+  });
+  let padWasConnected = false;
+  let padNews = null;
+  let legendContext;
+  let sinceRumble = 0;
+
+  gamepad.onConnect = (pad, family) => { padNews = `${padName(family)} connected`; };
+  gamepad.onDisconnect = () => { padNews = 'Controller disconnected'; };
+
+  /** Called every frame, before the camera and flight controls read their input. */
+  function updateGamepad(dt) {
+    gamepad.poll(dt);
+    if (gamepad.connected !== padWasConnected) {
+      padWasConnected = gamepad.connected;
+      padConnectionChanged(gamepad.connected);
+    }
+    if (gamepad.connected && gamepad.family !== padHud.family) {
+      padHud.setFamily(gamepad.family);
+      helpOverlay.setController(gamepad.family);
+    }
+    if (padNews) {
+      padHud.notice(padNews);
+      padNews = null;
+    }
+
+    // A headset has controllers of its own.
+    if (!gamepad.connected || vr.presenting) {
+      flight.setPadInput(null);
+      return;
+    }
+    if (gamepad.used) setPadActive(true);
+    if (gamepad.pressed('view')) padFullscreen();
+
+    // Anything open takes the controller until it is closed.
+    if (openSurface() && gamepad.used) state.padMenus = true;
+    if (state.padMenus) {
+      flight.setPadInput(null);
+      padMenusInput(dt);
+    } else if (state.flying) {
+      padFlightInput(dt);
+    } else {
+      flight.setPadInput(null);
+      padOrbitInput(dt);
+    }
+    if (state.padActive) showPadLegend();
+  }
+
+  function padConnectionChanged(connected) {
+    settingsPanel.setControllerConnected(connected);
+    if (connected) {
+      padHud.setFamily(gamepad.family);
+      helpOverlay.setController(gamepad.family);
+      return;
+    }
+    if (state.padMenus) leavePadMenus();
+    setPadActive(false);
+    helpOverlay.setController(null);
+    flight.setPadInput(null);
+    padHud.show(null);
+  }
+
+  function padOrbitInput(dt) {
+    const speed = settings.get('padSensitivity');
+    const invert = settings.get('padInvertY') ? -1 : 1;
+    // Not mid-flight to a body: input would pile up and be spent at once on arrival.
+    if (!director.isTransitioning) {
+      director.drive({
+        orbitX: gamepad.left.x * speed,
+        orbitY: gamepad.left.y * speed * invert,
+        panX: gamepad.right.x * speed,
+        panY: gamepad.right.y * speed,
+        zoom: gamepad.rt - gamepad.lt,
+      }, dt);
+    }
+
+    if (gamepad.pressed('menu')) return enterPadMenus();
+    if (gamepad.pressed('a')) timeBar.togglePause();
+    if (gamepad.pressed('b')) {
+      if (state.touring) tours.stop();
+      else if (state.focusedId) selectBody(null);
+    }
+    if (gamepad.pressed('x')) setFlight(true);
+    if (gamepad.pressed('y')) showOverview();
+    if (gamepad.pressed('rs')) reframe();
+    if (gamepad.pressed('ls')) infoPanel.setCollapsed(!infoPanel.collapsed);
+    for (const [button, delta] of [['left', -1], ['right', 1]]) {
+      if (!gamepad.pressed(button)) continue;
+      if (state.touring) tours.step(delta);
+      else stepBody(delta);
+    }
+    padTimeInput();
+  }
+
+  function padFlightInput(dt) {
+    const speed = settings.get('padSensitivity');
+    const invert = settings.get('padInvertY') ? -1 : 1;
+    flight.setPadInput({
+      x: gamepad.left.x * speed,
+      y: gamepad.left.y * speed * invert,
+      roll: gamepad.right.x,
+      throttle: gamepad.rt - gamepad.lt,
+      boost: gamepad.down('a'),
+    });
+
+    if (gamepad.pressed('menu')) return enterPadMenus();
+    if (gamepad.pressed('a')) rumble(0, 0.35, 90);
+    if (gamepad.pressed('y')) toggleAutopilot();
+    if (gamepad.pressed('x') || gamepad.pressed('b')) return setFlight(false);
+    if (gamepad.pressed('left')) stepBody(-1);
+    if (gamepad.pressed('right')) stepBody(1);
+    padTimeInput();
+
+    // A scrape along the ground, felt as well as seen.
+    sinceRumble += dt;
+    if (flight.grazing && flight.throttle > 0.05 && sinceRumble > 0.12) {
+      rumble(0.15, 0.35, 110);
+      sinceRumble = 0;
+    }
+  }
+
+  function padTimeInput() {
+    if (gamepad.repeat('lb')) timeBar.stepRate(-1);
+    if (gamepad.repeat('rb')) timeBar.stepRate(1);
+    if (gamepad.pressed('up')) timeBar.jumpToNow();
+    if (gamepad.pressed('down')) timeBar.toggleDirection();
+  }
+
+  function padMenusInput(dt) {
+    if (gamepad.pressed('menu')) return leavePadMenus();
+    if (gamepad.pressed('b')) {
+      if (!closeSurface()) leavePadMenus();
+      return;
+    }
+    focusNav.ensure();
+    for (const direction of ['up', 'down', 'left', 'right']) {
+      if (!gamepad.nav(direction)) continue;
+      const horizontal = direction === 'left' || direction === 'right';
+      if (horizontal && focusNav.adjusting) focusNav.adjust(direction === 'right' ? 1 : -1);
+      else focusNav.move(direction);
+    }
+    if (gamepad.pressed('a')) focusNav.activate();
+    if (gamepad.right.y) focusNav.scroll(gamepad.right.y * 900 * dt);
+  }
+
+  function enterPadMenus() {
+    state.padMenus = true;
+    focusNav.ensure();
+  }
+
+  /** Back to flying the camera: everything closed, and focus let go. */
+  function leavePadMenus() {
+    state.padMenus = false;
+    while (closeSurface());
+    focusNav.release();
+  }
+
+  /**
+   * Which is in use, the controller or the mouse, keyboard and touch. The
+   * controller brings its legend and a heavier focus ring (style.css); any
+   * other input puts them away again.
+   */
+  function setPadActive(active) {
+    if (active === state.padActive) return;
+    state.padActive = active;
+    document.documentElement.classList.toggle('is-gamepad', active);
+    flightHud.setGamepad(active);
+    if (active) {
+      dismissHint();
+      hideTooltip();
+      legendContext = undefined;
+    } else {
+      padHud.hide();
+    }
+  }
+  const pointerUsed = (event) => {
+    // Layout shifting under a still mouse fires a move without movement.
+    if (event.type === 'pointermove' && !event.movementX && !event.movementY) return;
+    if (event.type === 'pointerdown') state.padMenus = false;
+    setPadActive(false);
+  };
+  for (const type of ['pointerdown', 'pointermove', 'wheel', 'keydown']) {
+    window.addEventListener(type, pointerUsed, { capture: true, passive: true });
+  }
+
+  /** The legend for what the controller is doing now; it only changes when that does. */
+  function showPadLegend() {
+    let context = state.flying ? 'flight' : state.touring ? 'tour' : 'orbit';
+    // An open menu or panel explains itself.
+    if (state.padMenus) context = openSurface() ? null : 'interface';
+    if (context === legendContext) return;
+    legendContext = context;
+    padHud.show(context, { sticky: context === 'interface' });
+  }
+
+  async function padFullscreen() {
+    const result = await toggleFullscreen({ onPendingEnd: () => padHud.clearNotice() });
+    // A controller's press is not enough for the browser; a key or a click is.
+    if (result === 'pending') padHud.notice('Press any key or click to go full screen', 10_000);
+    else if (result === 'unsupported') padHud.notice('Full screen is not available in this browser');
+  }
+
+  function rumble(strong, weak, ms) {
+    if (state.padActive && settings.get('padRumble')) gamepad.rumble(strong, weak, ms);
+  }
+
   /* --- keyboard ---------------------------------------------------------- */
 
   window.addEventListener('keydown', (event) => {
@@ -673,12 +930,8 @@ function buildInterface(ctx) {
     switch (event.code) {
       // The one place Escape is handled, so closing a panel never also drops focus.
       case 'Escape':
-        if (bodyPicker.isOpen) bodyPicker.close({ restoreFocus: true });
-        else if (tours.isOpen) tours.closeMenu({ restoreFocus: true });
-        else if (timeBar.isOpen) timeBar.close({ restoreFocus: true });
-        else if (helpOverlay.isOpen) helpOverlay.close();
-        else if (settingsPanel.isOpen) settingsPanel.close();
-        else if (state.touring) tours.stop();
+        if (closeSurface()) break;
+        if (state.touring) tours.stop();
         else if (state.flying) setFlight(false);
         else selectBody(null);
         break;
@@ -714,8 +967,8 @@ function buildInterface(ctx) {
   installKonamiCode();
 
   return {
-    state, stats, tooltip, timeBar, infoPanel, flightHud, bodyPicker, markers, tours, vr,
-    selectBody, setFlight, hideTooltip, welcome,
+    state, stats, tooltip, timeBar, infoPanel, flightHud, bodyPicker, markers, tours, vr, gamepad,
+    selectBody, setFlight, hideTooltip, welcome, updateGamepad,
   };
 }
 
@@ -749,6 +1002,7 @@ function startLoop(ctx) {
     belts.update(clock.days);
     visitor.update(dt);
     ui.tours.update(dt);
+    ui.updateGamepad(dt);
 
     // In a headset the viewer's head is the camera, and it sits inside a rig
     // that the VR controls move; camera.position is then relative to that rig.

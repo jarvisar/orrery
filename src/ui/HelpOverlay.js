@@ -1,14 +1,18 @@
 /**
- * Keyboard reference.
+ * Keyboard and controller reference.
  *
  * The old build documented its controls only in the repository README, and what
  * it documented had drifted from what the code did - W and S were described as
  * forward and back when they actually moved the camera up and down. Keeping the
  * reference in the app at least puts it next to the thing it describes; the
  * handlers themselves live in `src/main.js`.
+ *
+ * Controller buttons are drawn as the connected controller labels them, and
+ * while one is connected its sections come first.
  */
 
 import { el, icon, trapFocus } from './dom.js';
+import { padGlyph } from './padGlyphs.js';
 
 /** Display order for the controls dialog. */
 export const SHORTCUTS = [
@@ -91,31 +95,66 @@ export const SHORTCUTS = [
   },
 ];
 
+/** The same for a game controller, by button position; see src/ui/padGlyphs.js. */
+export const CONTROLLER = [
+  {
+    group: 'Controller',
+    items: [
+      { pad: ['ls'], desc: 'Orbit the camera' },
+      { pad: ['rs'], desc: 'Pan' },
+      { pad: ['lt', 'rt'], desc: 'Zoom out and in' },
+      { pad: ['dpad-x'], desc: 'Previous or next body, or tour stop' },
+      { pad: ['y'], desc: 'The whole system' },
+      { pad: ['r3'], desc: 'Re-frame current body' },
+      { pad: ['l3'], desc: 'Toggle the info panel' },
+      { pad: ['b'], desc: 'Free view, or end the tour' },
+      { pad: ['view'], desc: 'Full screen' },
+    ],
+  },
+  {
+    group: 'Controller: time',
+    items: [
+      { pad: ['a'], desc: 'Play or pause' },
+      { pad: ['lb', 'rb'], desc: 'Slower or faster' },
+      { pad: ['down'], desc: 'Reverse direction' },
+      { pad: ['up'], desc: 'Jump to now' },
+    ],
+  },
+  {
+    group: 'Controller: flight',
+    items: [
+      { pad: ['x'], desc: 'Enter or leave flight' },
+      { pad: ['ls'], desc: 'Steer' },
+      { pad: ['rs'], desc: 'Roll' },
+      { pad: ['lt', 'rt'], desc: 'Throttle down and up' },
+      { pad: ['a'], desc: 'Boost (hold)' },
+      { pad: ['dpad-x'], desc: 'Previous or next destination' },
+      { pad: ['y'], desc: 'Autopilot on or off' },
+    ],
+  },
+  {
+    group: 'Controller: menus',
+    items: [
+      { pad: ['menu'], desc: 'Move round the interface' },
+      { pad: ['dpad'], desc: 'Move between controls (or left stick)' },
+      { pad: ['a'], desc: 'Press' },
+      { pad: ['b'], desc: 'Back, or close' },
+      { pad: ['rs'], desc: 'Scroll' },
+    ],
+  },
+];
+
 export class HelpOverlay {
   constructor() {
     this.isOpen = false;
     this._releaseFocus = null;
+    /** The connected controller's make, or null with none connected. */
+    this._family = null;
 
-    const body = el(
-      'div',
-      // Focusable so the list can be scrolled from the keyboard when it overflows.
-      { class: 'help__body', tabindex: '0', role: 'region', 'aria-label': 'Keyboard shortcuts' },
-      SHORTCUTS.map((section) =>
-        el('div', {}, [
-          el('h3', { class: 'section-title', text: section.group }),
-          ...section.items.map((item) =>
-            el('div', { class: 'keyrow' }, [
-              el('span', { class: 'keyrow__desc', text: item.desc }),
-              el(
-                'span',
-                { class: 'keyrow__keys' },
-                item.keys.map((key) => el('kbd', { text: key }))
-              ),
-            ])
-          ),
-        ])
-      )
-    );
+    // Focusable so the list can be scrolled from the keyboard when it overflows.
+    const body = el('div', { class: 'help__body', tabindex: '0', role: 'region', 'aria-label': 'Controls' });
+    this.body = body;
+    this._render();
 
     const footer = el('div', { class: 'help__footer' }, [
       el('span', {
@@ -160,10 +199,44 @@ export class HelpOverlay {
         class: 'help',
         role: 'dialog',
         'aria-modal': 'true',
-        'aria-label': 'Keyboard controls',
+        'aria-label': 'Controls',
         onclick: (event) => { if (event.target === this.root) this.close(); },
       },
       [this.card]
+    );
+  }
+
+  /**
+   * Draws the controller sections for this make of controller, and puts them
+   * first; null puts them back after the keyboard's.
+   */
+  setController(family) {
+    if (family === this._family) return;
+    this._family = family;
+    this._render();
+  }
+
+  _render() {
+    const family = this._family ?? 'generic';
+    const sections = this._family ? [...CONTROLLER, ...SHORTCUTS] : [...SHORTCUTS, ...CONTROLLER];
+    this.body.replaceChildren(
+      ...sections.map((section) =>
+        el('div', {}, [
+          el('h3', { class: 'section-title', text: section.group }),
+          ...section.items.map((item) =>
+            el('div', { class: 'keyrow' }, [
+              el('span', { class: 'keyrow__desc', text: item.desc }),
+              el(
+                'span',
+                { class: 'keyrow__keys' },
+                item.pad
+                  ? item.pad.map((button) => padGlyph(button, family))
+                  : item.keys.map((key) => el('kbd', { text: key }))
+              ),
+            ])
+          ),
+        ])
+      )
     );
   }
 

@@ -71,6 +71,12 @@ export class TimeBar {
       'aria-label': 'Time rate',
       oninput: (event) => this._onSlide(Number(event.target.value)),
     });
+    // A controller steps between the named rates, as , and . do, rather than
+    // nudging the thumb a twentieth of the way along.
+    this.rateSlider.addEventListener('gamepadadjust', (event) => {
+      event.preventDefault();
+      this.stepRate(event.detail);
+    });
 
     // The detents drawn as graduations under the slider, so the scale reads
     // like an instrument dial and the snap points are visible before a drag.
@@ -164,6 +170,8 @@ export class TimeBar {
       'form',
       {
         class: 'when__form',
+        // A date cannot be typed with a controller; it gets the moments.
+        'data-gamepad-skip': true,
         onsubmit: (event) => {
           event.preventDefault();
           const [year, month, day] = this.dateInput.value.split('-').map(Number);

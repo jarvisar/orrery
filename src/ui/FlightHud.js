@@ -95,7 +95,8 @@ export class FlightHud {
       this.destDistance,
       this.autopilot,
     ]);
-    this.emptyHint = touch ? 'Tap a label or the arrows' : 'Click a label, or [ and ]';
+    this._pointerHint = touch ? 'Tap a label or the arrows' : 'Click a label, or [ and ]';
+    this.emptyHint = this._pointerHint;
 
     this.bracketLabel = el('div', { class: 'hud__bracket-label' });
     this.bracket = el('div', { class: 'hud__bracket' }, [this.bracketLabel]);
@@ -151,6 +152,15 @@ export class FlightHud {
       this.controls.setBoost(false);
       this.notice.classList.remove('is-visible');
     }
+  }
+
+  /**
+   * Swaps the pointer's wording for a controller's while one is in use. The
+   * mouse-only hint and prompt are hidden by style.css.
+   */
+  setGamepad(active) {
+    this.emptyHint = active ? 'Choose with the D-pad' : this._pointerHint;
+    delete this._last.destDistance;
   }
 
   /** Flashes a line of text under the reticle for a few seconds. */
