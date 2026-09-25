@@ -75,6 +75,13 @@ const NEAR_M = 0.05;
 /** Far plane ceiling in metres. The logarithmic depth buffer copes with the range. */
 const MAX_FAR_M = 1e7;
 
+/**
+ * Most the frame is ever scaled up over the runtime's default size. A Quest's
+ * default is roughly 0.7x its panels, which is what makes stars and text soft;
+ * its native size is well inside this.
+ */
+const MAX_FRAMEBUFFER_SCALE = 1.5;
+
 const FADE_OUT_S = 0.15;
 const FADE_IN_S = 0.3;
 
@@ -279,6 +286,12 @@ export class VRMode {
 
       const floor = !session.enabledFeatures || session.enabledFeatures.includes('local-floor');
       this.renderer.xr.setReferenceSpaceType(floor ? 'local-floor' : 'local');
+      // Draw at the panels' own resolution rather than the runtime's
+      // cheaper default.
+      this.renderer.xr.setFramebufferScaleFactor(nativeScale(session));
+      // three turns fixed foveation all the way up unless told otherwise,
+      // which smears everything outside the middle of the view.
+      this.renderer.xr.setFoveation(0);
 
       this.session = session;
       this._enter();
@@ -1320,6 +1333,17 @@ async function canReach(url) {
 
 function clampScale(scale) {
   return THREE.MathUtils.clamp(scale, MIN_SCALE, MAX_SCALE);
+}
+
+/** How far the frame has to be scaled over the runtime's default to match the panels. */
+function nativeScale(session) {
+  let native = 1;
+  try {
+    native = XRWebGLLayer.getNativeFramebufferScaleFactor(session) || 1;
+  } catch {
+    // Not every runtime says; its default will have to do.
+  }
+  return THREE.MathUtils.clamp(native, 1, MAX_FRAMEBUFFER_SCALE);
 }
 
 /**
