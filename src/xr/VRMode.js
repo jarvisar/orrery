@@ -47,8 +47,7 @@
  */
 
 import * as THREE from 'three';
-import { SUN_ID } from '../data/bodies.js';
-import { heliocentricDistance, sceneRadius } from '../scene/scaling.js';
+import { heliocentricDistance } from '../scene/scaling.js';
 import { daylightDirection } from '../camera/CameraDirector.js';
 import { VRPanel } from './VRPanel.js';
 import { VRLabels } from './VRLabels.js';
@@ -103,9 +102,6 @@ const SNAP_TURN = THREE.MathUtils.degToRad(30);
 const ASSIST_ANGLE = THREE.MathUtils.degToRad(2);
 /** Laser length when it is not touching anything. */
 const RAY_LENGTH_M = 6;
-
-/** Framing for the whole system, in AU, matching the desktop overview. */
-const OVERVIEW_AU = 33;
 
 /** A pinch that travels this far, in metres, is a grab rather than a click. */
 const DRAG_START_M = 0.03;
@@ -223,6 +219,8 @@ export class VRMode {
     this.session = null;
     /** @type {import('../scene/SolarSystem.js').BodyView|null} */
     this.focus = null;
+    /** What the overview is centred on and follows, when not the system's centre. */
+    this._anchor = null;
     /** The viewer's eyes, in world space. Valid while presenting. */
     this.viewerPosition = new THREE.Vector3();
 
@@ -238,11 +236,11 @@ export class VRMode {
       this.panel.invalidate();
     });
 
-    this.panel = new VRPanel();
+    this.panel = new VRPanel(this.system.catalogue.name);
     this._fade = buildFade();
     this._vignette = buildVignette();
     this._motion = 0;
-    this._overviewAU = OVERVIEW_AU;
+    this._overviewAU = this.system.catalogue.overviewAU;
     /** The hand whose open palm is holding the panel up, if one is, and where that palm is. */
     this._summoner = null;
     this._palm = new THREE.Vector3();
@@ -330,11 +328,13 @@ export class VRMode {
     if (view) this._goTo(() => this._frameBody(view), instant);
   }
 
-  /** The whole system, as a model on a table. */
-  overview(radiusAU = OVERVIEW_AU, { instant = false } = {}) {
+  /** The whole system, as a model on a table; or, with `centre`, one body's surroundings. */
+  overview(radiusAU = this.system.catalogue.overviewAU, { instant = false, centre = null } = {}) {
     if (!this.active) return;
     this._overviewAU = radiusAU;
     this._setFocus(null);
+    this._anchor = centre;
+    if (centre) this._lastFocus.copy(centre.group.position);
     this._goTo(() => this._frameSystem(radiusAU), instant);
   }
 
@@ -345,6 +345,7 @@ export class VRMode {
 
   _setFocus(view) {
     this.focus = view;
+    this._anchor = null;
     if (view) this._lastFocus.copy(view.group.position);
     this.labels.setFocus(view?.id ?? null);
     this.panel.invalidate();
@@ -392,7 +393,7 @@ export class VRMode {
   }
 
   _frameSystem(radiusAU) {
-    const sun = this.system.bodies.get(SUN_ID).group.position;
+    const sun = this._anchor?.group.position ?? this.system.root.position;
     const scale = heliocentricDistance(radiusAU, this.system.scaleExponent) / TABLE_RADIUS_M;
 
     // Keep our bearing round the Sun, as the desktop overview does.
@@ -598,7 +599,7 @@ export class VRMode {
     const eye = this.renderer.xr.getCamera().cameras[0]?.viewport;
     if (eye && eye.z > 0) this.onResolution?.(eye.z, eye.w);
 
-    const frame = this._pending ?? (() => this._frameSystem(OVERVIEW_AU));
+    const frame = this._pending ?? (() => this._frameSystem(this._overviewAU));
     this._pending = null;
     frame();
     this._placePanel();
@@ -611,9 +612,10 @@ export class VRMode {
    * desktop camera follows. Anything held moves with it too.
    */
   _follow() {
-    if (!this.focus) return;
-    _v.copy(this.focus.group.position).sub(this._lastFocus);
-    this._lastFocus.copy(this.focus.group.position);
+    const followed = this.focus ?? this._anchor;
+    if (!followed) return;
+    _v.copy(followed.group.position).sub(this._lastFocus);
+    this._lastFocus.copy(followed.group.position);
     if (_v.lengthSq() === 0) return;
     this.rig.position.add(_v);
     for (const hand of this.hands) hand.anchor.add(_v);
@@ -677,7 +679,7 @@ export class VRMode {
 
   /** Near and far, in metres. The far plane moves out as the viewer shrinks. */
   _updateClipping() {
-    const far = THREE.MathUtils.clamp((sceneRadius() * 2) / this.scale, 1000, MAX_FAR_M);
+    const far = THREE.MathUtils.clamp((heliocentricDistance(this.system.catalogue.edgeAU, this.system.scaleExponent) * 6) / this.scale, 1000, MAX_FAR_M);
     // Only on a real change: each one is a render-state update for the session.
     if (Math.abs(Math.log(far / this.camera.far)) > 0.7) this.camera.far = far;
     this.camera.near = NEAR_M;
@@ -862,7 +864,7 @@ export class VRMode {
    * would grow and recede in exact proportion.
    */
   _zoom(factor) {
-    const body = this.focus ?? this.system.bodies.get(SUN_ID);
+    const body = this.focus ?? this._anchor ?? this.system.bodies.get(this.system.catalogue.starId);
     const pivot = body.group.position;
     let k = clampScale(this.scale * factor) / this.scale;
     if (k < 1) {

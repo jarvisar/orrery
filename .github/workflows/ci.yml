@@ -25,6 +25,8 @@ jobs:
 
       - run: npm ci
       - run: npm run check
+      - run: npm run exoplanets:test
+      - run: npm run exoplanets:smoke -- --strict
 
       - name: Check that the site boots
         # A syntax check cannot tell you the app throws on startup. This loads

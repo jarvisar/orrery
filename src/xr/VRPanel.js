@@ -98,7 +98,8 @@ const _side = new THREE.Vector3();
 const _local = new THREE.Vector3();
 
 export class VRPanel {
-  constructor() {
+  constructor(systemName = 'Solar System') {
+    this.systemName = systemName;
     this.canvas = document.createElement('canvas');
     this.canvas.width = WIDTH;
     this.canvas.height = HEIGHT;
@@ -311,7 +312,7 @@ export class VRPanel {
     ctx.textAlign = 'left';
     ctx.fillStyle = COLORS.text;
     ctx.font = `500 64px ${display}`;
-    ctx.fillText(body?.name ?? 'The solar system', PAD, 104, WIDTH * 0.56);
+    ctx.fillText(body?.name ?? this.systemName, PAD, 104, WIDTH * 0.56);
     ctx.fillStyle = COLORS.dim;
     ctx.font = `400 30px ${sans}`;
     ctx.fillText(describeKind(body), PAD, 148, WIDTH * 0.56);
@@ -397,6 +398,7 @@ export class VRPanel {
 function describeKind(body) {
   if (!body) return 'Everything, as a model on a table';
   if (body.kind === 'moon' && body.parent) return `Moon of ${BODY_BY_ID.get(body.parent)?.name ?? body.parent}`;
+  if (body.exoplanet && body.kind === 'planet') return 'Exoplanet';
   return KIND_LABEL[body.kind] ?? body.kind;
 }
 

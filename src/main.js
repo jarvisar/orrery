@@ -20,7 +20,12 @@
 
 import * as THREE from 'three';
 
-import { BODIES, BODY_BY_ID, EARTH_RADIUS_KM } from './data/bodies.js';
+import { BODY_BY_ID, EARTH_RADIUS_KM } from './data/bodies.js';
+import { SOLAR_SYSTEM } from './data/systems.js';
+import { makeSystem } from './data/exoplanets.js';
+import { STELLAR_PATH, validateStellarCatalogue } from './data/stellarSystems.js';
+import { ExoplanetCatalogue } from './core/ExoplanetCatalogue.js';
+import { SystemExplorer } from './ui/SystemExplorer.js';
 import { Viewport } from './core/Viewport.js';
 import { AssetLoader } from './core/AssetLoader.js';
 import { Settings } from './core/Settings.js';
@@ -66,8 +71,8 @@ const FLIGHT_KEYS = [
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
 ];
 
-/** Framing, in AU, for the whole-system view: Neptune with a little room. */
-const OVERVIEW_AU = 33;
+/** Loaded only when opening the atlas or following an exoplanet link. */
+const exoplanets = new ExoplanetCatalogue();
 
 boot().catch((error) => {
   console.error('[orrery] startup failed', error);
@@ -85,6 +90,37 @@ async function boot() {
     return;
   }
 
+  let catalogue = SOLAR_SYSTEM;
+  let catalogueError = '';
+  const requestedSystem = new URLSearchParams(location.search).get('system');
+  if (requestedSystem) {
+    loading.begin('catalogue', 'Finding this star system…');
+    try {
+      await exoplanets.load();
+      let entry = exoplanets.systems.find((s) => s.name === requestedSystem);
+      // Newer than the saved copy? Only a host the archive really has is worth a refresh.
+      if (!entry && await exoplanets.hasHost(requestedSystem) && await exoplanets.refresh()) {
+        entry = exoplanets.systems.find((s) => s.name === requestedSystem);
+      }
+      if (!entry) throw new Error(`“${requestedSystem}” is not in the available catalogue. Choose a system from the atlas.`);
+      let companions = null;
+      if (entry.stars > 1) {
+        try {
+          const response = await fetch(STELLAR_PATH, { signal: AbortSignal.timeout(10000) });
+          if (response.ok) companions = validateStellarCatalogue(await response.json());
+        } catch { /* Host-only view still works when the supplement is unavailable. */ }
+      }
+      catalogue = makeSystem(entry, exoplanets.data, companions);
+    } catch (error) { catalogueError = error.message; }
+  }
+  if (catalogueError) {
+    const url = new URL(location.href); url.searchParams.delete('system');
+    url.searchParams.delete('body'); window.history.replaceState(null, '', url);
+  }
+  if (catalogue.isExoplanet) {
+    document.title = `${catalogue.name} · Orrery`;
+    canvas.setAttribute('aria-label', `Interactive 3D model of the ${catalogue.name} system`);
+  }
   const settings = new Settings();
   const clock = new Clock();
   const startDays = initialDays();
@@ -95,7 +131,7 @@ async function boot() {
 
   const scene = new THREE.Scene();
   const assets = new AssetLoader(renderer);
-  const system = new SolarSystem(scene, assets);
+  const system = new SolarSystem(scene, assets, catalogue);
 
   system.scaleExponent = settings.get('scale');
   viewport.setAdaptiveResolution(settings.get('adaptiveResolution'));
@@ -109,9 +145,9 @@ async function boot() {
   loading.begin('catalogue', 'Reading the catalogue…');
   await system.build();
   system.setShadowQuality(settings.get('shadowQuality'));
-  viewport.setShadowsEnabled(settings.get('shadowQuality') > 0);
+  viewport.setShadowsEnabled(system.sunLight.castShadow);
 
-  loading.begin('textures', 'Loading the Sun and planets…');
+  loading.begin('textures', catalogue.isExoplanet ? 'Loading the star and planets…' : 'Loading the Sun and planets…');
   const sky = new Sky(scene, assets);
   const starsLoaded = sky.load();
 
@@ -123,7 +159,7 @@ async function boot() {
   });
 
   loading.begin('models', 'Loading models…');
-  await Promise.allSettled([assets.model('phobos'), assets.model('deimos'), assets.model('ufo')]);
+  if (!catalogue.isExoplanet) await Promise.allSettled([assets.model('phobos'), assets.model('deimos'), assets.model('ufo')]);
 
   // --- everything that depends on a finished body list ---------------------
   loading.begin('scene', 'Plotting orbits…');
@@ -135,7 +171,7 @@ async function boot() {
   belts.build(settings.get('beltDensity'));
   belts.setVisible(settings.get('showBelts'));
 
-  const visitor = await buildVisitor(assets, scene, system);
+  const visitor = catalogue.isExoplanet ? { view: null, meshes: [], update() {} } : await buildVisitor(assets, scene, system);
 
   system.setCategoryVisible('moon', settings.get('showMoons'));
   system.setCategoryVisible('dwarf', settings.get('showDwarfs'));
@@ -162,7 +198,7 @@ async function boot() {
 
   // --- warm the pipeline ---------------------------------------------------
   loading.begin('shaders', 'Compiling shaders…');
-  director.focusOn(system.bodies.get(initialBodyId()), { instant: true });
+  director.focusOn(system.bodies.get(initialBodyId(catalogue)), { instant: true });
   await starsLoaded;
   await renderer.compileAsync(scene, camera);
   assets.pumpUploads(999);
@@ -172,7 +208,11 @@ async function boot() {
     settings, clock, scene, assets, system, orbits, belts, sky,
     director, flight, picker, viewport, visitor, post,
   });
-  ui.selectBody(initialBodyId(), { instant: true });
+  // Another star opens on the planets: its own, where they would be lost in a
+  // wide stellar orbit (catalogue.home), else the whole system.
+  if (catalogue.isExoplanet && !new URLSearchParams(location.search).get('body')) {
+    ui.showOverview(catalogue.home?.radiusAU, { instant: true, centreId: catalogue.home?.centreId });
+  } else ui.selectBody(initialBodyId(catalogue), { instant: true });
   ui.markers.update(viewport.width, viewport.height);
 
   // Draw and start animating *underneath* the loading screen, so the fade
@@ -190,6 +230,8 @@ async function boot() {
   document.getElementById('ui').hidden = false;
   await loading.finish();
   ui.welcome();
+  if (catalogue.isExoplanet) exoplanets.refreshIfStale();
+  if (catalogueError) { await ui.explorer.open(); ui.explorer.status.textContent = catalogueError; }
 
   // Everything still queued is a moon or a dwarf planet; it streams in while
   // the user is already looking around.
@@ -220,12 +262,16 @@ function registerServiceWorker() {
 function buildInterface(ctx) {
   const { settings, clock, scene, assets, system, orbits, belts, sky,
           director, flight, picker, viewport, visitor, post } = ctx;
+  const catalogue = system.catalogue;
   const root = document.getElementById('ui');
+  root.classList.toggle('is-exoplanet', catalogue.isExoplanet);
   const camera = viewport.camera;
   const reduceMotion = () => settings.get('reduceMotion');
 
   const state = {
     flying: false, focusedId: null, showStats: false, touring: false,
+    // The overview last shown, so a headset opens on the same one.
+    overview: { radiusAU: catalogue.overviewAU, centre: null },
     // The controller is the input in use, and whether it is driving the menus.
     padActive: false, padMenus: false,
   };
@@ -234,17 +280,20 @@ function buildInterface(ctx) {
   const lookup = (id) => (id === VISITOR_ID ? visitor.view : system.bodies.get(id));
 
   const bodyPicker = new BodyPicker({
+    catalogue,
     onSelect: (id) => selectBody(id),
     onOverview: () => showOverview(),
   });
   // On a phone the panel would cover the body it describes; start it folded.
   const infoPanel = new InfoPanel({
+    catalogue,
     collapsed: window.matchMedia('(max-width: 720px)').matches,
     onSelect: (id) => selectBody(id),
     isVisible: (id) => system.isVisible(id),
     elementsOf: (id) => system.bodies.get(id)?.elements,
   });
   const timeBar = new TimeBar(clock, {
+    exoplanet: catalogue.isExoplanet,
     onJump: (days, moment) => travelTo(days, moment),
     onNow: () => {
       clock.jumpToNow({ instant: reduceMotion() });
@@ -260,8 +309,11 @@ function buildInterface(ctx) {
     flightHud.notify(`Arrived at ${view.name}`);
     rumble(0.4, 0.6, 180);
   };
-  const settingsPanel = new SettingsPanel(settings);
-  const helpOverlay = new HelpOverlay();
+  const settingsPanel = new SettingsPanel(settings, {
+    // Around another star there are no moons, dwarf planets, belts or shadows to show.
+    omit: catalogue.isExoplanet ? ['showMoons', 'showDwarfs', 'showBelts', 'beltDensity', 'shadowQuality'] : [],
+  });
+  const helpOverlay = new HelpOverlay({ exoplanet: catalogue.isExoplanet });
   const markers = new Markers(system, camera, (id) => selectBody(id));
   const installToast = new InstallToast();
   const updateToast = new UpdateToast(); // desktop app only; see desktop/src/updates.js
@@ -312,7 +364,7 @@ function buildInterface(ctx) {
       orbits.setSmoothing(false);
       const view = state.focusedId ? lookup(state.focusedId) : null;
       if (view) vr.focusOn(view, { instant: true });
-      else vr.overview(OVERVIEW_AU, { instant: true });
+      else vr.overview(state.overview.radiusAU, { instant: true, centre: state.overview.centre });
     },
     onEnd: () => {
       director.setEnabled(true);
@@ -324,7 +376,7 @@ function buildInterface(ctx) {
       sky.setPixelRatio(viewport.pixelRatio);
       // Back on the page, looking at whatever was last looked at in the headset.
       if (state.focusedId) director.focusOn(lookup(state.focusedId), { instant: true });
-      else director.overview(OVERVIEW_AU, { instant: true });
+      else director.overview(state.overview.radiusAU, { instant: true, centre: state.overview.centre });
     },
     onResolution: (width, height) => orbits.setResolution(width, height),
   });
@@ -377,12 +429,18 @@ function buildInterface(ctx) {
     [brandMark(), el('span', { class: 'brand__word', text: 'Orrery' })]
   );
 
+  const explorer = new SystemExplorer(exoplanets, catalogue, { onOpen: () => {
+    tours.stop(); bodyPicker.close(); timeBar.close(); settingsPanel.close();
+    if (state.flying) setFlight(false);
+    dismissHint();
+  } });
   const topbar = el('div', { class: 'topbar' }, [
     brand,
     bodyPicker.root,
     el('div', { class: 'topbar__end' }, [
       el('div', { class: 'topbar__group topbar__actions panel' }, [
-        tours.root,
+        explorer.button,
+        catalogue.isExoplanet ? null : tours.root,
         el('span', { class: 'topbar__divider', 'aria-hidden': 'true' }),
         flightButton,
         vrButton,
@@ -415,7 +473,7 @@ function buildInterface(ctx) {
   root.append(topbar, infoPanel.root, tours.caption, timeBar.root);
   document.body.append(
     markers.root, flightHud.root, tooltip, stats, hint, installToast.root, updateToast.root,
-    padHud.root, settingsPanel.root, helpOverlay.root
+    padHud.root, settingsPanel.root, helpOverlay.root, explorer.panel
   );
 
   /* --- focus ------------------------------------------------------------- */
@@ -450,21 +508,24 @@ function buildInterface(ctx) {
     if (id !== VISITOR_ID) setUrlBody(id);
   }
 
-  function showOverview(radiusAU = OVERVIEW_AU, { instant = false } = {}) {
+  /** The whole system; or, with `centreId`, one body and what orbits it, followed as it moves. */
+  function showOverview(radiusAU = catalogue.overviewAU, { instant = false, centreId = null } = {}) {
     if (state.flying) setFlight(false, { refocus: false });
     tours.stop();
     state.focusedId = null;
-    if (vr.active) vr.overview(radiusAU, { instant });
-    else director.overview(radiusAU, { instant: instant || reduceMotion() });
-    bodyPicker.select(null, { name: 'Whole system' });
-    infoPanel.show(null);
+    const centre = centreId ? lookup(centreId) ?? null : null;
+    state.overview = { radiusAU, centre };
+    if (vr.active) vr.overview(radiusAU, { instant, centre });
+    else director.overview(radiusAU, { instant: instant || reduceMotion(), centre });
+    bodyPicker.select(null, { name: centre ? `Planets of ${centre.name}` : 'Whole system' });
+    infoPanel.show(catalogue.isExoplanet ? centre ?? system.bodies.get(catalogue.starId) : null);
     orbits.setFocus(null);
     markers.setFocus(null);
     setUrlBody(null);
   }
 
   function stepBody(delta) {
-    const available = BODIES.filter((body) => system.isVisible(body.id));
+    const available = catalogue.bodies.filter((body) => system.isVisible(body.id));
     if (available.length === 0) return;
     // In flight, [ and ] choose the destination instead, starting from wherever you are.
     const current = state.flying ? (flight.target ?? flight.nearest)?.id : state.focusedId;
@@ -491,6 +552,9 @@ function buildInterface(ctx) {
     // In the desktop app this page's own address is app://, which would mean
     // nothing to whoever it is sent to; the link goes to the public site instead.
     const url = new URL(window.orreryDesktop?.webUrl ?? window.location.href);
+    if (catalogue.id) url.searchParams.set('system', catalogue.id);
+    else url.searchParams.delete('system');
+    url.searchParams.delete('body');
     url.searchParams.set('t', isoMinute(dateFromDays(clock.days)));
     if (state.focusedId && state.focusedId !== VISITOR_ID) url.searchParams.set('body', state.focusedId);
     await navigator.clipboard.writeText(url.toString());
@@ -672,7 +736,7 @@ function buildInterface(ctx) {
 
   settings.on('shadowQuality', (value) => {
     system.setShadowQuality(value);
-    viewport.setShadowsEnabled(value > 0);
+    viewport.setShadowsEnabled(system.sunLight.castShadow);
     // Turning shadows on or off changes every material's program. Recompiling
     // here, off the critical frame, keeps it from surfacing as a stall later.
     viewport.renderer.compileAsync(scene, camera).catch(() => {});
@@ -682,6 +746,7 @@ function buildInterface(ctx) {
 
   /** The innermost menu, drawer or dialog that is open, or null. */
   function openSurface() {
+    if (explorer.isOpen) return explorer.panel;
     if (helpOverlay.isOpen) return helpOverlay.card;
     if (bodyPicker.isOpen) return bodyPicker.menu;
     if (tours.isOpen) return tours.menu;
@@ -692,7 +757,8 @@ function buildInterface(ctx) {
 
   /** Closes the innermost one, handing focus back to what opened it. False if none was open. */
   function closeSurface() {
-    if (helpOverlay.isOpen) helpOverlay.close();
+    if (explorer.isOpen) explorer.close();
+    else if (helpOverlay.isOpen) helpOverlay.close();
     else if (bodyPicker.isOpen) bodyPicker.close({ restoreFocus: true });
     else if (tours.isOpen) tours.closeMenu({ restoreFocus: true });
     else if (timeBar.isOpen) timeBar.close({ restoreFocus: true });
@@ -949,7 +1015,7 @@ function buildInterface(ctx) {
       case 'KeyN': timeBar.jumpToNow(); break;
       case 'KeyG': setFlight(!state.flying); break;
       case 'KeyH': showOverview(); break;
-      case 'KeyT': tours.toggleMenu(); break;
+      case 'KeyT': if (!catalogue.isExoplanet) tours.toggleMenu(); break;
       case 'ArrowLeft': if (state.touring) tours.step(-1); break;
       case 'ArrowRight': if (state.touring) tours.step(1); break;
       case 'BracketLeft': stepBody(-1); break;
@@ -975,7 +1041,7 @@ function buildInterface(ctx) {
 
   return {
     state, stats, tooltip, timeBar, infoPanel, flightHud, bodyPicker, markers, tours, vr, gamepad,
-    selectBody, setFlight, hideTooltip, welcome, updateGamepad,
+    selectBody, showOverview, explorer, setFlight, hideTooltip, welcome, updateGamepad,
   };
 }
 
@@ -1159,11 +1225,11 @@ function brandMark() {
   return svg;
 }
 
-function initialBodyId() {
+function initialBodyId(catalogue) {
   const params = new URLSearchParams(window.location.search);
   // ?planet= was the old parameter; keep old links working.
   const requested = params.get('body') ?? params.get('planet');
-  return requested && BODY_BY_ID.has(requested) ? requested : 'earth';
+  return requested && catalogue.byId.has(requested) ? requested : catalogue.isExoplanet ? catalogue.starId : 'earth';
 }
 
 /** A ?t= date from a shared link, as days since J2000, or null. */

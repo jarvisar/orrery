@@ -11,7 +11,6 @@
 
 import * as THREE from 'three';
 import { el } from './dom.js';
-import { BODY_BY_ID } from '../data/bodies.js';
 
 /** Apparent radius, in CSS pixels, at which a marker is fully faded out / in. */
 const HIDE_ABOVE = 7;
@@ -93,7 +92,7 @@ export class Markers {
    */
   setFocus(bodyId) {
     this._focusedId = bodyId;
-    const body = bodyId ? BODY_BY_ID.get(bodyId) : null;
+    const body = bodyId ? this.system.catalogue.byId.get(bodyId) : null;
     this._systemId = body?.kind === 'moon' ? body.parent : bodyId;
   }
 

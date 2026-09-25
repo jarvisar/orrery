@@ -268,8 +268,41 @@ try {
   assert(after.canvas > 0, 'the page canvas was not restored');
   await shot('exited');
 
+  /* --- another star -------------------------------------------------------- */
+
+  // Proxima's planets are lost in its 13,000 AU orbit round Alpha Centauri, so
+  // the table is set around Proxima itself, and follows it; Whole system
+  // re-centres on the barycentre.
+  await page.goto(`${ORIGIN}/?debug&system=Proxima%20Cen`, { waitUntil: 'load', timeout: 60_000 });
+  await waitForApp(page);
+  await page.evaluate(() => window.__xr);
+  await installHelpers(page);
+  await page.click('.topbar__vr');
+  await page.waitForFunction(() => orrery.ui.vr.presenting, { timeout: 30_000 });
+  await frames(10);
+  const table = () => page.evaluate(() => {
+    const vr = orrery.ui.vr;
+    const centre = vr._anchor?.group.position ?? vr.system.root.position;
+    return { anchor: vr._anchor?.id ?? null, focus: vr.focus?.id ?? null, metres: vr.viewerPosition.distanceTo(centre) / vr.scale };
+  });
+  let exo = await table();
+  assert(exo.anchor === 'star:Proxima Cen' && !exo.focus, `entered Proxima's VR view anchored on ${exo.anchor}`);
+  assert(exo.metres < 5, `Proxima is ${exo.metres.toFixed(1)} m away, not on the table`);
+  await shot('proxima');
+  await page.evaluate(() => T.aimAtButton('right', 'overview'));
+  await frames();
+  await press((v) => T.button('right', 'trigger', v));
+  await frames(20);
+  exo = await table();
+  assert(exo.anchor === null && exo.metres < 5, `Whole system did not re-centre the table (${exo.anchor}, ${exo.metres.toFixed(1)} m)`);
+  await page.evaluate(() => orrery.ui.vr.end());
+  await page.waitForFunction(() => !orrery.ui.vr.active, { timeout: 30_000 }).catch(() => {});
+  await sleep(1000);
+  const label = await page.evaluate(() => document.querySelector('.picker__label')?.textContent);
+  assert(label === 'Whole system', `back on the page showing ${label}, not the whole system`);
+
   if (problems.length === 0) {
-    console.log('vr: ok — controllers, hands, panel, palm, poke, recentre and exit all behaved');
+    console.log('vr: ok — controllers, hands, panel, palm, poke, recentre, exit and another star all behaved');
   } else {
     exitCode = 1;
     console.error(`vr: ${problems.length} problem(s)`);

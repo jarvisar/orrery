@@ -16,7 +16,6 @@ import * as THREE from 'three';
 import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { BODY_BY_ID, SUN_ID } from '../data/bodies.js';
 import { heliocentricDistance, satelliteDistance } from './scaling.js';
 import { sampleOrbitPath, perifocalToWorld, eccentricAnomaly } from '../sim/kepler.js';
 
@@ -94,7 +93,7 @@ export class Orbits {
   }
 
   _createLine(view) {
-    const heliocentric = view.body.parent === SUN_ID;
+    const heliocentric = view.elements.heliocentric;
     const segments = heliocentric ? HELIOCENTRIC_SEGMENTS : SATELLITE_SEGMENTS;
     const positions = this._pathPositions(view, segments);
 
@@ -134,7 +133,7 @@ export class Orbits {
       line,
       material,
       view,
-      parentId: heliocentric ? null : view.body.parent,
+      parentId: this.system.catalogue.isExoplanet ? view.body.parent : heliocentric ? null : view.body.parent,
       width,
       radius: meanRadius(positions),
       targetOpacity: base,
@@ -150,7 +149,7 @@ export class Orbits {
    */
   _pathPositions(view, segments) {
     const el = view.elements;
-    const heliocentric = view.body.parent === SUN_ID;
+    const heliocentric = view.elements.heliocentric;
     const exponent = this.system.scaleExponent;
 
     const samples = sampleOrbitPath(el, segments, []);
@@ -162,7 +161,7 @@ export class Orbits {
       const scaled = heliocentric
         ? heliocentricDistance(distance, exponent)
         : satelliteDistance(distance, exponent);
-      const k = scaled / distance;
+      const k = scaled / distance * (el.fraction ?? 1);
 
       positions[i * 3] = _point.x * k;
       positions[i * 3 + 1] = _point.y * k;
@@ -186,6 +185,10 @@ export class Orbits {
       if (entry.parentId) {
         const parent = this.system.bodies.get(entry.parentId);
         if (parent) entry.line.position.copy(parent.group.position);
+        else {
+          const anchor = this.system.stellarPositions.get(entry.parentId);
+          if (anchor) entry.line.position.set(anchor.x, anchor.y, anchor.z);
+        }
         _centre.copy(entry.line.position);
       } else {
         _centre.set(0, 0, 0);
@@ -214,7 +217,7 @@ export class Orbits {
     if (this._focusedId === bodyId) return;
     this._focusedId = bodyId;
 
-    const focusedBody = bodyId ? BODY_BY_ID.get(bodyId) : null;
+    const focusedBody = bodyId ? this.system.catalogue.byId.get(bodyId) : null;
     const parentId = focusedBody?.parent;
 
     for (const [id, entry] of this.lines) {
@@ -249,7 +252,7 @@ export class Orbits {
   /** Rebuilds paths after the Scale setting changes. */
   rescale() {
     for (const entry of this.lines.values()) {
-      const segments = entry.parentId ? SATELLITE_SEGMENTS : HELIOCENTRIC_SEGMENTS;
+      const segments = entry.view.elements.heliocentric ? HELIOCENTRIC_SEGMENTS : SATELLITE_SEGMENTS;
       const positions = this._pathPositions(entry.view, segments);
       entry.line.geometry.setPositions(positions);
       entry.radius = meanRadius(positions);

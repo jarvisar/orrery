@@ -26,18 +26,21 @@ export function dateFromDays(days) {
 /**
  * Solves Kepler's equation `M = E - e·sin E` for the eccentric anomaly.
  *
- * Newton-Raphson, seeded so that even Eris (e = 0.44) converges in three or four
- * iterations. The iteration cap only matters for parabolic-ish orbits we do not
- * have.
+ * Bracketed Newton iteration also handles highly eccentric exoplanets, including
+ * negative dates and mean anomalies very close to periapsis.
  */
 export function eccentricAnomaly(meanAnomaly, e) {
   const M = normalizeSigned(meanAnomaly);
-  let E = e < 0.8 ? M : Math.PI;
-
-  for (let i = 0; i < 12; i++) {
-    const dE = (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
-    E -= dE;
-    if (Math.abs(dE) < 1e-10) break;
+  if (M === 0 || e === 0) return M;
+  let low = -Math.PI, high = Math.PI;
+  let E = e < 0.8 ? M : Math.sign(M) * Math.PI;
+  for (let i = 0; i < 64; i++) {
+    const residual = E - e * Math.sin(E) - M;
+    if (residual > 0) high = E; else low = E;
+    const next = E - residual / (1 - e * Math.cos(E));
+    const candidate = next > low && next < high ? next : (low + high) / 2;
+    if (Math.abs(residual) < 1e-14 || high - low < 1e-13) break;
+    E = candidate;
   }
   return E;
 }

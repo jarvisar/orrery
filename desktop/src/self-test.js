@@ -97,6 +97,32 @@ export async function selfTest(win, report, startUrl, screenshot) {
       log(`updater: ${updater ? 'packaged' : 'MISSING'}, feed: ${feed ? 'app-update.yml' : 'MISSING'}`);
     }
 
+    // The same renderer with a downloaded system: also exercises app:// navigation
+    // and ensures the packaged offline NASA catalogue is actually shipped.
+    await contents.loadURL(`${ORIGIN}/?system=TRAPPIST-1&body=planet%3ATRAPPIST-1%20e`);
+    while (await contents.executeJavaScript('Boolean(document.getElementById("loading"))')) await sleep(500);
+    const exoplanet = await contents.executeJavaScript(`({
+      name: document.querySelector('.info__title')?.textContent,
+      provenance: document.querySelector('.info__provenance')?.textContent,
+      picker: document.querySelectorAll('.picker__option').length,
+    })`);
+    expect(exoplanet.name === 'TRAPPIST-1 e', 'the desktop exoplanet deep link did not focus its planet');
+    expect(exoplanet.picker > 2, 'the desktop TRAPPIST-1 model is missing planets');
+    expect(exoplanet.provenance?.includes('NASA'), 'the desktop exoplanet view has no data provenance');
+    log(`exoplanets: ${exoplanet.name}, ${exoplanet.picker} picker entries`);
+
+    await contents.loadURL(`${ORIGIN}/?system=Kepler-16&body=planet%3AKepler-16%20b`);
+    while (await contents.executeJavaScript('Boolean(document.getElementById("loading"))')) await sleep(500);
+    const binary = await contents.executeJavaScript(`({
+      name: document.querySelector('.info__title')?.textContent,
+      members: [...document.querySelectorAll('.info .chip')].map((el) => el.textContent),
+      provenance: document.querySelector('.info__provenance')?.textContent,
+    })`);
+    expect(binary.name === 'Kepler-16 b', 'the desktop circumbinary planet is missing');
+    expect(binary.members.includes('Kepler-16 A') && binary.members.includes('Kepler-16 B'), 'the packaged stellar companion catalogue is missing');
+    expect(binary.provenance?.includes('Circumbinary'), 'the desktop binary model has no orbit provenance');
+    log(`binary: ${binary.members.join(', ')}`);
+
     // The other page, reached from the Konami code: loads, and links back.
     await contents.loadURL(`${ORIGIN}/tetris.html`);
     await sleep(1000);

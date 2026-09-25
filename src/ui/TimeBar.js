@@ -190,7 +190,7 @@ export class TimeBar {
       ]
     );
 
-    const moments = MOMENTS.map((moment) => {
+    const moments = (this.hooks.exoplanet ? [] : MOMENTS).map((moment) => {
       const date = new Date(moment.date);
       return el(
         'button',
@@ -241,8 +241,8 @@ export class TimeBar {
       [
         el('h3', { class: 'section-title', text: 'Go to' }),
         form,
-        el('p', { class: 'when__hint', text: 'Times are UTC. Positions are most accurate between 1800 and 2050.' }),
-        el('h3', { class: 'section-title', text: 'Moments' }),
+        el('p', { class: 'when__hint', text: this.hooks.exoplanet ? 'Times are UTC. Exoplanet phases are illustrative, not predicted positions for this date.' : 'Times are UTC. Positions are most accurate between 1800 and 2050.' }),
+        this.hooks.exoplanet ? null : el('h3', { class: 'section-title', text: 'Moments' }),
         el('div', { class: 'when__moments' }, moments),
         el('div', { class: 'when__footer' }, [copy, this.copyStatus]),
       ]

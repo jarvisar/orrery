@@ -145,7 +145,9 @@ export const CONTROLLER = [
 ];
 
 export class HelpOverlay {
-  constructor() {
+  /** @param {{exoplanet?: boolean}} [options] Around another star: no tours, and its own sources. */
+  constructor({ exoplanet = false } = {}) {
+    this.exoplanet = exoplanet;
     this.isOpen = false;
     this._releaseFocus = null;
     /** The connected controller's make, or null with none connected. */
@@ -159,9 +161,11 @@ export class HelpOverlay {
     const footer = el('div', { class: 'help__footer' }, [
       el('span', {
         class: 'help__note',
-        text:
-          'Positions come from J2000 orbital elements and poles from the IAU; sizes and ' +
-          'distances are compressed. Stars from the Yale Bright Star Catalogue.',
+        text: exoplanet
+          ? 'Planets and stars from the NASA Exoplanet Archive; orbital phases are illustrative, and ' +
+            'sizes and distances are compressed. The sky is the view from Earth (Yale Bright Star Catalogue).'
+          : 'Positions come from J2000 orbital elements and poles from the IAU; sizes and ' +
+            'distances are compressed. Stars from the Yale Bright Star Catalogue.',
       }),
       el(
         'a',
@@ -218,7 +222,8 @@ export class HelpOverlay {
 
   _render() {
     const family = this._family ?? 'generic';
-    const sections = this._family ? [...CONTROLLER, ...SHORTCUTS] : [...SHORTCUTS, ...CONTROLLER];
+    const shortcuts = this.exoplanet ? SHORTCUTS.filter((section) => section.group !== 'Tours') : SHORTCUTS;
+    const sections = this._family ? [...CONTROLLER, ...shortcuts] : [...shortcuts, ...CONTROLLER];
     this.body.replaceChildren(
       ...sections.map((section) =>
         el('div', {}, [

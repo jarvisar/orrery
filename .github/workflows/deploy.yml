@@ -9,6 +9,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '23 7 * * 1'
 
 permissions:
   contents: read
@@ -40,6 +42,27 @@ jobs:
         # a syntax error, a stale vendored three.js, a texture in the
         # catalogue that is not actually shipped.
         run: npm run check
+
+      - name: Check the exoplanet model
+        # Against the committed catalogues, before they are refreshed, so these
+        # named-system tests only ever fail for a change to the code.
+        run: npm run exoplanets:test
+
+      - name: Refresh the offline exoplanet catalogue
+        # Also runs weekly (the schedule above). The importer replaces the
+        # committed copy only once the new one has passed its own checks, so an
+        # archive outage or a bad response ships last week's data instead.
+        continue-on-error: true
+        run: npm run exoplanets:update
+
+      - name: Refresh stellar companion data
+        continue-on-error: true
+        run: npm run stars:update
+
+      - name: Check the catalogues being shipped
+        # Independent of which systems they hold: every one must still build a
+        # finite model that keeps all of its planets.
+        run: npm run exoplanets:verify
 
       - name: Stage the site
         # Copies the files listed in scripts/lib/served.js - the same list the

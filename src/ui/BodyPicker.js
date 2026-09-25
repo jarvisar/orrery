@@ -9,7 +9,7 @@
  */
 
 import { el, icon } from './dom.js';
-import { BODIES, BODY_BY_ID } from '../data/bodies.js';
+import { SOLAR_SYSTEM } from '../data/systems.js';
 
 const GROUP_ORDER = [
   { kind: 'star', label: 'Star' },
@@ -24,7 +24,8 @@ export class BodyPicker {
    * @param {(id: string) => void} handlers.onSelect
    * @param {() => void} handlers.onOverview
    */
-  constructor({ onSelect, onOverview }) {
+  constructor({ onSelect, onOverview, catalogue = SOLAR_SYSTEM }) {
+    this.catalogue = catalogue;
     this.onSelect = onSelect;
     this.onOverview = onOverview;
     this.selectedId = null;
@@ -84,7 +85,7 @@ export class BodyPicker {
     this._options.set('@overview', overview);
 
     for (const group of GROUP_ORDER) {
-      const members = BODIES.filter((b) => b.kind === group.kind);
+      const members = this.catalogue.bodies.filter((b) => b.kind === group.kind);
       if (members.length === 0) continue;
 
       const heading = el('div', { class: 'picker__group', text: group.label });
@@ -92,7 +93,7 @@ export class BodyPicker {
 
       const nodes = [];
       for (const body of members) {
-        const parent = body.parent ? BODY_BY_ID.get(body.parent) : null;
+        const parent = body.parent ? this.catalogue.byId.get(body.parent) : null;
         const option = el(
           'button',
           {
@@ -136,7 +137,7 @@ export class BodyPicker {
    * Shows `id` as the current body. `display` names things the catalogue does
    * not - the whole-system view, or something that is not a body at all.
    */
-  select(id, display = id ? BODY_BY_ID.get(id) : null) {
+  select(id, display = id ? this.catalogue.byId.get(id) : null) {
     this._options.get(this.selectedId)?.setAttribute('aria-selected', 'false');
     this.selectedId = id ?? (display ? '@overview' : null);
 

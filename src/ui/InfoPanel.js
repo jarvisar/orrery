@@ -14,7 +14,8 @@
  */
 
 import { el, icon, formatKm } from './dom.js';
-import { AU_KM, BODIES, BODY_BY_ID, SUN_ID, childrenOf } from '../data/bodies.js';
+import { AU_KM } from '../data/bodies.js';
+import { SOLAR_SYSTEM } from '../data/systems.js';
 import { orbitalPosition, eccentricAnomaly, perifocalToWorld } from '../sim/kepler.js';
 
 export const KIND_LABEL = {
@@ -47,8 +48,9 @@ export class InfoPanel {
    *   by id, for the map and for where Earth is.
    */
   constructor({
-    collapsed = false, onSelect = () => {}, isVisible = () => true, elementsOf = () => undefined,
+    catalogue = SOLAR_SYSTEM, collapsed = false, onSelect = () => {}, isVisible = () => true, elementsOf = () => undefined,
   } = {}) {
+    this.catalogue = catalogue;
     this.onSelect = onSelect;
     this.isVisible = isVisible;
     this.elementsOf = elementsOf;
@@ -62,8 +64,9 @@ export class InfoPanel {
     this.live = el('div', { class: 'info__live' });
     this.facts = el('dl', { class: 'info__facts' });
     this.system = el('div', { class: 'info__system' });
+    this.provenance = el('div', { class: 'info__provenance' });
     this.body = el('div', { class: 'info__body' }, [
-      this.blurb, this.diagram, this.live, this.facts, this.system,
+      this.blurb, this.diagram, this.live, this.facts, this.system, this.provenance,
     ]);
 
     this.header = el(
@@ -122,9 +125,45 @@ export class InfoPanel {
 
     this._buildDiagram(view);
     this._buildSystem(body);
+    this._buildProvenance(body);
     this.live.replaceChildren();
     this._liveRows = null;
     this.body.scrollTop = 0;
+  }
+
+  _buildProvenance(body) {
+    this.provenance.replaceChildren();
+    if (!body.exoplanet) return;
+    const link = (href, text) => el('a', { href, target: '_blank', rel: 'noopener', text });
+    this.provenance.append(...[
+      el('h3', { class: 'section-title', text: 'About this model' }),
+      ...body.modelNotes.map((text) => el('p', { text })),
+      el('p', { text: 'Orbits share an illustrative plane; their orientation and phase do not predict transits or the positions on the date shown. The background sky is the view from Earth.' }),
+      link(body.source, `${body.sourceName ?? 'NASA archive & published measurements'} ↗`),
+      body.reference ? el('p', {}, [body.reference.href ? link(body.reference.href, body.reference.label) : body.reference.label])
+        : el('p', { text: body.sourceName ? 'Publication references are recorded in the source file history.' : 'Reference available in the archive.' }),
+      body.distanceReference?.href && el('p', {}, [link(body.distanceReference.href, `Distance: ${body.distanceReference.label}`)]),
+      body.companionSource && el('p', {}, [link(body.companionSource, 'Stellar hierarchy: Open Exoplanet Catalogue ↗')]),
+      el('p', { text: `${body.sourceName ?? 'NASA default solution'} · retrieved ${(body.sourceDate ?? this.catalogue.fetchedAt).slice(0, 10)} (UTC). Quoted errors and limits are from the source.` }),
+    ].filter(Boolean));
+  }
+
+  _buildExoplanetLinks(body) {
+    this.system.replaceChildren(
+      el('h3', { class: 'section-title', text: `${this.catalogue.name} system` }),
+      el('div', { class: 'chips' }, this.catalogue.bodies.map((member) => el('button', {
+        class: 'chip', type: 'button', 'aria-current': member.id === body.id ? 'true' : null,
+        text: member.name, onclick: () => this.onSelect(member.id),
+      }))),
+      ...this.catalogue.omitted.map((member) => el('details', { class: 'info__unmodeled' }, [
+        el('summary', { text: `${member.name} · orbit unavailable` }),
+        el('p', { text: member.unmodeled }),
+        el('p', { text: member.blurb }),
+        el('dl', { class: 'info__facts' }, Object.entries(member.facts).map(([key, value]) =>
+          el('div', { class: 'info__fact' }, [el('dt', { text: key }), el('dd', { text: value })]))),
+        el('a', { href: member.source, target: '_blank', rel: 'noopener', text: 'Published measurements ↗' }),
+      ])),
+    );
   }
 
   /** Re-checks which links and neighbours to show, after a visibility setting changes. */
@@ -136,7 +175,7 @@ export class InfoPanel {
 
   _describeKind(body) {
     if (body.kind === 'moon' && body.parent) {
-      const parent = BODY_BY_ID.get(body.parent);
+      const parent = this.catalogue.byId.get(body.parent);
       return [
         'Moon of ',
         el('button', {
@@ -147,6 +186,13 @@ export class InfoPanel {
         }),
       ];
     }
+    if (body.exoplanet && body.kind === 'planet') {
+      const host = this.catalogue.byId.get(body.parent);
+      if (!host) return ['Circumbinary exoplanet'];
+      return ['Exoplanet of ', el('button', {
+        class: 'info__link', type: 'button', text: host.name, onclick: () => this.onSelect(host.id),
+      })];
+    }
     return [KIND_LABEL[body.kind] ?? body.kind];
   }
 
@@ -156,10 +202,11 @@ export class InfoPanel {
    * titled by what it is rather than claiming to be a full list.
    */
   _buildSystem(body) {
+    if (body.exoplanet) return this._buildExoplanetLinks(body);
     const primaryId = body.kind === 'moon' ? body.parent : body.id;
-    const primary = BODY_BY_ID.get(primaryId);
-    const moons = primaryId && primaryId !== SUN_ID
-      ? childrenOf(primaryId).filter((moon) => this.isVisible(moon.id))
+    const primary = this.catalogue.byId.get(primaryId);
+    const moons = primaryId && primaryId !== this.catalogue.starId
+      ? this.catalogue.bodies.filter((b) => b.parent === primaryId).filter((moon) => this.isVisible(moon.id))
       : [];
 
     if (moons.length === 0) {
@@ -198,7 +245,7 @@ export class InfoPanel {
    */
   _neighbours(body) {
     const size = (b) => b.orbit.aAU ?? b.orbit.aKm;
-    const siblings = BODIES
+    const siblings = this.catalogue.bodies
       .filter((b) => b.parent === body.parent && b.orbit && (b.id === body.id || this.isVisible(b.id)))
       .sort((a, b) => size(a) - size(b));
     const i = siblings.findIndex((b) => b.id === body.id);
@@ -211,7 +258,7 @@ export class InfoPanel {
 
   /** The static half of the map: every orbit in it, and the primary. */
   _buildDiagram(view) {
-    const own = view.elements;
+    const own = diagramElements(view.elements);
     if (!own) {
       this.diagram.replaceChildren();
       this._diagramParts = null;
@@ -219,7 +266,7 @@ export class InfoPanel {
     }
 
     const members = this._neighbours(view.body)
-      .map((body) => ({ body, el: body.id === view.id ? own : this.elementsOf(body.id) }))
+      .map((body) => ({ body, el: body.id === view.id ? own : diagramElements(this.elementsOf(body.id)) }))
       .filter((member) => member.el);
 
     const { width, height, pad, samples } = MAP;
@@ -242,9 +289,14 @@ export class InfoPanel {
       }));
     }
 
-    const primaryColor = own.heliocentric ? '#ffd9a0' : (own.parentBody?.color ?? '#ffffff');
+    // Another star's own colour; a pair's centre of mass takes the host's, as a ring.
+    const primaryColor = view.body.exoplanet
+      ? (own.parentBody ?? this.catalogue.byId.get(this.catalogue.starId))?.color ?? '#ffd9a0'
+      : own.heliocentric ? '#ffd9a0' : (own.parentBody?.color ?? '#ffffff');
+    const barycentre = view.body.parent?.startsWith('barycentre:');
     svg.append(svgEl('circle', {
-      class: 'orbit-primary', cx, cy, r: own.heliocentric ? 3.5 : 3, fill: primaryColor,
+      class: 'orbit-primary', cx, cy, r: own.heliocentric ? 3.5 : 3,
+      fill: barycentre ? 'none' : primaryColor, stroke: barycentre ? primaryColor : 'none',
     }));
 
     parts.travelled = svgEl('path', { class: 'orbit-travelled' });
@@ -281,6 +333,16 @@ export class InfoPanel {
 
     const rows = [];
     const body = view.body;
+    if (body.exoplanet) {
+      if (view.elements) {
+        const elements = diagramElements(view.elements);
+        orbitalPosition(elements, tDays, _now);
+        this._renderLive([[body.parent?.startsWith('barycentre:') ? 'Model distance to barycentre' : 'Model distance to star',
+          `${Math.hypot(_now.x, _now.y, _now.z).toPrecision(4)} AU`]]);
+        this._updateDiagram(elements, tDays);
+      }
+      return;
+    }
     const earthEl = elementsOf('earth');
     orbitalPosition(earthEl, tDays, _earth);
 
@@ -312,7 +374,7 @@ export class InfoPanel {
     // How far round the orbit it is since the last close approach, by time.
     const turns = (el_.meanLong - el_.periLong) / 360 + tDays / el_.periodDays;
     const sincePeriapsis = turns - Math.floor(turns);
-    const parent = body.parent ? BODY_BY_ID.get(body.parent) : null;
+    const parent = body.parent ? this.catalogue.byId.get(body.parent) : null;
 
     if (el_.heliocentric) {
       rows.push(['From the Sun', `${distance.toFixed(3)} AU`]);
@@ -451,4 +513,11 @@ function svgEl(tag, attributes) {
   const node = document.createElementNS(SVG_NS, tag);
   for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
   return node;
+}
+
+function diagramElements(elements) {
+  if (!elements || elements.fraction == null || elements.fraction === 1) return elements;
+  const flip = elements.fraction < 0 ? 180 : 0;
+  return { ...elements, a: elements.a * Math.abs(elements.fraction),
+    meanLong: elements.meanLong + flip, periLong: elements.periLong + flip };
 }

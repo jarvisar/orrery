@@ -16,7 +16,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { systemRadius, heliocentricDistance } from '../scene/scaling.js';
+import { heliocentricDistance } from '../scene/scaling.js';
 
 /** How many body radii of empty space to leave around a framed body. */
 const FRAMING = 2.6;
@@ -62,6 +62,8 @@ export class CameraDirector {
 
     /** @type {import('../scene/SolarSystem.js').BodyView|null} */
     this.focus = null;
+    /** What an overview is centred on and follows, when not the system's centre. */
+    this.anchor = null;
     this._lastFocusPosition = new THREE.Vector3();
     this._transition = null;
     this._scaleExponent = system.scaleExponent;
@@ -75,7 +77,9 @@ export class CameraDirector {
   setScaleExponent(exponent) {
     this._scaleExponent = exponent;
     const halfFov = THREE.MathUtils.degToRad(this.camera.fov) / 2;
-    this.controls.maxDistance = (systemRadius(exponent) / Math.tan(halfFov)) * 1.1;
+    this.camera.far = Math.max(this.camera.far, heliocentricDistance(this.system.catalogue.edgeAU, exponent) * 8);
+    this.camera.updateProjectionMatrix();
+    this.controls.maxDistance = (heliocentricDistance(this.system.catalogue.edgeAU, exponent) / Math.tan(halfFov)) * 1.1;
   }
 
   /** Distance at which a body of this size fills a comfortable share of the frame. */
@@ -92,6 +96,7 @@ export class CameraDirector {
   focusOn(view, { instant = false, duration = TRANSITION_SECONDS } = {}) {
     const previous = this.focus;
     this.focus = view;
+    this.anchor = null;
 
     if (!view) {
       this._transition = null;
@@ -135,9 +140,11 @@ export class CameraDirector {
   /**
    * The whole system at a three-quarter angle, framed to `radiusAU`. Keeps the
    * camera's current bearing round the Sun, so it rises and pulls back rather
-   * than swinging round to some fixed side.
+   * than swinging round to some fixed side. `centre`, a body, frames its
+   * surroundings instead - a star's planets, in a system of several stars -
+   * and is followed as it moves.
    */
-  overview(radiusAU = 33, { instant = false, duration = 2.2 } = {}) {
+  overview(radiusAU = 33, { instant = false, duration = 2.2, centre = null } = {}) {
     const radius = heliocentricDistance(radiusAU, this._scaleExponent);
     const halfHeight = THREE.MathUtils.degToRad(this.camera.fov) / 2;
     const halfWidth = Math.atan(Math.tan(halfHeight) * this.camera.aspect);
@@ -146,7 +153,8 @@ export class CameraDirector {
     // disc is foreshortened, so a little inside the sphere still clears it.
     const distance = (0.9 * radius) / Math.sin(Math.min(halfHeight, halfWidth));
 
-    const bearing = Math.atan2(this.camera.position.x, this.camera.position.z);
+    const target = centre ? centre.group.position.clone() : new THREE.Vector3();
+    const bearing = Math.atan2(this.camera.position.x - target.x, this.camera.position.z - target.z);
     _offset.set(
       Math.sin(bearing) * Math.cos(OVERVIEW_ELEVATION),
       Math.sin(OVERVIEW_ELEVATION),
@@ -154,11 +162,12 @@ export class CameraDirector {
     ).multiplyScalar(Math.min(distance, this.controls.maxDistance * 0.98));
 
     this.focus = null;
+    this.anchor = centre;
+    this._lastFocusPosition.copy(target);
     this.controls.minDistance = 0;
-    const target = new THREE.Vector3();
     if (instant) {
       this.controls.target.copy(target);
-      this.camera.position.copy(_offset);
+      this.camera.position.copy(target).add(_offset);
       this._transition = null;
       return;
     }
@@ -168,7 +177,8 @@ export class CameraDirector {
       fromTarget: this.controls.target.clone(),
       fromPosition: this.camera.position.clone(),
       offset: _offset.clone(),
-      toTarget: target,
+      // A moving centre is tracked all the way there, like a focused body.
+      toTarget: centre ? null : target,
     };
   }
 
@@ -211,7 +221,7 @@ export class CameraDirector {
 
   update(dt) {
     if (this._transition) this._advanceTransition(dt);
-    else if (this.focus) this._follow();
+    else if (this.focus ?? this.anchor) this._follow();
 
     this.controls.update(dt);
     this._updateClipping();
@@ -222,13 +232,14 @@ export class CameraDirector {
     t.elapsed += dt;
     const k = easeInOutCubic(Math.min(1, t.elapsed / t.duration));
 
-    _desired.copy(t.toTarget ?? this.focus.group.position);
+    const followed = this.focus ?? this.anchor;
+    _desired.copy(t.toTarget ?? followed.group.position);
     this.controls.target.lerpVectors(t.fromTarget, _desired, k);
     this.camera.position.lerpVectors(t.fromPosition, _desired.add(t.offset), k);
 
     if (t.elapsed >= t.duration) {
       this._transition = null;
-      if (this.focus) this._lastFocusPosition.copy(this.focus.group.position);
+      if (followed) this._lastFocusPosition.copy(followed.group.position);
     }
   }
 
@@ -237,10 +248,11 @@ export class CameraDirector {
    * body drifts out of frame at any non-trivial time rate.
    */
   _follow() {
-    _delta.copy(this.focus.group.position).sub(this._lastFocusPosition);
+    const followed = this.focus ?? this.anchor;
+    _delta.copy(followed.group.position).sub(this._lastFocusPosition);
     this.camera.position.add(_delta);
     this.controls.target.add(_delta);
-    this._lastFocusPosition.copy(this.focus.group.position);
+    this._lastFocusPosition.copy(followed.group.position);
   }
 
   /**
@@ -317,8 +329,10 @@ export class CameraDirector {
  * leaves the direction toward the Sun in `_sunward`. Null for the Sun itself.
  */
 export function daylightDirection(view, out) {
-  if (view.group.position.lengthSq() < 1e-6) return null;
-  _sunward.copy(view.group.position).negate().normalize();
+  if (view.kind === 'star') return null;
+  _sunward.copy(view.lightPosition ?? _sunward.set(0, 0, 0)).sub(view.group.position);
+  if (_sunward.lengthSq() < 1e-6) return null;
+  _sunward.normalize();
   _side.crossVectors(_sunward, UP).normalize();
   return out.copy(_sunward).multiplyScalar(0.6)
     .addScaledVector(_side, 0.72)

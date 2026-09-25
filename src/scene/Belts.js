@@ -28,7 +28,7 @@ export class Belts {
   build(density = this.density) {
     this.clear();
     this.density = density;
-    for (const spec of BELTS) this.clouds.push(this._createCloud(spec, density));
+    for (const spec of (this.system.catalogue.isExoplanet ? [] : BELTS)) this.clouds.push(this._createCloud(spec, density));
   }
 
   _createCloud(spec, density) {

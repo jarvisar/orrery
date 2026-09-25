@@ -23,6 +23,18 @@ Claude or Claude Code.
    npm run desktop:smoke          # needs npm run desktop:setup once
    ```
 
+   The installers package the committed exoplanet catalogues (Pages
+   refreshes its own copy on every deploy; the desktop build does not), so
+   refresh them first and commit the result if either changed:
+
+   ```sh
+   npm run exoplanets:update && npm run stars:update && npm run exoplanets:test
+   git add public/data/exoplanets.json public/data/stellar-systems.json
+   ```
+
+   Each importer leaves the old file untouched if the new data fails its
+   checks; say so to the user rather than forcing it.
+
 2. Ask the user which bump (patch / minor / major) if they have not said.
    Then:
 

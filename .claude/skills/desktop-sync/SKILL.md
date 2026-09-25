@@ -75,4 +75,4 @@ clear it. Launch through them, or unset it.
 
 Keep web-app hooks to a line or two, commented, keyed on `window.orreryDesktop`
 (undefined in a browser), so the site behaves identically without the wrapper.
-`desktop/README.md` has the full table ("Keeping it in step with the site").
+`desktop/README.md` has the full table ("Keeping It in Sync With the Site").

@@ -12,9 +12,15 @@ import { SCALE_EXPONENT_RANGE } from '../scene/scaling.js';
 import { canInstall, install, onInstallChange } from './install.js';
 
 export class SettingsPanel {
-  /** @param {import('../core/Settings.js').Settings} settings */
-  constructor(settings) {
+  /**
+   * @param {import('../core/Settings.js').Settings} settings
+   * @param {object} [options]
+   * @param {string[]} [options.omit] Settings with nothing to act on in this view
+   *   (moons and belts around another star). Hidden, but kept.
+   */
+  constructor(settings, { omit = [] } = {}) {
     this.settings = settings;
+    this.omit = new Set(omit);
     this.isOpen = false;
     this._releaseFocus = null;
 
@@ -168,7 +174,7 @@ export class SettingsPanel {
 
     this.settings.on(key, (value) => control.setAttribute('aria-checked', String(value)));
 
-    return el('div', { class: 'field' }, [
+    return el('div', { class: 'field', hidden: this.omit.has(key) }, [
       el('div', { class: 'field__row' }, [el('span', { class: 'field__label', text: label }), control]),
       hint ? el('p', { class: 'field__hint', text: hint }) : null,
     ]);
@@ -191,7 +197,7 @@ export class SettingsPanel {
       value.textContent = format(next);
     });
 
-    return el('div', { class: 'field' }, [
+    return el('div', { class: 'field', hidden: this.omit.has(key) }, [
       el('div', { class: 'field__row' }, [el('span', { class: 'field__label', text: label }), value]),
       input,
       hint ? el('p', { class: 'field__hint', text: hint }) : null,
@@ -214,7 +220,7 @@ export class SettingsPanel {
       );
     });
 
-    return el('div', { class: 'field' }, [
+    return el('div', { class: 'field', hidden: this.omit.has(key) }, [
       el('div', { class: 'field__row' }, [
         el('span', { class: 'field__label', text: label }),
         el('div', { class: 'segmented', role: 'group', 'aria-label': label }, buttons),

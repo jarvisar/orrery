@@ -217,7 +217,7 @@ export function isNavigable(node) {
   if (rect.width === 0 || rect.height === 0) return false;
   if (rect.bottom < 0 || rect.right < 0 || rect.top > innerHeight || rect.left > innerWidth) {
     // Off screen is fine inside a scrolling list; focusing it scrolls it in.
-    if (!node.parentElement?.closest('[role="listbox"], [role="menu"], .drawer__body, .help__body, .info__body, .when')) {
+    if (!node.parentElement?.closest('[role="listbox"], [role="menu"], .drawer__body, .help__body, .info__body, .when, .systems__scroll')) {
       return false;
     }
   }

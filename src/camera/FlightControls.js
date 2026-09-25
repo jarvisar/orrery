@@ -24,7 +24,7 @@
  */
 
 import * as THREE from 'three';
-import { systemRadius } from '../scene/scaling.js';
+import { heliocentricDistance } from '../scene/scaling.js';
 
 const _quaternion = new THREE.Quaternion();
 const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
@@ -307,7 +307,7 @@ export class FlightControls {
     this._carryAlong();
 
     // --- speed ------------------------------------------------------------
-    const maxSpeed = systemRadius(this.system.scaleExponent) * 0.05;
+    const maxSpeed = heliocentricDistance(this.system.catalogue.edgeAU, this.system.scaleExponent) * 0.05;
     const cruise = THREE.MathUtils.clamp(this.altitude * APPROACH, MIN_SPEED, maxSpeed);
     const target = this.throttle * cruise * (this.boosting ? this.boostFactor : 1);
     // Speeding up takes a moment; slowing down near a planet should not.

@@ -189,7 +189,12 @@ try {
   const q1 = await heading();
   assert(q0.some((v, i) => Math.abs(v - q1[i]) > 0.02), 'the left stick did not steer');
 
-  await hold(() => __pad.trigger('rt', 1), () => __pad.trigger('rt', 0), 5);
+  // The lever moves at a rate per second, so hold it for time, not a count of
+  // frames: five fast frames are well under a tenth of a second.
+  await ev(() => __pad.trigger('rt', 1));
+  await page.waitForFunction(() => orrery.ui.flightHud.controls.throttle > 0.2, { timeout: 10_000, polling: 50 }).catch(() => {});
+  await ev(() => __pad.trigger('rt', 0));
+  await frames(2);
   let flight = await ev(() => ({ throttle: orrery.ui.flightHud.controls.throttle }));
   assert(flight.throttle > 0.2, `RT only opened the throttle to ${flight.throttle.toFixed(2)}`);
 

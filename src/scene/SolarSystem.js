@@ -15,12 +15,16 @@
  */
 
 import * as THREE from 'three';
-import { BODIES, BODY_BY_ID, SUN_ID, periodDays } from '../data/bodies.js';
+import { periodDays } from '../data/bodies.js';
+import { SOLAR_SYSTEM } from '../data/systems.js';
+import { exoplanetSurface } from './exoplanetSurface.js';
+import { stellarColor } from '../data/exoplanets.js';
 import {
   bodyRadius, heliocentricDistance, satelliteDistance, ringRadius,
   SCALE_EXPONENT_RANGE,
 } from './scaling.js';
 import { orbitalPosition, spinAngle, rotationAngle } from '../sim/kepler.js';
+import { stellarPositions } from '../sim/stellar.js';
 import { equatorialToScene } from '../sim/frames.js';
 import { receiveRingShadow, receivePlanetShadow, updateSunDirection } from './ringShadow.js';
 import { nightSideEmissive, softTerminator, sunSurface } from './shading.js';
@@ -30,6 +34,10 @@ const DEG = Math.PI / 180;
 const _vec = new THREE.Vector3();
 const _raw = { x: 0, y: 0, z: 0 };
 const _inverseTilt = new THREE.Quaternion();
+
+/** Point-light intensity of a star, set for visibility rather than photometry. */
+const STAR_LIGHT = 3.2;
+const SOLAR_RADIUS_KM = 695_700;
 
 /** Corona sprite size, in solar radii. */
 const CORONA_RADII = 6;
@@ -55,7 +63,8 @@ export class SolarSystem {
    * @param {THREE.Scene} scene
    * @param {import('../core/AssetLoader.js').AssetLoader} assets
    */
-  constructor(scene, assets) {
+  constructor(scene, assets, catalogue = SOLAR_SYSTEM) {
+    this.catalogue = catalogue;
     this.scene = scene;
     this.assets = assets;
 
@@ -74,6 +83,8 @@ export class SolarSystem {
     scene.add(this.root);
 
     this.sunLight = null;
+    this.stellarPositions = new Map();
+    this.starLights = new Map();
     /** Bodies with analytic ring shadows that need a per-frame Sun direction. */
     this._shadowCasters = [];
     this._sunWorld = new THREE.Vector3();
@@ -88,29 +99,92 @@ export class SolarSystem {
     this._buildLighting();
 
     // Parents before children, so a moon can read its primary's scaled radius.
-    const ordered = [...BODIES].sort((a, b) => depth(a) - depth(b));
+    const ordered = [...this.catalogue.bodies].sort((a, b) => depth(a, this.catalogue.byId) - depth(b, this.catalogue.byId));
     for (const body of ordered) this._buildBody(body);
 
-    this._buildCorona();
+    for (const view of this.bodies.values()) {
+      const primary = (this.catalogue.isExoplanet ? this.bodies.get(view.body.parent) : null) ?? this.bodies.get(this.catalogue.starId);
+      view.lightPosition = primary?.group.position;
+    }
+
+    for (const view of this.bodies.values()) if (view.kind === 'star') this._buildCorona(view);
   }
 
   _buildLighting() {
+    const { catalogue } = this;
     // decay: 0 because the real inverse-square falloff over a compressed solar
     // system leaves Neptune in total darkness. The trade is intentional.
-    this.sunLight = new THREE.PointLight(0xfff4e0, 3.2, 0, 0);
+    this.sunLight = new THREE.PointLight(0xfff4e0, STAR_LIGHT, 0, 0);
+    if (catalogue.isExoplanet) this.sunLight.color.set(catalogue.byId.get(catalogue.starId).color);
     this.sunLight.name = 'sunlight';
-    this.sunLight.castShadow = true;
+    // Shadows are for moons crossing planets and rings; an exoplanet system has
+    // neither, and a point light's shadow is six extra renders of the scene.
+    this.sunLight.castShadow = !catalogue.isExoplanet;
     this.sunLight.shadow.mapSize.set(1024, 1024);
     this.sunLight.shadow.bias = -0.0008;
     this.sunLight.shadow.normalBias = 1;
     this.sunLight.shadow.camera.near = 1;
     this.sunLight.shadow.camera.far = 40_000;
     this.root.add(this.sunLight);
+    this.starLights.set(catalogue.starId, this.sunLight);
+
+    // A companion gets a light only if some planet orbits it, or orbits a pair
+    // it is part of: every light is a cost in every lit material.
+    this._starlight = new Map();
+    const nodes = new Map((catalogue.stellarNodes ?? []).map((n) => [n.id, n]));
+    const planets = catalogue.bodies.filter((b) => b.kind === 'planet' && b.orbit);
+    for (const star of catalogue.bodies.filter((b) => b.kind === 'star')) {
+      const path = [];
+      for (let node = nodes.get(star.id); node?.parent; node = nodes.get(node.parent)) path.push(node);
+      const pairs = new Set(path.map((node) => node.parent));
+      const lit = planets.filter((p) => p.parent === star.id || pairs.has(p.parent));
+      this._starlight.set(star.id, { star, path, lit });
+      if (star.id === catalogue.starId || !lit.length) continue;
+      const light = new THREE.PointLight(star.color, STAR_LIGHT, 0, 0);
+      this.root.add(light);
+      this.starLights.set(star.id, light);
+    }
+    this._fitStarlight();
 
     // Just enough fill that the night side is a silhouette rather than a hole -
     // roughly what starlight and a little camera exposure would show.
     this.ambient = new THREE.AmbientLight(0x6c7894, 0.1);
     this.root.add(this.ambient);
+  }
+
+  /**
+   * With more than one star, each light fades out just past the farthest planet
+   * it lights. Without falloff (decay 0, above), a companion hundreds of AU off
+   * would otherwise light a planet as brightly as the star it circles. Where
+   * two stars share planets they share the light by luminosity. Distances
+   * follow the Scale setting, so this runs again when it changes.
+   */
+  _fitStarlight() {
+    if (this.starLights.size < 2) return;
+    const exponent = this.scaleExponent;
+    const luminosity = (star) => (star.radiusKm / SOLAR_RADIUS_KM) ** 2 * ((star.temperature ?? 5772) / 5772) ** 4;
+    const lighters = new Map();
+    for (const [id, { lit }] of this._starlight) {
+      if (!this.starLights.has(id)) continue;
+      for (const planet of lit) lighters.set(planet.id, [...(lighters.get(planet.id) ?? []), id]);
+    }
+    for (const [id, light] of this.starLights) {
+      const { star, path, lit } = this._starlight.get(id);
+      // The host always has a light; with nothing of its own to light, it goes dark.
+      if (!lit.length) { light.intensity = 0; continue; }
+      // How far this star can stray from each pair it belongs to.
+      const offsets = new Map([[id, 0]]);
+      let offset = 0;
+      for (const node of path) {
+        if (node.orbit) offset += heliocentricDistance(node.orbit.aAU * (1 + node.orbit.e), exponent) * Math.abs(node.fraction);
+        offsets.set(node.parent, offset);
+      }
+      const reach = Math.max(...lit.map((p) => offsets.get(p.parent) + heliocentricDistance(p.orbit.aAU * (1 + p.orbit.e), exponent)));
+      // At half the cutoff, three.js's window still passes 88% of the light.
+      light.distance = reach * 2;
+      const brightest = Math.max(...lit.flatMap((p) => lighters.get(p.id).map((other) => luminosity(this._starlight.get(other).star))));
+      light.intensity = STAR_LIGHT * THREE.MathUtils.clamp(luminosity(star) / brightest, 0.15, 1);
+    }
   }
 
   _buildBody(body) {
@@ -136,7 +210,7 @@ export class SolarSystem {
       this._disposables.push(air.geometry, air.material);
     }
 
-    orientBody(view.tilt.quaternion, body);
+    orientBody(view.tilt.quaternion, body, this.catalogue);
     view.elements = this._scaleElements(body, view);
 
     this.bodies.set(body.id, view);
@@ -163,7 +237,8 @@ export class SolarSystem {
     // Claim every map slot up front with a placeholder so the program that gets
     // compiled now is the same one used once the real textures arrive.
     this._claimSlots(material, body, isStar, radius);
-    if (isStar) this._sunSurface = sunSurface(material);
+    if (isStar) sunSurface(material, 1.4, body.exoplanet ? starTint(body.color) : null);
+    if (body.exoplanet) exoplanetSurface(material, body);
     if (body.nightLights) nightSideEmissive(material);
     if (body.terminator) softTerminator(material, body.terminator);
 
@@ -318,8 +393,8 @@ export class SolarSystem {
       view.tilt.scale.setScalar(view.radius / view.baseRadius);
       if (view.rings) this._shapeRings(view);
     }
-    const sun = this.bodies.get(SUN_ID);
-    this._corona?.scale.setScalar(sun.radius * CORONA_RADII);
+    for (const view of this.bodies.values()) view.corona?.scale.setScalar(view.radius * CORONA_RADII);
+    this._fitStarlight();
   }
 
   /** Cloud deck or atmospheric haze: a thin transparent shell just above the surface. */
@@ -374,8 +449,7 @@ export class SolarSystem {
    * are depth tested, so the disc hides them where it covers them and a planet
    * crossing in front cuts a clean silhouette out of the light.
    */
-  _buildCorona() {
-    const sun = this.bodies.get(SUN_ID);
+  _buildCorona(sun) {
     if (!sun) return;
 
     const coronaTexture = makeGlowTexture(256, [
@@ -388,6 +462,7 @@ export class SolarSystem {
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
+    if (sun.body.exoplanet) coronaMaterial.color.multiply(starTint(sun.body.color));
     const corona = new THREE.Sprite(coronaMaterial);
     corona.scale.setScalar(sun.radius * CORONA_RADII);
     corona.renderOrder = -1;
@@ -401,14 +476,14 @@ export class SolarSystem {
       corona.updateMatrixWorld();
     };
     sun.group.add(corona);
-    this._corona = corona;
+    sun.corona = corona;
 
     const glareTexture = makeGlowTexture(128, [
       [0.0, 1.0], [0.04, 0.55], [0.12, 0.16], [0.3, 0.04], [0.6, 0.008], [1.0, 0],
     ]);
     const glareMaterial = new THREE.SpriteMaterial({
       map: glareTexture,
-      color: new THREE.Color(1.0, 0.84, 0.64).multiplyScalar(0.5),
+      color: new THREE.Color(1.0, 0.84, 0.64).multiplyScalar(0.5).multiply(sun.body.exoplanet ? starTint(sun.body.color) : WHITE),
       transparent: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
@@ -431,7 +506,7 @@ export class SolarSystem {
    */
   _scaleElements(body, view) {
     if (!body.orbit) return null;
-    const parent = body.parent ? BODY_BY_ID.get(body.parent) : null;
+    const parent = body.parent ? this.catalogue.byId.get(body.parent) : null;
     return {
       a: body.orbit.aAU ?? body.orbit.aKm,
       e: body.orbit.e,
@@ -440,9 +515,10 @@ export class SolarSystem {
       periLong: body.orbit.periLong,
       nodeLong: body.orbit.nodeLong,
       periodDays: periodDays(body),
-      heliocentric: body.parent === SUN_ID,
+      heliocentric: this.catalogue.isExoplanet || body.parent === this.catalogue.starId,
+      fraction: body.orbit.fraction ?? 1,
       // Measured from the primary's equator, so the orbit tilts with it.
-      equatorial: body.parent !== SUN_ID && body.orbit.plane !== 'ecliptic',
+      equatorial: !this.catalogue.isExoplanet && body.parent !== this.catalogue.starId && body.orbit.plane !== 'ecliptic',
       parentId: body.parent,
       parentBody: parent,
     };
@@ -458,7 +534,11 @@ export class SolarSystem {
 
     if (el.heliocentric) {
       const scaled = heliocentricDistance(distance, this.scaleExponent);
-      target.set(_raw.x, _raw.y, _raw.z).multiplyScalar(scaled / distance);
+      target.set(_raw.x, _raw.y, _raw.z).multiplyScalar(scaled / distance * el.fraction);
+      if (this.catalogue.isExoplanet) {
+        const parent = this.stellarPositions.get(el.parentId);
+        if (parent) { target.x += parent.x; target.y += parent.y; target.z += parent.z; }
+      }
     } else {
       const parentView = this.bodies.get(el.parentId);
       const scaled = satelliteDistance(distance, this.scaleExponent);
@@ -471,6 +551,9 @@ export class SolarSystem {
 
   /** Advances every body to the given simulated day. */
   update(tDays) {
+    if (this.catalogue.stellarNodes?.length) {
+      stellarPositions(this.catalogue.stellarNodes, tDays, (au) => heliocentricDistance(au, this.scaleExponent), this.stellarPositions);
+    }
     for (const view of this.bodies.values()) {
       if (!view.visible) continue;
 
@@ -489,6 +572,8 @@ export class SolarSystem {
         shell.mesh.rotation.y = shell.corotating ? view.spinNode.rotation.y + own : own;
       }
     }
+
+    for (const [id, light] of this.starLights) light.position.copy(this.bodies.get(id).group.position);
 
     this._updateRingShadows();
   }
@@ -521,7 +606,7 @@ export class SolarSystem {
   _updateRingShadows() {
     if (this._shadowCasters.length === 0) return;
 
-    const sun = this.bodies.get(SUN_ID);
+    const sun = this.bodies.get(this.catalogue.starId);
     sun?.group.updateMatrixWorld(true);
     this._sunWorld.setFromMatrixPosition(sun ? sun.group.matrixWorld : this.root.matrixWorld);
 
@@ -558,7 +643,7 @@ export class SolarSystem {
   focusShadows(view) {
     if (!this.sunLight?.castShadow || !view) return;
 
-    const distance = view.group.position.length();
+    const distance = view.group.position.distanceTo(this.sunLight.position);
     const margin = Math.max(view.radius * 30, 600);
     const shadow = this.sunLight.shadow;
     shadow.camera.near = Math.max(1, distance - margin);
@@ -575,7 +660,7 @@ export class SolarSystem {
 
   setShadowQuality(size) {
     if (!this.sunLight) return;
-    this.sunLight.castShadow = size > 0;
+    this.sunLight.castShadow = size > 0 && !this.catalogue.isExoplanet;
     if (size > 0) {
       this.sunLight.shadow.mapSize.set(size, size);
       this.sunLight.shadow.map?.dispose();
@@ -626,12 +711,12 @@ class BodyView {
   }
 }
 
-function depth(body) {
+function depth(body, byId) {
   let d = 0;
   let current = body;
   while (current?.parent) {
     d++;
-    current = BODY_BY_ID.get(current.parent);
+    current = byId.get(current.parent);
   }
   return d;
 }
@@ -684,10 +769,10 @@ const _pole = new THREE.Vector3();
 const _node = new THREE.Vector3();
 const _third = new THREE.Vector3();
 const _basis = new THREE.Matrix4();
-function orientBody(target, body) {
+function orientBody(target, body, catalogue) {
   let pole = body.spin?.pole;
-  for (let parent = BODY_BY_ID.get(body.parent); !pole && parent; parent = BODY_BY_ID.get(parent.parent)) {
-    if (parent.id !== SUN_ID) pole = parent.spin?.pole;
+  for (let parent = catalogue.byId.get(body.parent); !pole && parent; parent = catalogue.byId.get(parent.parent)) {
+    if (parent.id !== catalogue.starId) pole = parent.spin?.pole;
   }
 
   if (!pole) {
@@ -700,6 +785,21 @@ function orientBody(target, body) {
   _node.set(n.x, n.y, n.z);
   _third.crossVectors(_node, _pole);
   return target.setFromRotationMatrix(_basis.makeBasis(_node, _pole, _third));
+}
+
+/**
+ * How another star's colour differs from the Sun's, as a multiplier on the
+ * Sun's own graded photosphere and glow. A Sun twin then looks just like the
+ * Sun; the 1.5 power exaggerates the difference a little, so a hot star reads
+ * as blue-white rather than as a paler orange.
+ */
+const WHITE = new THREE.Color(1, 1, 1);
+const SUN_COLOR = new THREE.Color(stellarColor(5772));
+function starTint(color) {
+  const c = new THREE.Color(color);
+  const channels = [c.r / SUN_COLOR.r, c.g / SUN_COLOR.g, c.b / SUN_COLOR.b].map((v) => v ** 1.5);
+  const peak = Math.max(...channels);
+  return new THREE.Color(...channels.map((v) => v / peak));
 }
 
 /**
