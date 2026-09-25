@@ -204,6 +204,9 @@ async function boot() {
 /** Offline support and installability; see sw.js. */
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
+  // The desktop app (desktop/) ships every file on disk already; an offline
+  // cache would only be a second copy of it.
+  if (window.orreryDesktop) return;
   navigator.serviceWorker.register('sw.js').catch((error) => {
     console.warn('[orrery] offline support unavailable', error);
   });
@@ -483,7 +486,9 @@ function buildInterface(ctx) {
 
   /** The current view as a link: body and simulated time, to the minute. */
   async function copyLink() {
-    const url = new URL(window.location.href);
+    // In the desktop app this page's own address is app://, which would mean
+    // nothing to whoever it is sent to; the link goes to the public site instead.
+    const url = new URL(window.orreryDesktop?.webUrl ?? window.location.href);
     url.searchParams.set('t', isoMinute(dateFromDays(clock.days)));
     if (state.focusedId && state.focusedId !== VISITOR_ID) url.searchParams.set('body', state.focusedId);
     await navigator.clipboard.writeText(url.toString());

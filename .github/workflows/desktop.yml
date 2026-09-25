@@ -1,0 +1,148 @@
+name: Desktop
+
+# Builds the desktop app (desktop/) for Windows, Linux and macOS, launches
+# each packaged build to check that it starts, and keeps the installers as
+# artifacts. A version tag (v2.2.0) also drafts a GitHub release with them.
+#
+# Every change to the site changes the app too, so this runs on all of them,
+# not only on changes under desktop/.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  # A newer push supersedes a build in progress; a release never is.
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            platform: win
+          - name: Linux
+            os: ubuntu-latest
+            platform: linux
+          - name: macOS
+            os: macos-latest
+            platform: mac
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Check the site
+        # The same checks the Pages deploy runs; they need no install.
+        run: npm run check
+
+      - name: Check the desktop app is in step with the site
+        run: npm run desktop:check
+
+      - name: Install
+        run: npm ci --prefix desktop
+
+      - name: Build
+        run: npm run build --prefix desktop -- --${{ matrix.platform }}
+        env:
+          # All optional. Without them the Windows build is unsigned and the
+          # Mac build is ad-hoc signed; see desktop/README.md, "Signing".
+          CSC_LINK: ${{ matrix.platform == 'mac' && secrets.MAC_CERTIFICATE || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.platform == 'mac' && secrets.MAC_CERTIFICATE_PASSWORD || '' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CERTIFICATE }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CERTIFICATE_PASSWORD }}
+
+      - name: Prepare to run the app
+        # Ubuntu 24.04 stops unprivileged programs creating the user
+        # namespaces Chromium's sandbox is built on, unless an AppArmor profile
+        # allows it. The .deb installs one; this runner runs the unpacked build.
+        # Xvfb stands in for a display.
+        if: runner.os == 'Linux'
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          command -v xvfb-run || (sudo apt-get update && sudo apt-get install -y xvfb)
+
+      - name: Launch the packaged app
+        # desktop/src/self-test.js: loads, waits for the scene, fails on any
+        # error or missing file. Runners have no GPU, so WebGL is SwiftShader.
+        run: npm run smoke --prefix desktop -- --packaged --software-gl --screenshot=desktop/dist/screenshot-${{ matrix.platform }}.png
+
+      - name: Keep the installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: orrery-${{ matrix.platform }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+            desktop/dist/*.tar.gz
+            desktop/dist/*.dmg
+
+      - name: Keep the screenshot
+        # What the packaged app showed on this platform: the only look at the
+        # Mac build without a Mac.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-${{ matrix.platform }}
+          path: desktop/dist/screenshot-${{ matrix.platform }}.png
+          if-no-files-found: ignore
+          retention-days: 30
+
+  release:
+    name: Draft a release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches package.json
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: orrery-*
+          path: release
+          merge-multiple: true
+
+      - name: Draft the release
+        # A draft, so nothing is public until it has been looked over and
+        # published from the Releases page.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la release
+          gh release create "$GITHUB_REF_NAME" release/* \
+            --draft \
+            --verify-tag \
+            --title "Orrery ${GITHUB_REF_NAME#v}" \
+            --generate-notes

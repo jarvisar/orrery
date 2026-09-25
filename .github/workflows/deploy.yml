@@ -42,10 +42,10 @@ jobs:
         run: npm run check
 
       - name: Stage the site
+        # Copies the files listed in scripts/lib/served.js - the same list the
+        # desktop app is packaged from.
         run: |
-          mkdir -p _site
-          cp index.html style.css site.webmanifest favicon.ico tetris.html sw.js _site/
-          cp -r src vendor public _site/
+          node scripts/stage.js _site
           # Pages serves the artifact as-is, but this keeps the site working
           # if the source is ever switched back to branch deployment.
           touch _site/.nojekyll

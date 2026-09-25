@@ -13,6 +13,7 @@ import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { SERVED, NOT_SERVED } from './lib/served.js';
 
 const run = promisify(execFile);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -144,6 +145,32 @@ const stars = await readFile(join(ROOT, 'public/data/stars.bin')).catch(() => nu
 if (!stars) fail('public/data/stars.bin is missing - run scripts/build-sky.py');
 else if (stars.length % 8 !== 0) fail(`public/data/stars.bin is ${stars.length} bytes, not a whole number of stars`);
 else console.log(`stars     ${stars.length / 8} in the catalogue`);
+
+// ------------------------- 9. every top-level file is either shipped or not
+// Pages and the desktop app are both staged from scripts/lib/served.js, so a
+// new top-level file the page needs, but which is missing from that list,
+// would work under `npm run dev` and 404 everywhere else.
+const tracked = await run('git', ['ls-files'], { cwd: ROOT }).then(
+  ({ stdout }) => new Set(stdout.split('\n').filter(Boolean).map((path) => path.split('/')[0])),
+  () => null
+);
+if (tracked) {
+  for (const entry of tracked) {
+    if (!SERVED.includes(entry) && !NOT_SERVED.includes(entry)) {
+      fail(
+        `${entry} is new at the top level: add it to SERVED in scripts/lib/served.js if the ` +
+          'site needs it, or to NOT_SERVED if it is only for development'
+      );
+    }
+  }
+  for (const entry of SERVED) {
+    if (!(await exists(entry))) fail(`scripts/lib/served.js lists ${entry}, which does not exist`);
+  }
+  const kept = [...tracked].filter((entry) => NOT_SERVED.includes(entry)).length;
+  console.log(`staging   ${SERVED.length} entries served, ${kept} kept back`);
+} else {
+  console.log('staging   skipped (not a git checkout)');
+}
 
 // ------------------------------------------------------------------- report
 if (failures.length) {

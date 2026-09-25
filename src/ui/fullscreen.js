@@ -58,6 +58,8 @@ export async function toggleFullscreen({ onPendingEnd } = {}) {
       return 'entered';
     } catch { /* no gesture after all */ }
   }
+  // The desktop app (desktop/) does not need the gesture.
+  if (await window.orreryDesktop?.requestFullscreen?.().catch(() => false)) return 'entered';
   waitForGesture(onPendingEnd);
   return 'pending';
 }

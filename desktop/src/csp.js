@@ -1,0 +1,46 @@
+/**
+ * The Content-Security-Policy every page is served with.
+ *
+ * The page is all local files, so this mostly says "only from the app itself".
+ * The exceptions are listed in REMOTE_ORIGINS. A new one is the one change in
+ * the web app most likely to work in the browser and fail here, so
+ * `npm run desktop:check` compares this list against the https:// origins the
+ * source mentions.
+ *
+ * Kept free of Electron imports so the checks can read it from plain Node.
+ */
+
+/** Origins the page fetches from at runtime, beyond its own files. */
+export const REMOTE_ORIGINS = [
+  // VR only: the 3D model of each make of controller (src/xr/VRMode.js).
+  'https://cdn.jsdelivr.net',
+];
+
+/**
+ * Origins the source mentions only as links for the user to follow. Those
+ * open in the system browser (see openExternal in main.js), so the policy does
+ * not need them.
+ */
+export const LINK_ORIGINS = [
+  'https://github.com',
+];
+
+const remote = REMOTE_ORIGINS.join(' ');
+
+export const CSP = [
+  "default-src 'self'",
+  // Inline: the preload block and import map in index.html, and tetris.html.
+  // wasm-unsafe-eval: in case a decoder (meshopt, Draco, Basis) is ever added.
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  // blob: is how GLTFLoader hands over the textures embedded in a .glb.
+  `img-src 'self' data: blob: ${remote}`,
+  "font-src 'self' data:",
+  `connect-src 'self' data: blob: ${remote}`,
+  "media-src 'self' data: blob:",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+].join('; ');

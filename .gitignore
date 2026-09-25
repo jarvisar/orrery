@@ -7,3 +7,7 @@ _site/
 *.log
 .DS_Store
 Thumbs.db
+
+# The desktop app's staged copy of the site, and its build output.
+desktop/web/
+desktop/dist/

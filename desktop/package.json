@@ -1,0 +1,31 @@
+{
+  "name": "orrery-desktop",
+  "productName": "Orrery",
+  "version": "2.1.0",
+  "private": true,
+  "type": "module",
+  "description": "An interactive, physically-grounded 3D orrery of the solar system, with the real sky and guided tours.",
+  "homepage": "https://jarvisar.github.io/orrery/",
+  "author": {
+    "name": "Adam Jarvis",
+    "email": "55147029+jarvisar@users.noreply.github.com"
+  },
+  "desktopName": "orrery.desktop",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node scripts/electron.js .",
+    "check": "node scripts/check.js",
+    "stage": "node ../scripts/stage.js web",
+    "pack": "node scripts/build.js --dir",
+    "build": "node scripts/build.js",
+    "build:win": "node scripts/build.js --win",
+    "build:linux": "node scripts/build.js --linux",
+    "build:mac": "node scripts/build.js --mac",
+    "smoke": "node scripts/smoke.js",
+    "icons": "node scripts/electron.js scripts/icons.js"
+  },
+  "devDependencies": {
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3"
+  }
+}

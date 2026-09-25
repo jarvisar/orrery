@@ -11,7 +11,13 @@
     "responsive": "node scripts/responsive.js",
     "vr": "node scripts/vr.js",
     "gamepad": "node scripts/gamepad.js",
-    "vendor": "node scripts/vendor.js"
+    "vendor": "node scripts/vendor.js",
+    "desktop:setup": "npm --prefix desktop ci",
+    "desktop": "npm --prefix desktop start --",
+    "desktop:check": "node desktop/scripts/check.js",
+    "desktop:smoke": "npm --prefix desktop run smoke --",
+    "desktop:build": "npm --prefix desktop run build --",
+    "version": "node desktop/scripts/sync-version.js && git add desktop/package.json desktop/package-lock.json"
   },
   "dependencies": {
     "lil-gui": "^0.20.0",

@@ -184,11 +184,37 @@ the legend finds a clear spot at a phone, a phone on its side and a laptop
 (`GAMEPAD_SHOTS=dir` for screenshots). Add `?debug` to the URL to get the
 scene, camera and clock on `window.orrery` in the console.
 
+## The desktop app
+
+The same app in its own window, for Windows, macOS and Linux, the Steam Deck
+included, built with Electron. It lives in `desktop/` and wraps the site
+rather than copying it: in development it serves this working tree, and a
+release packages exactly what Pages deploys.
+
+```sh
+npm run desktop:setup   # once: installs Electron into desktop/
+npm run desktop         # the site in a desktop window; Ctrl+R picks up edits
+npm run desktop:check   # anything about the site the desktop app needs to know
+npm run desktop:smoke   # launches the app and checks it came up
+npm run desktop:build   # installers for this platform, in desktop/dist/
+```
+
+Over the browser it adds a remembered window, the discrete GPU on laptops
+with two, full screen straight from a controller's View button, software
+rendering when the GPU cannot do WebGL, and full screen under Steam Deck Game
+Mode. `.github/workflows/desktop.yml` builds and launch-tests all three
+platforms on every push to `main`, and a version tag (`npm version minor &&
+git push --follow-tags`) drafts a GitHub release with the installers. See
+[desktop/README.md](desktop/README.md) for how it fits together, installing
+on each platform, and what to do when the site changes.
+
 ## Deploying
 
 `.github/workflows/deploy.yml` publishes to GitHub Pages on every push to
-`main`. It runs the checks, stages only the files that are actually served, and
-uploads them - there is nothing to compile.
+`main`. It runs the checks, stages only the files that are actually served
+(`scripts/stage.js`, from the list in `scripts/lib/served.js`, which the
+desktop app is packaged from too), and uploads them - there is nothing to
+compile.
 
 The one thing staging does besides copying is `scripts/stamp-sw.js`, which
 writes the list of staged files, each with a content hash, into the staged
@@ -220,7 +246,8 @@ src/
   xr/                  VR: the scaled rig, controllers, the hand-held panel, labels
 vendor/three/          three.js, vendored - see below
 public/                textures, models, fonts, the star catalogue
-scripts/               dev server, checks, asset pipeline, vendoring
+scripts/               dev server, checks, staging, asset pipeline, vendoring
+desktop/               the Electron app: window, packaging, its own checks
 ```
 
 `src/data/bodies.js` is the only place any number about a real object lives.
