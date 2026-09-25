@@ -31,6 +31,13 @@ let platforms = Object.keys(PLATFORMS).filter((name) => args.includes(`--${name}
 if (!platforms.length) platforms = [HOST];
 
 const { version } = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
+
+// CI passes signing secrets that are not set as empty strings, and
+// electron-builder reads an empty CSC_LINK as a path (the current directory).
+for (const name of ['CSC_LINK', 'CSC_KEY_PASSWORD', 'CSC_NAME', 'WIN_CSC_LINK', 'WIN_CSC_KEY_PASSWORD',
+  'APPLE_ID', 'APPLE_APP_SPECIFIC_PASSWORD', 'APPLE_TEAM_ID']) {
+  if (process.env[name] === '') delete process.env[name];
+}
 const macSigning = Boolean(process.env.CSC_LINK || process.env.CSC_NAME);
 
 const entries = await stage(join(DESKTOP, 'web'));

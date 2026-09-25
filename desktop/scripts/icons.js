@@ -42,7 +42,10 @@ app.whenReady().then(async () => {
     writeFileSync(join(OUT, icon.file), Buffer.from(png.split(',')[1], 'base64'));
     console.log(`icons: build/${icon.file}`);
   }
-  writeFileSync(join(OUT, 'icons.json'), `${JSON.stringify({ source: hash(svg) }, null, 2)}\n`);
+  // Line endings normalised, as desktop/scripts/check.js does: a Windows
+  // checkout has CRLF, and that is not a change.
+  const source = hash(svg.toString('utf8').replace(/\r\n/g, '\n'));
+  writeFileSync(join(OUT, 'icons.json'), `${JSON.stringify({ source }, null, 2)}\n`);
   app.exit(0);
 }).catch((error) => {
   console.error(error);
