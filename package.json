@@ -1,6 +1,6 @@
 {
   "name": "orrery",
-  "version": "2.1.5",
+  "version": "2.1.6",
   "private": true,
   "type": "module",
   "description": "An interactive, physically-grounded 3D orrery of the solar system, with the real sky and guided tours, built with three.js.",
