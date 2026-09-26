@@ -120,13 +120,21 @@ export class SolarSystem {
   async _paintWorlds(onPaint) {
     this.painter = new WorldPainter(this.assets.renderer);
     this._maps = new Map();
-    const bodies = this.catalogue.bodies.filter((b) => b.look);
-    for (const [i, body] of bodies.entries()) {
-      onPaint?.(i / bodies.length, body.name);
-      const { look } = body;
-      if (body.kind !== 'star') this._maps.set(body.id, await this.painter.paintPlanet(look));
-      else if (look.banded) this._maps.set(body.id, await this.painter.paintPlanet(look.banded));
-      else if (look.granules) this._maps.set(body.id, await this.painter.paintStar(look));
+    // A brown dwarf's bands are painted as a planet's; a star's granulation, if it shows any.
+    const jobs = this.catalogue.bodies.filter((b) => b.look).map((body) => {
+      const planet = body.kind !== 'star' ? body.look : body.look.banded;
+      return { body, planet, star: !planet && body.look.granules ? body.look : null };
+    });
+    if (!jobs.length) return;
+    onPaint?.(0, jobs[0].body.name);
+    await this.painter.prepare({
+      planets: jobs.map((job) => job.planet).filter(Boolean),
+      stars: jobs.map((job) => job.star).filter(Boolean),
+    });
+    for (const [i, { body, planet, star }] of jobs.entries()) {
+      onPaint?.(i / jobs.length, body.name);
+      if (planet) this._maps.set(body.id, await this.painter.paintPlanet(planet));
+      else if (star) this._maps.set(body.id, await this.painter.paintStar(star));
     }
   }
 

@@ -22,6 +22,12 @@ import * as THREE from 'three';
 const NOISE = /* glsl */ `
   #define PI 3.141592653589793
 
+  // Always 0, but the compiler cannot know that, so every loop that starts
+  // from it stays a loop. Direct3D's compiler (Chrome and Edge on Windows)
+  // would otherwise unroll them all, and took 4 to 13 seconds over each kind
+  // of world, with the page frozen throughout.
+  uniform int uZero;
+
   // PCG3D (Jarzynski & Olano 2020): a good integer hash, no sin() artefacts.
   uvec3 pcg3d( uvec3 v ) {
     v = v * 1664525u + 1013904223u;
@@ -39,25 +45,22 @@ const NOISE = /* glsl */ `
   float noise( vec3 p ) {
     vec3 i = floor( p ), f = p - i;
     vec3 u = f * f * f * ( f * ( f * 6.0 - 15.0 ) + 10.0 );
-    float n000 = dot( gradient( i ), f );
-    float n100 = dot( gradient( i + vec3( 1, 0, 0 ) ), f - vec3( 1, 0, 0 ) );
-    float n010 = dot( gradient( i + vec3( 0, 1, 0 ) ), f - vec3( 0, 1, 0 ) );
-    float n110 = dot( gradient( i + vec3( 1, 1, 0 ) ), f - vec3( 1, 1, 0 ) );
-    float n001 = dot( gradient( i + vec3( 0, 0, 1 ) ), f - vec3( 0, 0, 1 ) );
-    float n101 = dot( gradient( i + vec3( 1, 0, 1 ) ), f - vec3( 1, 0, 1 ) );
-    float n011 = dot( gradient( i + vec3( 0, 1, 1 ) ), f - vec3( 0, 1, 1 ) );
-    float n111 = dot( gradient( i + vec3( 1, 1, 1 ) ), f - vec3( 1, 1, 1 ) );
+    // Corner k is ( k & 1, k >> 1 & 1, k >> 2 ): n[ 0 ] is n000, n[ 1 ] n100, ...
+    float n[ 8 ];
+    for ( int k = uZero; k < 8; k++ ) {
+      vec3 c = vec3( k & 1, ( k >> 1 ) & 1, k >> 2 );
+      n[ k ] = dot( gradient( i + c ), f - c );
+    }
     return 1.6 * mix(
-      mix( mix( n000, n100, u.x ), mix( n010, n110, u.x ), u.y ),
-      mix( mix( n001, n101, u.x ), mix( n011, n111, u.x ), u.y ), u.z );
+      mix( mix( n[ 0 ], n[ 1 ], u.x ), mix( n[ 2 ], n[ 3 ], u.x ), u.y ),
+      mix( mix( n[ 4 ], n[ 5 ], u.x ), mix( n[ 6 ], n[ 7 ], u.x ), u.y ), u.z );
   }
 
   // Octaves are rotated against each other so their lattices never line up.
   const mat3 TURN = mat3( 0.00, 0.80, 0.60, -0.80, 0.36, -0.48, -0.60, -0.48, 0.64 );
   float fbm( vec3 p, int octaves ) {
     float sum = 0.0, amplitude = 0.5, norm = 0.0;
-    for ( int i = 0; i < 8; i++ ) {
-      if ( i >= octaves ) break;
+    for ( int i = uZero; i < octaves; i++ ) {
       sum += amplitude * noise( p ); norm += amplitude;
       p = TURN * p * 2.03; amplitude *= 0.5;
     }
@@ -66,8 +69,7 @@ const NOISE = /* glsl */ `
   // Sharp crests, each octave weighted by the one before: mountain ranges.
   float ridged( vec3 p, int octaves ) {
     float sum = 0.0, amplitude = 0.5, weight = 1.0, norm = 0.0;
-    for ( int i = 0; i < 8; i++ ) {
-      if ( i >= octaves ) break;
+    for ( int i = uZero; i < octaves; i++ ) {
       float n = 1.0 - abs( noise( p ) );
       n *= n * weight;
       weight = clamp( n * 1.6, 0.0, 1.0 );
@@ -76,12 +78,14 @@ const NOISE = /* glsl */ `
     }
     return sum / norm;
   }
+  // The kth of the 27 cells round and including p's, x fastest: one loop, not three.
+  vec3 neighbour( int k ) { return vec3( k % 3, ( k / 3 ) % 3, k / 9 ) - 1.0; }
   // Worley cells: distances to the nearest and second-nearest feature point.
   vec2 cells( vec3 p ) {
     vec3 i = floor( p ), f = p - i;
     float d1 = 8.0, d2 = 8.0;
-    for ( int z = -1; z <= 1; z++ ) for ( int y = -1; y <= 1; y++ ) for ( int x = -1; x <= 1; x++ ) {
-      vec3 c = vec3( x, y, z );
+    for ( int k = uZero; k < 27; k++ ) {
+      vec3 c = neighbour( k );
       vec3 r = c + hash3( i + c ) * 0.9 + 0.05 - f;
       float d = dot( r, r );
       if ( d < d1 ) { d2 = d1; d1 = d; } else if ( d < d2 ) d2 = d;
@@ -92,8 +96,8 @@ const NOISE = /* glsl */ `
   float craters( vec3 p ) {
     vec3 i = floor( p ), f = p - i;
     float h = 0.0;
-    for ( int z = -1; z <= 1; z++ ) for ( int y = -1; y <= 1; y++ ) for ( int x = -1; x <= 1; x++ ) {
-      vec3 c = vec3( x, y, z );
+    for ( int k = uZero; k < 27; k++ ) {
+      vec3 c = neighbour( k );
       vec3 r = hash3( i + c + 17.0 );
       if ( r.z > 0.6 ) continue;
       float radius = 0.16 + 0.3 * r.x * r.x;
@@ -139,9 +143,11 @@ const PLANET = /* glsl */ `
   uniform vec4 uHeat;
 
   varying vec2 vUv;
-  // Both maps in one pass: the noise behind them is the expensive part.
-  layout( location = 0 ) out vec4 outColour;
-  layout( location = 1 ) out vec4 outData;
+  // One map per pass: the colour, or with DATA defined the data, and the
+  // compiler drops whatever the other needs. Both at once, to two targets,
+  // would be cheaper to draw, but Chrome on Windows compiles such a shader a
+  // second time at its first draw, with the page stopped until it is done.
+  out vec4 outMap;
 
   // The point under the star on a tidally locked planet, and where the heat
   // peaks: east of it, toward local -Z (the way the planet turns).
@@ -152,7 +158,7 @@ const PLANET = /* glsl */ `
     // Belts and zones: latitude, warped by turbulence stretched along the
     // flow, swirled round any storms.
     float bands( vec3 d, out float detail, out float flow ) {
-      for ( int i = 0; i < 4; i++ ) {
+      for ( int i = uZero; i < 4; i++ ) {
         if ( float( i ) >= uBands2.z ) break;
         vec3 c = uStorms[ i ].xyz;
         float r = uStorms[ i ].w;
@@ -318,8 +324,11 @@ const PLANET = /* glsl */ `
       #endif
     #endif
 
-    outColour = vec4( colour, 1.0 );
-    outData = data;
+    #ifdef DATA
+      outMap = data;
+    #else
+      outMap = vec4( colour, 1.0 );
+    #endif
   }
 `;
 
@@ -401,33 +410,71 @@ export class WorldPainter {
     this.materials = new Map();
   }
 
-  /** Albedo and data maps for a planet, painted together. */
+  /**
+   * Compiles the shaders these looks need, all at once, before any is painted.
+   * Where the browser can (KHR_parallel_shader_compile), that happens off the
+   * page's thread, so the loading screen keeps moving; painting with a shader
+   * not yet compiled stops the page until it is.
+   */
+  async prepare({ planets = [], stars = [] }) {
+    const materials = new Set([
+      ...planets.flatMap((look) => [false, true].map((data) => this._material(PLANET, planetDefines(look, data), planetUniforms(look)))),
+      ...stars.map((look) => this._material(STAR, {}, starUniforms(look))),
+    ]);
+    const scene = new THREE.Scene();
+    for (const material of materials) {
+      const quad = new THREE.Mesh(this.quad.geometry, material);
+      quad.frustumCulled = false;
+      scene.add(quad);
+    }
+    // With a render target bound, as when they draw: three keys each program
+    // on where it draws to, and would otherwise compile one for the screen.
+    const renderer = this.renderer;
+    const target = new THREE.WebGLRenderTarget(1, 1, { depthBuffer: false });
+    const previous = renderer.getRenderTarget();
+    renderer.setRenderTarget(target);
+    const ready = renderer.compileAsync(scene, this.camera);
+    renderer.setRenderTarget(previous);
+    await ready;
+    target.dispose();
+  }
+
+  /** Albedo and data maps for a planet. */
   async paintPlanet(look) {
-    const defines = { [look.type === 'gas' || look.type === 'haze' || look.type === 'cloudy' ? 'GAS' : 'ROCK']: '' };
-    if (look.type === 'temperate') defines.TEMPERATE = '';
-    if (look.type === 'eyeball') defines.EYEBALL = '';
-    if (look.type === 'ice') defines.ICE = '';
-    if (look.type === 'lava') defines.LAVA = '';
-    const target = this._target([THREE.SRGBColorSpace, THREE.NoColorSpace]);
-    await this._paint(PLANET, defines, planetUniforms(look), target);
-    return { map: target.textures[0], data: target.textures[1] };
+    const uniforms = planetUniforms(look);
+    const map = this._target(THREE.SRGBColorSpace);
+    const data = this._target(THREE.NoColorSpace);
+    await this._paint(this._material(PLANET, planetDefines(look, false), uniforms), uniforms, map);
+    await this._paint(this._material(PLANET, planetDefines(look, true), uniforms), uniforms, data);
+    return { map: map.texture, data: data.texture };
   }
 
   /** Granulation, spots and faculae for a star. */
   async paintStar(look) {
-    const target = this._target([THREE.NoColorSpace]);
-    const seed = look.seed ?? 0.5;
-    await this._paint(STAR, {}, {
-      uOffset: { value: new THREE.Vector3(seed * 97, seed * 57 + 11, seed * 31 + 23) },
-      uStar: { value: new THREE.Vector4(look.granules, look.spots, look.polarSpots ? 1 : 0, 0) },
-    }, target);
+    const target = this._target(THREE.NoColorSpace);
+    const uniforms = starUniforms(look);
+    await this._paint(this._material(STAR, {}, uniforms), uniforms, target);
     return { data: target.texture };
   }
 
-  /** One map per colour space, sharing a framebuffer. */
-  _target(colorSpaces) {
+  /** One material per kind of world, shared by every world of that kind. */
+  _material(body, defines, uniforms) {
+    const key = `${body === STAR ? 'star' : 'planet'}:${Object.keys(defines).sort().join(',')}`;
+    let material = this.materials.get(key);
+    if (!material) {
+      material = new THREE.ShaderMaterial({
+        vertexShader, fragmentShader: NOISE + body, defines, uniforms: { ...uniforms, uZero: { value: 0 } },
+        glslVersion: THREE.GLSL3, depthTest: false, depthWrite: false, toneMapped: false,
+      });
+      this.materials.set(key, material);
+    }
+    return material;
+  }
+
+  /** One map, mipmapped, wrapping east to west. */
+  _target(colorSpace) {
     const target = new THREE.WebGLRenderTarget(this.width, this.width / 2, {
-      count: colorSpaces.length,
+      colorSpace,
       depthBuffer: false,
       generateMipmaps: true,
       minFilter: THREE.LinearMipmapLinearFilter,
@@ -436,7 +483,6 @@ export class WorldPainter {
       wrapT: THREE.ClampToEdgeWrapping,
       anisotropy: this.anisotropy,
     });
-    colorSpaces.forEach((colorSpace, i) => { target.textures[i].colorSpace = colorSpace; });
     this.targets.push(target);
     return target;
   }
@@ -446,16 +492,7 @@ export class WorldPainter {
    * is never handed one enormous draw (which some drivers kill) and the
    * loading screen keeps moving.
    */
-  async _paint(body, defines, uniforms, target) {
-    const key = `${body === STAR ? 'star' : 'planet'}:${Object.keys(defines).sort().join(',')}`;
-    let material = this.materials.get(key);
-    if (!material) {
-      material = new THREE.ShaderMaterial({
-        vertexShader, fragmentShader: NOISE + body, defines, uniforms,
-        glslVersion: THREE.GLSL3, depthTest: false, depthWrite: false, toneMapped: false,
-      });
-      this.materials.set(key, material);
-    }
+  async _paint(material, uniforms, target) {
     // three binds the uniforms object once, when it compiles; swap values, not objects.
     for (const [name, uniform] of Object.entries(uniforms)) material.uniforms[name].value = uniform.value;
     this.quad.material = material;
@@ -484,6 +521,24 @@ export class WorldPainter {
     this.quad.geometry.dispose();
     this.targets.length = 0;
   }
+}
+
+function planetDefines(look, data) {
+  const defines = { [look.type === 'gas' || look.type === 'haze' || look.type === 'cloudy' ? 'GAS' : 'ROCK']: '' };
+  if (data) defines.DATA = '';
+  if (look.type === 'temperate') defines.TEMPERATE = '';
+  if (look.type === 'eyeball') defines.EYEBALL = '';
+  if (look.type === 'ice') defines.ICE = '';
+  if (look.type === 'lava') defines.LAVA = '';
+  return defines;
+}
+
+function starUniforms(look) {
+  const seed = look.seed ?? 0.5;
+  return {
+    uOffset: { value: new THREE.Vector3(seed * 97, seed * 57 + 11, seed * 31 + 23) },
+    uStar: { value: new THREE.Vector4(look.granules, look.spots, look.polarSpots ? 1 : 0, 0) },
+  };
 }
 
 function planetUniforms(look) {
