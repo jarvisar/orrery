@@ -15,6 +15,9 @@ const FOCUSABLE = [
   'button:not([tabindex="-1"])',
   'a[href]:not([tabindex="-1"])',
   'input[type="range"]:not([tabindex="-1"])',
+  // Reachable so that a Steam Deck's own keyboard has somewhere to type.
+  'input[type="search"]:not([tabindex="-1"])',
+  'select:not([tabindex="-1"])',
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ');
 
@@ -109,6 +112,12 @@ export class FocusNavigator {
   activate() {
     const node = this.ensure();
     if (!node || isRange(node)) return;
+    // A list's own drop-down cannot be driven from a controller; A steps
+    // through its choices instead, as left and right do.
+    if (isSelect(node)) {
+      this.adjust(1, { wrap: true });
+      return;
+    }
     node.click();
     // Some buttons let go of focus once pressed (the flight HUD's, so Space
     // does not press them again); a controller still needs somewhere to be.
@@ -118,15 +127,25 @@ export class FocusNavigator {
   /** True when left and right should change the focused control's value rather than move. */
   get adjusting() {
     const node = this.current;
-    return Boolean(node && isRange(node));
+    return Boolean(node && (isRange(node) || isSelect(node)));
   }
 
   /**
-   * Steps the focused slider by one notch. A slider can override this by
+   * Steps the focused slider by one notch, or a list to its next choice. A slider can override this by
    * cancelling the `gamepadadjust` event, as the time-rate slider does.
    */
-  adjust(delta) {
+  adjust(delta, { wrap = false } = {}) {
     const input = this.current;
+    if (input && isSelect(input)) {
+      const count = input.options.length;
+      let next = input.selectedIndex + delta;
+      if (wrap) next = (next + count) % count;
+      if (next < 0 || next >= count || next === input.selectedIndex) return;
+      input.selectedIndex = next;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      return;
+    }
     if (!input || !isRange(input)) return;
     const custom = new CustomEvent('gamepadadjust', { detail: delta, cancelable: true });
     if (!input.dispatchEvent(custom)) return;
@@ -218,6 +237,10 @@ export function isNavigable(node) {
 
 function isRange(node) {
   return node.tagName === 'INPUT' && node.type === 'range';
+}
+
+function isSelect(node) {
+  return node.tagName === 'SELECT';
 }
 
 function isScrollable(node) {

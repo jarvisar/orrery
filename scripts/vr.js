@@ -145,6 +145,41 @@ try {
   s = await state();
   assert(s.focus === null && s.scale > 10_000, `B did not show the whole system (focus ${s.focus}, scale ${s.scale})`);
   await shot('overview');
+
+  // Labels that would land on one another fold to their dots, as on screen.
+  const labels = await page.evaluate(() => {
+    const shown = orrery.ui.vr.labels.entries.filter((e) => e.sprite.visible);
+    const full = shown.filter((e) => !e.crowded);
+    let overlaps = 0;
+    for (let i = 0; i < full.length; i++) {
+      for (let j = i + 1; j < full.length; j++) {
+        const [a, b] = [full[i].rect, full[j].rect];
+        if (a.left < b.right && a.right > b.left && a.bottom < b.top && a.top > b.bottom) overlaps++;
+      }
+    }
+    return { folded: shown.length - full.length, overlaps };
+  });
+  assert(labels.folded > 0 && labels.overlaps === 0,
+    `the tabletop labels were not decluttered (${labels.folded} folded, ${labels.overlaps} overlapping)`);
+
+  // A running clock redraws the header strip, not the whole panel.
+  const panel = await page.evaluate(() => {
+    const { panel, actions } = orrery.ui.vr;
+    const before = [panel.texture.version, panel.header.texture.version];
+    const paused = orrery.clock.paused;
+    if (paused) actions.togglePause();
+    return { before, paused };
+  });
+  await frames(6);
+  const uploads = await page.evaluate(({ before, paused }) => {
+    const { panel, actions } = orrery.ui.vr;
+    const counts = [panel.texture.version - before[0], panel.header.texture.version - before[1]];
+    if (paused) actions.togglePause();
+    return { counts };
+  }, panel);
+  assert(uploads.counts[1] >= 2 && uploads.counts[0] <= 1,
+    `a running clock uploaded the panel ${uploads.counts[0]} times and its header ${uploads.counts[1]}`);
+
   await page.evaluate(() => T.aimAtBody('right', 'jupiter'));
   await frames();
   s = await state();

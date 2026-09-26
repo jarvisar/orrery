@@ -6,7 +6,9 @@
  * For every size, in the resting state and with each panel open:
  *   - nothing the interface draws runs off the screen;
  *   - the top bar, info panel and time bar never overlap one another;
- *   - no panel scrolls sideways, no label wraps, and no text is set below 10px;
+ *   - an open menu or panel is not covered by anything else;
+ *   - no panel scrolls sideways, no label wraps or is cut short, and no text is
+ *     set below 10px;
  *   - text on the solid plates has at least 4.5:1 contrast (WCAG 1.4.3);
  *   - every control is at least 24px square (WCAG 2.5.8), and on touch
  *     screens the primary controls are the full 44px (WCAG 2.5.5);
@@ -221,6 +223,20 @@ function inspect({ surface, coarse }) {
   if (surface) {
     const node = document.querySelector(surface);
     if (!visible(node)) problems.push(`${surface} did not open`);
+    else {
+      // Nothing else draws over it: a toast or a hint on top of a menu.
+      const rect = node.getBoundingClientRect();
+      const top = Math.max(rect.top, 0);
+      const bottom = Math.min(rect.bottom, vh);
+      for (const fx of [0.1, 0.5, 0.9]) {
+        for (const fy of [0.1, 0.5, 0.9]) {
+          const hit = document.elementFromPoint(rect.left + rect.width * fx, top + (bottom - top) * fy);
+          if (hit && !node.contains(hit) && !hit.contains(node)) {
+            problems.push(`${describe(hit.closest('[class]') ?? hit)} covers ${surface}`);
+          }
+        }
+      }
+    }
   }
 
   // 2. The fixed regions never collide. Floating surfaces (menus, drawers) are
@@ -265,6 +281,12 @@ function inspect({ surface, coarse }) {
         break;
       }
     }
+  }
+
+  // The current body's name is the one label that says where you are.
+  const name = document.querySelector('.picker__label');
+  if (visible(name) && name.scrollWidth > name.clientWidth + SLACK) {
+    problems.push(`the body name "${name.textContent}" is cut short`);
   }
 
   // 5. Type stays readable.

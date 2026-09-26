@@ -243,6 +243,7 @@ export class VRMode {
     this.hands = [];
     this._hovered = new Set();
     this._headUp = new THREE.Vector3(0, 1, 0);
+    this._headRight = new THREE.Vector3(1, 0, 0);
     this._lastFocus = new THREE.Vector3();
     this._transition = null;
     this._pending = null;
@@ -512,8 +513,10 @@ export class VRMode {
     this._updatePoke();
     this._updatePointers();
     this._headUp.setFromMatrixColumn(this.camera.matrixWorld, 1).normalize();
-    this.labels.update(this.viewerPosition, this._headUp, this.scale, this._hovered);
-    this.panel.update(this._describe());
+    this._headRight.setFromMatrixColumn(this.camera.matrixWorld, 0).normalize();
+    this.labels.update(this.viewerPosition, this._headUp, this._headRight, this.scale, this._hovered);
+    // The panel redraws a few times a second at most; only then is its text worth working out.
+    if (this.panel.due()) this.panel.update(this._describe());
     this._updateClipping();
     this._updateVignette(dt);
   }
@@ -1073,6 +1076,8 @@ export class VRMode {
     if (type === hand.hoverType && id === hand.hoverId) return;
     hand.hoverType = type;
     hand.hoverId = id;
+    // The panel names what is pointed at; say so now, not at its next redraw.
+    this.panel.invalidate();
     if (id) pulse(hand.source, 0.15, 10);
   }
 

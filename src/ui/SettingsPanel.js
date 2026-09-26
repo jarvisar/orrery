@@ -10,10 +10,13 @@ export class SettingsPanel {
    * @param {object} [options]
    * @param {string[]} [options.omit] Settings with nothing to act on in this view
    *   (moons and belts around another star). Hidden, but kept.
+   * @param {() => void} [options.onControls] Opens the controls list; a phone's
+   *   top bar has no room for its own button.
    */
-  constructor(settings, { omit = [] } = {}) {
+  constructor(settings, { omit = [], onControls = () => {} } = {}) {
     this.settings = settings;
     this.omit = new Set(omit);
+    this.onControls = onControls;
     this.isOpen = false;
     this._releaseFocus = null;
 
@@ -123,15 +126,48 @@ export class SettingsPanel {
       ])),
 
       el('div', { class: 'field' }, [
-        el('button', {
-          class: 'btn btn--text',
-          type: 'button',
-          text: 'Reset to defaults',
-          onclick: () => this.settings.reset(),
-        }),
+        el('div', { class: 'drawer__footer' }, [
+          this._reset(),
+          el(
+            'button',
+            {
+              class: 'btn btn--text drawer__controls',
+              type: 'button',
+              onclick: () => { this.close(); this.onControls(); },
+            },
+            [icon('help', 15), el('span', { text: 'Controls' })]
+          ),
+        ]),
         this._install(),
       ])
     );
+  }
+
+  /** Every setting at once is a lot to lose to a stray tap: the first press asks. */
+  _reset() {
+    let timer = 0;
+    const button = el('button', {
+      class: 'btn btn--text drawer__reset',
+      type: 'button',
+      text: 'Reset to defaults',
+      onclick: () => {
+        if (button.classList.contains('is-confirming')) {
+          disarm();
+          this.settings.reset();
+          return;
+        }
+        button.classList.add('is-confirming');
+        button.textContent = 'Press again to reset';
+        timer = setTimeout(disarm, 4000);
+      },
+      onblur: () => disarm(),
+    });
+    const disarm = () => {
+      clearTimeout(timer);
+      button.classList.remove('is-confirming');
+      button.textContent = 'Reset to defaults';
+    };
+    return button;
   }
 
   /** "Install app", shown only while the browser is offering installation. */

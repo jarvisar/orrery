@@ -72,6 +72,8 @@ export class TimeBar {
       event.preventDefault();
       this.stepRate(event.detail);
     });
+    // Shown by style.css only where the rate label is not.
+    this.rateBubble = el('span', { class: 'timebar__bubble', 'aria-hidden': 'true' });
 
     // Tick marks under the slider, so the snap points are visible before a drag.
     this.rateScale = el('span', { class: 'timebar__scale' }, [
@@ -85,6 +87,7 @@ export class TimeBar {
           }))
       ),
       this.rateSlider,
+      this.rateBubble,
     ]);
 
     this.reverseButton = el(
@@ -295,6 +298,7 @@ export class TimeBar {
     if (!next) return;
     this.clock.setRate(next.daysPerSecond);
     this.refresh();
+    this._showBubble();
   }
 
   _onSlide(position) {
@@ -304,6 +308,14 @@ export class TimeBar {
 
     this.clock.setRate(snapped ? RATE_PRESETS[nearest].daysPerSecond : fromSlider(position));
     this.refresh({ fromSlider: true });
+    this._showBubble();
+  }
+
+  /** The rate above the needle, for a moment after it moves. */
+  _showBubble() {
+    this.rateBubble.classList.add('is-showing');
+    clearTimeout(this._bubbleTimer);
+    this._bubbleTimer = setTimeout(() => this.rateBubble.classList.remove('is-showing'), 1400);
   }
 
   /** Updates the icons and labels that only change on interaction. */
@@ -318,11 +330,13 @@ export class TimeBar {
 
     const description = this.clock.describeRate();
     this.rateLabel.textContent = description;
+    this.rateBubble.textContent = description;
     this.rateSlider.setAttribute('aria-valuetext', description);
     // Leave the thumb where the pointer is mid-drag; only snap it for detents
     // and keyboard steps, where there is no pointer to fight.
     const position = toSlider(this.clock.daysPerSecond);
     if (!fromSlider || PRESET_POSITIONS.includes(position)) this.rateSlider.value = position;
+    this.rateBubble.style.setProperty('--at', Number(this.rateSlider.value) / STEPS);
 
     this.tick();
   }

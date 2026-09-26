@@ -133,7 +133,7 @@ export class SystemExplorer {
         el('p', { text: `${system.planets.length} ${system.planets.length === 1 ? 'planet' : 'planets'} · ${system.distance ? `${number(system.distance * PARSEC_LY)} ly` : 'distance unknown'}` }),
         el('small', { text: [this.starLabel(system),
           this.sort.value === 'recent' ? `Latest discovery ${system.latest || 'unknown'}` : ''].filter(Boolean).join(' · ') || 'Explore system' }),
-      ]), el('span', { class: 'systems__arrow', text: '↗', 'aria-hidden': 'true' }),
+      ]), el('span', { class: 'systems__arrow', text: '→', 'aria-hidden': 'true' }),
     ]);
   }
   /** How many of a system's stars can be drawn, or null until the supplement arrives. */

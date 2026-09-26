@@ -303,6 +303,29 @@ try {
   await press('b');
   assert(!(await ev(() => orrery.ui.state.padMenus)), 'a second B did not leave the menus');
 
+  // The star systems atlas: its sort order is a list, which a controller
+  // cannot open, so left, right and A step through its choices instead.
+  await page.click('.systems-button');
+  await frames(2);
+  let sort = false;
+  for (const direction of ['down', 'right', 'down', 'right', 'up', 'up']) {
+    if (sort) break;
+    await press(direction);
+    sort = (await state()).active?.type === 'select-one';
+  }
+  assert(sort, 'the D-pad never reached the atlas sort order');
+  const order = () => ev(() => document.querySelector('.systems__tools select').value);
+  const first = await order();
+  await press('right');
+  const second = await order();
+  assert(second !== first, `D-pad right left the sort order on "${first}"`);
+  await press('a');
+  assert((await order()) !== second, 'A did not step the sort order on');
+  await shot('atlas');
+  await press('b');
+  assert(!(await ev(() => document.querySelector('.systems').open)), 'B did not close the atlas');
+  await press('b');
+
   /* --- full screen --------------------------------------------------------- */
 
   // Straight after a key press the browser allows it...

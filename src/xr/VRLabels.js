@@ -3,6 +3,9 @@
  * a label fades in as its body shrinks out of sight and out as it grows into
  * view, but measured by the angle the body subtends rather than pixels. Each
  * label is a sprite on its body, kept the same apparent size at any distance.
+ *
+ * Also as on screen, labels that would overlap are decluttered: the nearest
+ * keeps its name, and the others fold down to their dot until pointed at.
  */
 
 import * as THREE from 'three';
@@ -20,6 +23,8 @@ const DOT_X = 16;
 const DOT_RADIUS = 9;
 const TEXT_X = 40;
 const FONT_PX = 34;
+/** A folded label shows only the dot: this much of the canvas, from its left edge. */
+const DOT_WIDTH = DOT_X * 2;
 
 export class VRLabels {
   /**
@@ -34,6 +39,9 @@ export class VRLabels {
     scene.add(this.group);
 
     this.entries = [];
+    /** Reused every frame: the labels on show, and the space they have claimed. */
+    this._shown = [];
+    this._reserved = [];
     this.active = false;
     this.enabled = true;
     this._focusedId = null;
@@ -71,11 +79,14 @@ export class VRLabels {
   /**
    * @param {THREE.Vector3} viewer The eyes, in world space.
    * @param {THREE.Vector3} up The head's up direction, in world space.
+   * @param {THREE.Vector3} right The head's right, in world space.
    * @param {number} unitsPerMetre The rig's scale.
    * @param {Set<string>} pointed Bodies a controller is pointing at: always labelled, in full.
    */
-  update(viewer, up, unitsPerMetre, pointed) {
+  update(viewer, up, right, unitsPerMetre, pointed) {
     if (!this.group.visible) return;
+    const shown = this._shown;
+    shown.length = 0;
 
     for (const entry of this.entries) {
       const { view, sprite } = entry;
@@ -98,9 +109,62 @@ export class VRLabels {
       // On the body's upper limb, so a large body pointed at is named, not covered.
       sprite.position.copy(view.group.position).addScaledVector(up, view.radius);
       // A sprite's size is in view units - metres, here - not world units.
-      const height = (distance / unitsPerMetre) * LABEL_ANGLE;
-      sprite.scale.set(height * entry.aspect, height, 1);
+      entry.height = (distance / unitsPerMetre) * LABEL_ANGLE;
+      entry.distance = distance;
+      entry.hot = hot;
+      shown.push(entry);
     }
+
+    this._declutter(viewer, up, right);
+  }
+
+  /**
+   * Lays the labels out on the plane a metre in front of the eyes, where each
+   * one is LABEL_ANGLE tall, and folds any that would land on a nearer one.
+   * The nearest wins, as in src/ui/Markers.js; a label being pointed at always
+   * wins, since that is the one being read.
+   */
+  _declutter(viewer, up, right) {
+    const shown = this._shown;
+    const reserved = this._reserved;
+    reserved.length = 0;
+    _forward.crossVectors(up, right);
+    shown.sort((a, b) => (b.hot - a.hot) || a.distance - b.distance);
+
+    for (const entry of shown) {
+      _to.copy(entry.sprite.position).sub(viewer);
+      const depth = _to.dot(_forward);
+      let crowded = false;
+      if (depth > 0) {
+        const x = _to.dot(right) / depth;
+        const y = _to.dot(up) / depth;
+        const dot = (DOT_X / LABEL_HEIGHT) * LABEL_ANGLE;
+        const full = entry.aspect * LABEL_ANGLE;
+        const half = LABEL_ANGLE / 2;
+        crowded = !entry.hot && reserved.some((r) =>
+          x - dot < r.right && x - dot + full > r.left && y - half < r.top && y + half > r.bottom);
+        const width = crowded ? (DOT_WIDTH / LABEL_HEIGHT) * LABEL_ANGLE : full;
+        const rect = entry.rect;
+        rect.left = x - dot;
+        rect.right = x - dot + width;
+        rect.bottom = y - half;
+        rect.top = y + half;
+        reserved.push(rect);
+      }
+      this._fold(entry, crowded);
+      const aspect = entry.crowded ? DOT_WIDTH / LABEL_HEIGHT : entry.aspect;
+      entry.sprite.scale.set(entry.height * aspect, entry.height, 1);
+    }
+  }
+
+  /** Shows the whole label, or only its dot, by cropping the texture. */
+  _fold(entry, crowded) {
+    if (crowded === entry.crowded) return;
+    entry.crowded = crowded;
+    const { sprite, aspect } = entry;
+    const fraction = crowded ? DOT_WIDTH / (aspect * LABEL_HEIGHT) : 1;
+    sprite.material.map.repeat.set(fraction, 1);
+    sprite.center.set(DOT_X / (fraction * aspect * LABEL_HEIGHT), 0.5);
   }
 
   _build() {
@@ -119,10 +183,14 @@ export class VRLabels {
       sprite.renderOrder = 1e7;
       sprite.visible = false;
       this.group.add(sprite);
-      this.entries.push({ view, sprite, aspect });
+      this.entries.push({ view, sprite, aspect, crowded: false, hot: false, height: 0, distance: 0,
+        rect: { left: 0, right: 0, bottom: 0, top: 0 } });
     }
   }
 }
+
+const _forward = new THREE.Vector3();
+const _to = new THREE.Vector3();
 
 function labelTexture(name, color, font) {
   const measure = document.createElement('canvas').getContext('2d');

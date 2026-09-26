@@ -14,10 +14,10 @@ export const SHORTCUTS = [
     group: 'Getting around',
     items: [
       { keys: ['Drag'], desc: 'Orbit the camera' },
-      { keys: ['Scroll'], desc: 'Zoom in and out' },
-      { keys: ['Right-drag'], desc: 'Pan' },
-      { keys: ['Click'], desc: 'Focus a body' },
-      { keys: ['Click a ringed star'], desc: 'Travel there (whole system view)' },
+      { keys: ['Scroll'], touch: ['Pinch'], desc: 'Zoom in and out' },
+      { keys: ['Right-drag'], touch: ['Two-finger drag'], desc: 'Pan' },
+      { keys: ['Click'], touch: ['Tap'], desc: 'Focus a body' },
+      { keys: ['Click a ringed star'], touch: ['Tap a ringed star'], desc: 'Travel there (whole system view)' },
       { keys: ['H'], desc: 'The whole system' },
       { keys: ['Esc'], desc: 'Free view, or exit flight' },
       { keys: ['[', ']'], desc: 'Previous or next body' },
@@ -31,7 +31,7 @@ export const SHORTCUTS = [
       { keys: [',', '.'], desc: 'Slower or faster' },
       { keys: ['R'], desc: 'Reverse direction' },
       { keys: ['N'], desc: 'Jump to now' },
-      { keys: ['Click the date'], desc: 'Go to a date or moment' },
+      { keys: ['Click the date'], touch: ['Tap the date'], desc: 'Go to a date or moment' },
     ],
   },
   {
@@ -46,10 +46,11 @@ export const SHORTCUTS = [
     group: 'Flight mode',
     items: [
       { keys: ['G'], desc: 'Enter or leave flight' },
-      { keys: ['Click a label'], desc: 'Fly there on autopilot' },
+      { keys: ['Click a label'], touch: ['Tap a label'], desc: 'Fly there on autopilot' },
       { keys: ['[', ']'], desc: 'Previous or next destination' },
       { keys: ['F'], desc: 'Autopilot on or off' },
-      { keys: ['Mouse'], desc: 'Steer (click to take the controls)' },
+      { keys: ['Mouse'], touch: ['Drag'], desc: 'Steer (click to take the controls)', touchDesc: 'Steer' },
+      { touch: ['Throttle'], desc: 'Slide it up or down to change speed' },
       { keys: ['W', 'S'], desc: 'Throttle up and down (or scroll)' },
       { keys: ['A', 'D'], desc: 'Roll' },
       { keys: ['Shift'], desc: 'Boost' },
@@ -89,6 +90,13 @@ export const SHORTCUTS = [
     ],
   },
 ];
+
+/**
+ * On a touch screen the pointer rows are given as gestures (`touch`, and
+ * `touchDesc` where the wording differs); rows with only `touch` are for touch
+ * alone, and rows with only `keys` still apply to a tablet's keyboard.
+ */
+const coarse = window.matchMedia('(pointer: coarse)');
 
 /** Controller buttons by position; see src/ui/padGlyphs.js. */
 export const CONTROLLER = [
@@ -132,6 +140,7 @@ export const CONTROLLER = [
     items: [
       { pad: ['menu'], desc: 'Move round the interface' },
       { pad: ['dpad'], desc: 'Move between controls (or left stick)' },
+      { pad: ['dpad-x'], desc: 'Change a slider or a list' },
       { pad: ['a'], desc: 'Press' },
       { pad: ['b'], desc: 'Back, or close' },
       { pad: ['rs'], desc: 'Scroll' },
@@ -152,6 +161,8 @@ export class HelpOverlay {
     const body = el('div', { class: 'help__body', tabindex: '0', role: 'region', 'aria-label': 'Controls' });
     this.body = body;
     this._render();
+    // A tablet can gain or lose a keyboard and mouse while the page is open.
+    coarse.addEventListener?.('change', () => this._render());
 
     const footer = el('div', { class: 'help__footer' }, [
       el('span', {
@@ -216,22 +227,26 @@ export class HelpOverlay {
     const family = this._family ?? 'generic';
     const shortcuts = this.exoplanet ? SHORTCUTS.filter((section) => section.group !== 'Tours') : SHORTCUTS;
     const sections = this._family ? [...CONTROLLER, ...shortcuts] : [...shortcuts, ...CONTROLLER];
+    const touch = coarse.matches;
     this.body.replaceChildren(
       ...sections.map((section) =>
         el('div', {}, [
           el('h3', { class: 'section-title', text: section.group }),
-          ...section.items.map((item) =>
-            el('div', { class: 'keyrow' }, [
-              el('span', { class: 'keyrow__desc', text: item.desc }),
-              el(
-                'span',
-                { class: 'keyrow__keys' },
-                item.pad
-                  ? item.pad.map((button) => padGlyph(button, family))
-                  : item.keys.map((key) => el('kbd', { text: key }))
-              ),
-            ])
-          ),
+          ...section.items
+            .filter((item) => item.pad || (touch ? true : item.keys))
+            .map((item) => {
+              const keys = touch ? item.touch ?? item.keys : item.keys;
+              return el('div', { class: 'keyrow' }, [
+                el('span', { class: 'keyrow__desc', text: (touch && item.touchDesc) || item.desc }),
+                el(
+                  'span',
+                  { class: 'keyrow__keys' },
+                  item.pad
+                    ? item.pad.map((button) => padGlyph(button, family))
+                    : keys.map((key) => el('kbd', { text: key }))
+                ),
+              ]);
+            }),
         ])
       )
     );

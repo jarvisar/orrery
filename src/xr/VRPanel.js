@@ -8,6 +8,11 @@
  * millimetres and 12 millimetre gaps Meta asks of anything meant to be
  * touched. Text is sized with the same guide's legibility floor in mind, about
  * 24 millimetres tall a metre away.
+ *
+ * The header - the date, and what is being pointed at - changes several times
+ * a second while time runs, and the buttons hardly ever. So the header is a
+ * strip of its own over the top of the panel, and a running clock uploads
+ * only that strip rather than the whole panel.
  */
 
 import * as THREE from 'three';
@@ -16,7 +21,9 @@ import { KIND_LABEL } from '../ui/InfoPanel.js';
 
 /** Canvas pixels, and the plane's size in metres: about 3.4 pixels to the millimetre. */
 const WIDTH = 1024;
-const HEIGHT = 728;
+const HEIGHT = 764;
+/** The header strip's height, in the same pixels: everything above the buttons. */
+const HEADER_HEIGHT = 232;
 const WIDTH_M = 0.3;
 const HEIGHT_M = WIDTH_M * (HEIGHT / WIDTH);
 
@@ -67,15 +74,19 @@ const BUTTONS = [
 }));
 
 const LEGEND_Y = GRID_TOP + 3 * BUTTON_HEIGHT + 2 * GRID_GAP + 44;
+const LEGEND_LINE = 38;
 
+/** Short enough to set at full width: squeezed text is hard to read in a headset. */
 const LEGEND = {
   controllers: [
-    'Trigger: select · Grip: grab and move · Both grips: scale and turn',
-    'Left stick: fly · Right stick: turn and zoom',
+    'Trigger: select · Grip: move · Both grips: scale and turn',
+    'Left stick: fly (click: faster) · Right stick: turn and zoom',
+    'A: play or pause · B: whole system · X and Y: previous, next',
   ],
   hands: [
-    'Pinch: select · Pinch and drag: move · Pinch with both hands: scale and turn',
-    'Touch a button with a fingertip · Turn your left palm to you to bring this back',
+    'Pinch: select · Pinch and drag: move · Both hands: scale and turn',
+    'Touch a button with a fingertip',
+    'Turn your left palm to you to bring this panel back',
   ],
 };
 
@@ -92,28 +103,20 @@ const _local = new THREE.Vector3();
 export class VRPanel {
   constructor(systemName = 'Solar System') {
     this.systemName = systemName;
-    this.canvas = document.createElement('canvas');
-    this.canvas.width = WIDTH;
-    this.canvas.height = HEIGHT;
-    this.context = this.canvas.getContext('2d');
-
-    this.texture = new THREE.CanvasTexture(this.canvas);
-    this.texture.colorSpace = THREE.SRGBColorSpace;
-    this.texture.anisotropy = 4;
-
-    this.mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(WIDTH_M, HEIGHT_M),
-      new THREE.MeshBasicMaterial({
-        map: this.texture,
-        transparent: true,
-        // Always readable: never cut into by a planet the hand has wandered into.
-        depthTest: false,
-        depthWrite: false,
-        toneMapped: false,
-      })
-    );
+    const plate = layer(HEIGHT);
+    this.canvas = plate.canvas;
+    this.context = plate.context;
+    this.texture = plate.texture;
+    this.mesh = plate.mesh;
     this.mesh.name = 'vr-panel';
     this.mesh.renderOrder = 1e8;
+
+    // Just in front of the plate's top edge, and drawn after it.
+    this.header = layer(HEADER_HEIGHT);
+    this.header.mesh.name = 'vr-panel-header';
+    this.header.mesh.renderOrder = 1e8 + 0.5;
+    this.header.mesh.position.set(0, (HEIGHT_M * (1 - HEADER_HEIGHT / HEIGHT)) / 2, 0.0005);
+    this.mesh.add(this.header.mesh);
 
     /** The hand holding it, which is then not allowed to point at it. */
     this.holder = null;
@@ -123,8 +126,9 @@ export class VRPanel {
     this._flash = null;
     this._flashUntil = 0;
     this._state = null;
-    this._signature = '';
-    this._lastDraw = 0;
+    this._signatures = { plate: '', header: '' };
+    this._dirty = true;
+    this._lastCheck = -Infinity;
     this._fonts = null;
   }
 
@@ -254,40 +258,59 @@ export class VRPanel {
     this.invalidate();
   }
 
-  /** Forces a redraw on the next update. */
+  /** Has the next update look at the state at once, rather than when it is next due. */
   invalidate() {
-    this._signature = '';
+    this._dirty = true;
   }
 
-  /** Redraws if anything shown has changed. */
-  update(state) {
-    if (!this.mesh.parent) return;
+  /**
+   * Whether update() would look at the state now: a few times a second, or
+   * straight away after something that changes what is shown.
+   */
+  due() {
+    if (!this.mesh.parent) return false;
     const now = performance.now();
     if (this._flash && now > this._flashUntil) {
       this._flash = null;
-      this.invalidate();
+      this._dirty = true;
     }
-    if (this._signature && now - this._lastDraw < REDRAW_MS) return;
+    return this._dirty || now - this._lastCheck >= REDRAW_MS;
+  }
 
-    const signature = [
-      state.body?.id, state.date, state.time, state.rate, state.paused,
-      state.pointing, state.pointingAtFocus, state.labels, state.hands, this._hover, this._flash,
-    ].join('|');
-    if (signature === this._signature) return;
-    this._signature = signature;
-    this._lastDraw = now;
+  /** Redraws whichever part has changed. */
+  update(state) {
+    if (!this.due()) return;
+    this._dirty = false;
+    this._lastCheck = performance.now();
     this._state = state;
-    this._draw(state);
-    this.texture.needsUpdate = true;
+
+    const plate = [
+      Boolean(state.body), state.paused, state.labels, state.hands, this._hover, this._flash,
+    ].join('|');
+    if (plate !== this._signatures.plate) {
+      this._signatures.plate = plate;
+      this._drawPlate(state);
+      this.texture.needsUpdate = true;
+    }
+
+    const header = [
+      state.body?.id, state.date, state.time, state.rate, state.paused,
+      state.pointing, state.pointingAtFocus, state.hands,
+    ].join('|');
+    if (header !== this._signatures.header) {
+      this._signatures.header = header;
+      this._drawHeader(state);
+      this.header.texture.needsUpdate = true;
+    }
   }
 
   _enabled(button) {
     return !button.enabled || !this._state || button.enabled(this._state);
   }
 
-  _draw(state) {
+  _drawPlate(state) {
     const ctx = this.context;
-    const { sans, display } = this._fontFamilies();
+    const { sans } = this._fontFamilies();
 
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
     roundRect(ctx, 2, 2, WIDTH - 4, HEIGHT - 4, 28);
@@ -296,6 +319,22 @@ export class VRPanel {
     ctx.strokeStyle = COLORS.line;
     ctx.lineWidth = 3;
     ctx.stroke();
+
+    for (const button of BUTTONS) this._drawButton(ctx, button, state, sans);
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = COLORS.dim;
+    ctx.font = `400 26px ${sans}`;
+    // fillText squeezes anything wider than its last argument rather than overrunning.
+    const legend = state.hands ? LEGEND.hands : LEGEND.controllers;
+    legend.forEach((line, i) => ctx.fillText(line, WIDTH / 2, LEGEND_Y + i * LEGEND_LINE, WIDTH - PAD * 2));
+  }
+
+  /** On a clear strip: the plate underneath shows through. */
+  _drawHeader(state) {
+    const ctx = this.header.context;
+    const { sans, display } = this._fontFamilies();
+    ctx.clearRect(0, 0, WIDTH, HEADER_HEIGHT);
 
     // What is in focus, and what it is.
     const body = state.body;
@@ -329,15 +368,6 @@ export class VRPanel {
       ctx.fillStyle = COLORS.faint;
       ctx.fillText('Point at anything to see what it is', PAD, 204, WIDTH - PAD * 2);
     }
-
-    for (const button of BUTTONS) this._drawButton(ctx, button, state, sans);
-
-    ctx.textAlign = 'center';
-    ctx.fillStyle = COLORS.dim;
-    ctx.font = `400 26px ${sans}`;
-    // fillText squeezes anything wider than its last argument rather than overrunning.
-    const legend = state.hands ? LEGEND.hands : LEGEND.controllers;
-    legend.forEach((line, i) => ctx.fillText(line, WIDTH / 2, LEGEND_Y + i * 36, WIDTH - PAD * 2));
   }
 
   _drawButton(ctx, button, state, sans) {
@@ -384,6 +414,28 @@ export class VRPanel {
     }
     return this._fonts;
   }
+}
+
+/** A canvas `height` pixels tall, and a plane the panel's width across to show it on. */
+function layer(height) {
+  const canvas = document.createElement('canvas');
+  canvas.width = WIDTH;
+  canvas.height = height;
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(WIDTH_M, WIDTH_M * (height / WIDTH)),
+    new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      // Always readable: never cut into by a planet the hand has wandered into.
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false,
+    })
+  );
+  return { canvas, context: canvas.getContext('2d'), texture, mesh };
 }
 
 function describeKind(body) {

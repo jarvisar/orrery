@@ -17,14 +17,17 @@ const LINGER_MS = 7000;
 
 /** Keep in step with the bindings in src/main.js and the list in HelpOverlay.js. */
 const LEGENDS = {
+  // Extras step aside on a short screen (style.css); the controls list has them all.
   orbit: [
     { buttons: ['ls'], text: 'Orbit' },
     { buttons: ['lt', 'rt'], text: 'Zoom' },
     { buttons: ['dpad-x'], text: 'Previous or next body' },
+    { buttons: ['y'], text: 'Whole system', extra: true },
     { buttons: ['a'], text: 'Play or pause' },
+    { buttons: ['lb', 'rb'], text: 'Time rate', extra: true },
     { buttons: ['x'], text: 'Fly' },
     { buttons: ['menu'], text: 'Menus' },
-    { buttons: ['view'], text: 'Full screen' },
+    { buttons: ['view'], text: 'Full screen', extra: true },
   ],
   tour: [
     { buttons: ['dpad-x'], text: 'Previous or next stop' },
@@ -33,7 +36,6 @@ const LEGENDS = {
     { buttons: ['menu'], text: 'Menus' },
     { buttons: ['view'], text: 'Full screen' },
   ],
-  // Extras step aside where there is room for one line only (style.css).
   flight: [
     { buttons: ['ls'], text: 'Steer' },
     { buttons: ['rs'], text: 'Roll', extra: true },

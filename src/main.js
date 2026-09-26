@@ -283,10 +283,11 @@ function buildInterface(ctx) {
     onOverview: () => showOverview(),
     onHome: () => showHome(),
   });
-  // On a phone the panel would cover the body it describes; start it folded.
+  // On a phone, upright or on its side, the panel would cover the body it
+  // describes; start it folded.
   const infoPanel = new InfoPanel({
     catalogue,
-    collapsed: window.matchMedia('(max-width: 720px)').matches,
+    collapsed: window.matchMedia('(max-width: 720px), (max-height: 500px)').matches,
     onSelect: (id) => selectBody(id),
     isVisible: (id) => system.isVisible(id),
     elementsOf: (id) => system.bodies.get(id)?.elements,
@@ -312,6 +313,7 @@ function buildInterface(ctx) {
     // Around another star there are no moons, dwarf planets, belts or shadows to show.
     // Another star's only belts are a measured dust disk, if it has one.
     omit: catalogue.isExoplanet ? ['showMoons', 'showDwarfs', ...(catalogue.disk ? [] : ['showBelts', 'beltDensity']), 'shadowQuality'] : [],
+    onControls: () => helpOverlay.open(),
   });
   const helpOverlay = new HelpOverlay({ exoplanet: catalogue.isExoplanet });
   const markers = new Markers(system, camera, (id) => selectBody(id));
@@ -447,7 +449,7 @@ function buildInterface(ctx) {
         el(
           'button',
           {
-            class: 'btn btn--icon',
+            class: 'btn btn--icon topbar__help',
             type: 'button',
             title: 'Controls (?)',
             'aria-label': 'Controls',
