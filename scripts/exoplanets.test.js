@@ -12,6 +12,8 @@ import {
   stellarRadiusEstimate, stellarMass, stellarColor, measuredText, parseReference, reference, archiveQuery,
 } from '../src/data/exoplanets.js';
 import { searchKey } from '../src/data/starNames.js';
+import { planetLook, starLook, habitableZone } from '../src/data/worlds.js';
+import { OBSERVED_PLANETS } from '../src/data/appearances.js';
 import { ExoplanetCatalogue } from '../src/core/ExoplanetCatalogue.js';
 import { eccentricAnomaly } from '../src/sim/kepler.js';
 import { validateStellarCatalogue, stellarLayout, stellarMassEstimate, starsShown } from '../src/data/stellarSystems.js';
@@ -139,6 +141,60 @@ test('star colours follow the blackbody at each temperature', () => {
   assert.ok(sun.every((c) => c > 225), 'the Sun is nearly white');
   assert.ok(hot[2] === 255 && hot[0] < 225, 'an A star is blue-white');
   assert.equal(stellarColor(NaN), stellarColor(undefined));
+});
+
+test('a planet’s look follows its size and the light it gets', () => {
+  // Kopparapu et al. (2014): the Sun's habitable zone runs from 1.107 to 0.356 times Earth's flux.
+  assert.ok(Math.abs(habitableZone(5780).inner - 1.107) < 1e-9 && Math.abs(habitableZone(5780).outer - 0.356) < 1e-9);
+  const sun = { luminosity: 1, teff: 5772, massSun: 1, type: 'dwarf' };
+  const earth = planetLook({ name: 'Test b', radius: 1, mass: 1, aAU: 1 }, sun);
+  assert.equal(earth.type, 'temperate');
+  assert.ok(Math.abs(earth.teq - 255) < 2, 'Earth’s equilibrium temperature at albedo 0.3');
+  assert.equal(planetLook({ name: 'Test c', radius: 11, mass: 318, aAU: 5.2 }, sun).label, 'Class I gas giant');
+  const hot = planetLook({ name: 'Test d', radius: 13, mass: 300, aAU: 0.03 }, sun);
+  assert.equal(hot.label, 'Class V hot Jupiter');
+  assert.ok(hot.tidallyLocked && hot.heat.high > hot.heat.low, 'a locked hot Jupiter’s day side is hotter than its night');
+  assert.equal(planetLook({ name: 'Test e', radius: 1.2, mass: 2, aAU: 0.01 }, sun).type, 'lava');
+  assert.equal(planetLook({ name: 'Test f', radius: 1, mass: 1, aAU: 0.5 }, sun).type, 'cloudy');
+  assert.equal(planetLook({ name: 'Test g', radius: 0.4, mass: 0.05, aAU: 0.4 }, sun).type, 'barren', 'Mercury-like bodies lose their air');
+  assert.equal(planetLook({ name: 'Test h', radius: 1, mass: 1, aAU: 3 }, sun).type, 'ice');
+  // The same planet always looks the same, in the browser and here.
+  assert.deepEqual(planetLook({ name: 'Test c', radius: 11, mass: 318, aAU: 5.2 }, sun), planetLook({ name: 'Test c', radius: 11, mass: 318, aAU: 5.2 }, sun));
+  // A pulsar gives no usable light; its planets are drawn as bare rock.
+  assert.equal(planetLook({ name: 'Test i', radius: 1, aAU: 0.4 }, { luminosity: null, type: 'neutron' }).label, 'Pulsar planet');
+});
+
+test('stars, observed planets and measured disks are drawn from the data', () => {
+  assert.equal(starLook({ name: 'PSR B1257+12', radiusSun: 1.7e-5, massSun: 1.4 }).type, 'neutron');
+  assert.equal(starLook({ name: 'WD 1856+534', teff: 4710, radiusSun: 0.0131, spectype: 'DC' }).type, 'whiteDwarf');
+  assert.equal(starLook({ name: 'Test', teff: 1800, radiusSun: 0.1 }).type, 'brownDwarf');
+  assert.equal(starLook({ name: 'Test', teff: 4800, radiusSun: 12, logg: 2.6 }).type, 'giant');
+  const estimated = starLook({ name: 'Test', massSun: 0.4, radiusSun: 1 });
+  assert.ok(estimated.teff > 3000 && estimated.teff < 4000 && /Temperature not reported/.test(estimated.notes[0]));
+  // Granules are drawn coarser on a giant than on a dwarf.
+  assert.ok(starLook({ name: 'A', teff: 4800, radiusSun: 12, massSun: 1.2 }).granules < starLook({ name: 'B', teff: 5772, radiusSun: 1, massSun: 1 }).granules);
+
+  const trappist = model('TRAPPIST-1');
+  assert.equal(trappist.byId.get('planet:TRAPPIST-1 b').look.type, 'barren', 'JWST: no thick atmosphere');
+  assert.match(trappist.byId.get('planet:TRAPPIST-1 b').appearanceReference.label, /Greene et al\. 2023/);
+  assert.equal(trappist.byId.get('planet:TRAPPIST-1 e').look.type, 'eyeball');
+  const blue = model('HD 189733').byId.get('planet:HD 189733 b');
+  assert.equal(blue.look.label, 'Blue hot Jupiter');
+  assert.ok(!blue.rings && /Evans et al\. 2013/.test(blue.appearanceReference.label));
+  for (const planet of model('HR 8799').bodies.filter((b) => b.kind === 'planet')) assert.equal(planet.look.label, 'Young dusty giant');
+  // Every observed planet is in the archive under exactly that name, so none is silently dropped.
+  const names = new Set(data.rows.map((r) => r.pl_name));
+  for (const name of OBSERVED_PLANETS) assert.ok(names.has(name), name);
+
+  const betaPic = model('bet Pic');
+  assert.deepEqual(betaPic.disk.belts, [[50, 150]]);
+  assert.match(betaPic.byId.get(betaPic.starId).diskReference.label, /Matrà et al\. 2019/);
+  assert.ok(betaPic.overviewAU > 150, 'the overview takes in the whole disk');
+  assert.equal(model('TRAPPIST-1').disk, null);
+  // Every curated host is in the archive, so no disk is silently dropped.
+  for (const host of ['bet Pic', 'eps Eri', 'tau Cet', 'HR 8799', 'AU Mic', 'HD 95086', 'HD 206893', '61 Vir', 'HD 10647', 'HD 106906', 'TWA 7', 'PDS 70', 'HD 169142', 'HD 100546']) {
+    assert.ok(model(host).disk, host);
+  }
 });
 
 test('binary, triple and partial quadruple hierarchies preserve the correct planet hosts', () => {

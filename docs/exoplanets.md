@@ -48,13 +48,46 @@ The site checks NASA for new planets when its copy is more than a week old, or w
 
 Every estimate is labeled in the info panel, along with the reported values, errors, limits and links to the papers. 32 of about 6,400 planets don't have enough data to draw an orbit. They are still listed in the info panel.
 
+## How They Look
+
+Very few exoplanets have been seen as more than a dot, so their appearance is a best guess from what has been measured: size, mass and how much light each planet gets. `src/data/worlds.js` makes the guess, and the info panel shows the reasoning behind it ("Drawn as").
+
+- Each planet's equilibrium temperature is estimated from its star's luminosity and its orbit, averaged over an eccentric orbit. It is shown as "Model temperature".
+- Planets are sorted by size: rocky below 1.6 R⊕, then sub-Neptunes, Neptunes and giants. Density is used when both mass and radius are measured. Planets with only a mass limit use it to pick a kind, although their drawn size stays a placeholder.
+- Giant planets follow the classes of [Sudarsky et al. (2003)](https://doi.org/10.1086/374331):
+  - ammonia clouds below about 150 K
+  - white water clouds up to 350 K
+  - clear blue skies up to 800 K
+  - very dark hot Jupiters up to 1,400 K
+  - glowing hot Jupiters above that
+- Neptunes are blue when cold, and hazy when warm.
+- Planets found by direct imaging are young and still hot from forming, so they glow a dull red or magenta.
+- Rocky planets:
+  - Hot enough to melt rock under the star (about 1,500 K): lava worlds.
+  - Past the "cosmic shoreline" of [Zahnle & Catling (2017)](https://doi.org/10.3847/1538-4357/aa7846): airless. The shoreline is lowered for active red and orange dwarfs.
+  - Otherwise, by the [Kopparapu et al. (2014)](https://doi.org/10.1088/2041-8205/787/2/L29) habitable zone limits:
+    - Venus-like inside the zone
+    - seas and clouds in it
+    - frozen outside it
+  - A tidally locked temperate planet around a red dwarf is drawn as an "eyeball" world: frozen except under its star.
+- Planets close enough to their star are drawn tidally locked. Hot ones have a day side hotter than their night side, following [Cowan & Agol (2011)](https://doi.org/10.1088/0004-637X/729/1/54), with the hottest point a little east of noon.
+- About 40% of cold giants get illustrative rings, and the info panel says so. No ring has been detected around an exoplanet.
+- Stars are colored by temperature and darken toward the edge by the Eddington–Barbier relation. Granules are larger on giants, and spots are more common on cooler stars. White dwarfs, pulsars and brown dwarfs are drawn as what they are.
+- Light from another star is shifted halfway to white, as eyes adapt, so an M dwarf's planets are not all orange.
+
+About 25 planets have been observed well enough to override the guess, such as the deep blue of HD 189733 b, the bare rock of TRAPPIST-1 b and the dust of the HR 8799 planets. They are listed with their papers in `src/data/appearances.js`.
+
+Dust disks are shown only where their edges have been measured, around 14 stars including β Pictoris, ε Eridani, HR 8799, PDS 70 and TWA 7. They are listed with their papers in `src/data/disks.js`. The **Belts** setting shows or hides them.
+
+Nothing is downloaded for any of this. When a system opens, `src/scene/worldTextures.js` paints each planet's and star's maps on the GPU from 3D noise. The maps are 2048 pixels wide, 1024 on phones and 512 without a GPU. Planets then use the same materials, lights, clouds and atmosphere glow as the solar system.
+
 ## Known Limitations
 
 - All orbits are drawn in the same plane, and planet positions along their orbits are made up. They don't predict transits or real positions on a given date.
-- Surfaces and colors are generated and are not based on real observations.
+- Apart from the observed planets above, surfaces and colors are generated from each planet's size and temperature, not from observations. Rotation and axial tilt are made up.
 - Sizes and distances are compressed.
 - The background sky is the view from Earth.
-- Moons, rings and debris disks aren't shown.
+- Moons aren't shown, rings are illustrative, and only measured dust disks are drawn. Disks are drawn in the planets' plane, although some are tilted to it.
 - Binary star orbits are simplified and don't include gravitational effects between planets and stars. Orbits based on a separation on the sky are usually smaller than the real ones.
 
 ## Testing

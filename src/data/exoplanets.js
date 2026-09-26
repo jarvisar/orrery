@@ -3,6 +3,10 @@ import { AU_KM, EARTH_RADIUS_KM } from './bodies.js';
 import { stellarLayout } from './stellarSystems.js';
 import { searchKey } from './starNames.js';
 import { SCALE_EXPONENT_RANGE } from '../scene/scaling.js';
+import { stellarColor } from './blackbody.js';
+import { planetLook, starLook, luminosity } from './worlds.js';
+import { observedLook } from './appearances.js';
+import { diskFor } from './disks.js';
 
 export const ARCHIVE = 'https://exoplanetarchive.ipac.caltech.edu';
 export const CATALOGUE_PATH = 'public/data/exoplanets.json';
@@ -211,6 +215,9 @@ export function stellarRadiusEstimate(row) {
     return { radius: 12 / SOLAR_RADIUS_KM,
       note: 'Pulsar radius not reported: a typical 12 km neutron-star radius is used as a display estimate. A minimum rendered size keeps it selectable.' };
   }
+  if (/^(D[ABCOQXZ]|WD)/i.test(row.st_spectype ?? row.c_st_spectype ?? '')) {
+    return { radius: 0.013, note: 'White dwarf radius not reported: a typical 0.013 R☉ (about the size of Earth) is used as a display estimate.' };
+  }
   const logL = measurement(row, 'st_lum'), temperature = sourced(row, 'st_teff').value;
   const luminosityRadius = logL !== null && temperature ? Math.sqrt(10 ** logL) * (5772 / temperature) ** 2 : null;
   if (positive(luminosityRadius)) {
@@ -320,49 +327,7 @@ function safeHref(value) {
 
 export function archiveLink(name) { return `${ARCHIVE}/overview/${encodeURIComponent(name)}`; }
 
-/* --- colour ----------------------------------------------------------------- */
-
-/**
- * The sRGB colour of a blackbody at `temperature` kelvin, brightest channel at
- * full: Planck's law through the CIE 1931 observer (Wyman, Sloan & Shirley 2013
- * fit) into sRGB. Stars are not perfect blackbodies, but at a glance this is
- * the colour their temperature gives them.
- */
-export function stellarColor(temperature) {
-  if (!positive(temperature)) return '#fff1e0';
-  const key = Math.round(Math.min(Math.max(temperature, 1000), 40000) / 50) * 50;
-  let hex = COLOR_CACHE.get(key);
-  if (!hex) COLOR_CACHE.set(key, hex = blackbodyHex(key));
-  return hex;
-}
-const COLOR_CACHE = new Map();
-function blackbodyHex(temperature) {
-  const lobe = (x, mu, s1, s2) => Math.exp(-0.5 * ((x - mu) / (x < mu ? s1 : s2)) ** 2);
-  let X = 0, Y = 0, Z = 0;
-  for (let nm = 380; nm <= 780; nm += 5) {
-    const planck = nm ** -5 / Math.expm1(1.4387769e7 / (nm * temperature));
-    X += planck * (1.056 * lobe(nm, 599.8, 37.9, 31.0) + 0.362 * lobe(nm, 442.0, 16.0, 26.7) - 0.065 * lobe(nm, 501.1, 20.4, 26.2));
-    Y += planck * (0.821 * lobe(nm, 568.8, 46.9, 40.5) + 0.286 * lobe(nm, 530.9, 16.3, 31.1));
-    Z += planck * (1.217 * lobe(nm, 437.0, 11.8, 36.0) + 0.681 * lobe(nm, 459.0, 26.0, 13.8));
-  }
-  const linear = [
-    3.2406 * X - 1.5372 * Y - 0.4986 * Z,
-    -0.9689 * X + 1.8758 * Y + 0.0415 * Z,
-    0.0557 * X - 0.2040 * Y + 1.0570 * Z,
-  ].map((c) => Math.max(c, 0));
-  const peak = Math.max(...linear);
-  return `#${linear.map((c) => {
-    const v = c / peak;
-    const encoded = v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055;
-    return Math.round(encoded * 255).toString(16).padStart(2, '0');
-  }).join('')}`;
-}
-
-/** Rocky, cloud-wrapped sub-Neptune or giant: a colour and a procedural surface for the size. */
-function planetLook(radiusEarths) {
-  if (radiusEarths < 1.6) return { color: '#cdb095', surface: 'rock' };
-  return { color: radiusEarths < 4 ? '#93bfcc' : '#d8bd91', surface: 'clouds' };
-}
+export { stellarColor };
 
 /* --- one system as the renderer's catalogue -------------------------------- */
 
@@ -387,8 +352,9 @@ export function makeSystem(entry, data, supplement = null) {
     }
     const radius = stellarRadiusEstimate({ ...node.values, hostname: node.name });
     const temperature = usable(node.values, 'st_teff');
+    const appearance = dressStar({ name: node.name, radius, teff: temperature, massSun: node.mass, spectype: node.values.st_spectype });
     return { ...hostStar, id: node.id, name: node.name, parent: node.parent, orbit,
-      radiusKm: radius.radius * SOLAR_RADIUS_KM, temperature, color: stellarColor(temperature),
+      radiusKm: radius.radius * SOLAR_RADIUS_KM, temperature, ...appearance,
       source: layout.source, sourceName: 'Open Exoplanet Catalogue', sourceDate: layout.fetchedAt,
       reference: null, blurb: node.id === starId ? hostStar.blurb : companions.text,
       facts: { 'Distance from Earth': hostStar.facts['Distance from Earth'],
@@ -396,11 +362,25 @@ export function makeSystem(entry, data, supplement = null) {
         'Stellar radius': measuredText(node.values, 'st_rad', 'R☉'),
         'Stellar mass': Number.isFinite(node.values.st_mass) ? measuredText(node.values, 'st_mass', 'M☉') : node.mass ? `About ${Number(node.mass.toPrecision(2))} M☉ (estimated)` : 'Not reported',
         Temperature: measuredText(node.values, 'st_teff', 'K'), 'Stars shown': hostStar.facts['Stars shown'] },
-      modelNotes: [radius.note, node.massNote, ...hierarchy, 'Stellar colour is the colour of a blackbody at the star’s temperature; surface detail is illustrative.'].filter(Boolean),
+      modelNotes: [radius.note, node.massNote, ...hierarchy, BLACKBODY_NOTE, ...appearance.look.notes].filter(Boolean),
     };
   }) : [hostStar];
   // The planets' host leads the lists; the rest keep their place in the hierarchy.
   stars.sort((a, b) => (b.id === starId) - (a.id === starId));
+
+  // The light a planet gets: its own star's, or the sum of a pair's.
+  const starsById = new Map(stars.map((s) => [s.id, s]));
+  const lightFrom = (parentId) => {
+    const own = starsById.get(parentId);
+    const members = own ? [own] : stars.filter((s) => {
+      for (let node = nodesById.get(s.id); node; node = nodesById.get(node.parent)) if (node.parent === parentId) return true;
+      return false;
+    });
+    if (!members.length) return null;
+    const brightest = [...members].sort((a, b) => (b.luminosity ?? 0) - (a.luminosity ?? 0))[0];
+    const sum = (key) => members.every((s) => positive(s[key])) ? members.reduce((total, s) => total + s[key], 0) : null;
+    return { luminosity: sum('luminosity'), massSun: sum('massSun'), teff: brightest.look.teff, type: brightest.look.type, circumbinary: !own };
+  };
 
   const planets = (layout?.rows ?? entry.planets).map((row) => {
     const parentId = layout?.parents.get(row.pl_name) ?? starId;
@@ -408,9 +388,17 @@ export function makeSystem(entry, data, supplement = null) {
     const orbit = orbitModel(row, { binaryMass: parentNode?.kind === 'binary' ? parentNode.mass : null });
     const estimate = radiusEstimate(row);
     const projected = PROJECTED.test(row.discoverymethod ?? '');
+    // What it probably looks like; see worlds.js and appearances.js.
+    const look = orbit.reason ? null : observedLook(planetLook({
+      name: row.pl_name, radius: estimate.radius, mass: usable(row, 'pl_masse') ?? usable(row, 'pl_msinie'),
+      massLimit: [row.pl_masse, row.pl_msinie].find(positive) ?? null,
+      radiusMeasured: !estimate.note, aAU: orbit.a, e: orbit.e, discovery: row.discoverymethod,
+    }, lightFrom(parentId)), row.pl_name);
     const body = {
       id: `planet:${row.pl_name}`, name: row.pl_name, kind: 'planet', parent: parentId,
-      radiusKm: estimate.radius * EARTH_RADIUS_KM, ...planetLook(estimate.radius), exoplanet: true,
+      radiusKm: estimate.radius * EARTH_RADIUS_KM, color: look?.color ?? '#cdb095', exoplanet: true,
+      ...(look && { look, spin: look.spin, tidallyLocked: look.tidallyLocked, glow: look.glow ?? undefined,
+        terminator: look.terminator || undefined, rings: look.rings ?? undefined, appearanceReference: look.reference }),
       source: archiveLink(row.pl_name), reference: reference(data, row.pl_ref),
       blurb: `Discovered${row.disc_year ? ` in ${row.disc_year}` : ''}${row.discoverymethod ? ` using ${row.discoverymethod.toLowerCase()}` : ''}. ` +
         (row.pl_controv_flag ? 'Its confirmation has been questioned in published literature. ' : '') +
@@ -424,10 +412,14 @@ export function makeSystem(entry, data, supplement = null) {
         'Orbits': parentNode ? `${parentNode.name}${parentNode.kind === 'binary' ? ' barycentre' : ''}` : entry.name,
         Eccentricity: factText(row, 'pl_orbeccen'),
         'Archive row updated': row.rowupdate?.slice(0, 10) ?? 'Not reported',
+        ...(look && {
+          'Model temperature': look.teq ? `About ${number(look.teq)} K (estimated)` : 'Not estimated',
+          'Drawn as': look.label,
+        }),
       },
-      modelNotes: [...(orbit.notes ?? []), ...(estimate.note ? [estimate.note] : []),
+      modelNotes: [...(orbit.notes ?? []), ...(estimate.note ? [estimate.note] : []), ...(look?.notes ?? []),
         ...(row.cb_flag === 1 && parentNode?.kind === 'binary' && !orbit.reason ? ['Circumbinary orbit about the stellar pair’s centre of mass. Two-body approximation; precession and stellar perturbations are omitted.'] : []),
-        'Colours are illustrative. Orbital phase, orientation, rotation and surface appearance are not measured here.'],
+        'Surface detail is illustrative. Orbital phase, orientation and rotation are not measured here.'],
       unmodeled: orbit.reason ?? null,
     };
     if (!orbit.reason) {
@@ -451,8 +443,16 @@ export function makeSystem(entry, data, supplement = null) {
   const apoapsis = (b) => [1, b.orbit.aAU * (1 + b.orbit.e)];
   const fit = (bodyTerms, body) => Math.max(...EXPONENTS.map((k) =>
     [...bodyTerms, [1, body.radiusKm / AU_KM * 3]].reduce((sum, [w, x]) => sum + w * x ** k, 0) ** (1 / k))) * 1.25;
+  // A measured dust disk round the host (disks.js) is part of the picture.
+  const disk = diskFor(entry.name);
+  const hostBody = stars.find((s) => s.id === starId);
+  if (disk && hostBody) {
+    hostBody.modelNotes = [...hostBody.modelNotes, `${disk.note} (${disk.reference.label}.) The disk is drawn in the planets’ plane.`];
+    hostBody.diskReference = disk.reference;
+  }
   const overviewAU = Math.max(...bodies.map((b) => fit(b.kind === 'star' ? terms.get(b.id) ?? []
-    : [...(terms.get(b.parent) ?? []), apoapsis(b)], b)));
+    : [...(terms.get(b.parent) ?? []), apoapsis(b)], b)),
+  ...(disk && hostBody ? [fit([...(terms.get(starId) ?? []), [1, Math.max(...disk.belts.map(([, outer]) => outer))]], hostBody)] : []));
   // A host whose planets are lost in a wide stellar orbit opens on its own planets.
   const own = modeled.filter((p) => p.parent === starId);
   const hostAU = own.length ? Math.max(...own.map((p) => fit([apoapsis(p)], p))) : 0;
@@ -461,6 +461,7 @@ export function makeSystem(entry, data, supplement = null) {
 
   return { id: entry.name, name: entry.name, starId, bodies, allBodies: [...stars, ...planets], omitted, stellarNodes,
     byId: new Map(bodies.map((b) => [b.id, b])), overviewAU, edgeAU: overviewAU * 2, home, companions,
+    disk: disk && hostBody ? { ...disk, starId } : null,
     fetchedAt: data.fetchedAt, isExoplanet: true, entry };
 }
 
@@ -487,9 +488,11 @@ export function companionSummary(entry, layout) {
 function nasaStar(entry, host, data, starId, companions) {
   const radius = stellarRadiusEstimate(host);
   const temperature = sourced(host, 'st_teff').value;
+  const appearance = dressStar({ name: entry.name, radius, teff: temperature, massSun: stellarMass(host).mass,
+    logg: measurement(host, 'st_logg'), spectype: host.st_spectype ?? host.c_st_spectype });
   return {
     id: starId, name: entry.name, kind: 'star', parent: null, exoplanet: true,
-    radiusKm: radius.radius * SOLAR_RADIUS_KM, temperature, color: stellarColor(temperature),
+    radiusKm: radius.radius * SOLAR_RADIUS_KM, temperature, ...appearance,
     source: archiveLink(entry.name), reference: reference(data, host.st_ref),
     distanceReference: reference(data, entry.planets.find((r) => positive(r.sy_dist))?.dist_ref),
     blurb: `${planetCount(entry)} ${companions.text}`.trim(),
@@ -503,8 +506,19 @@ function nasaStar(entry, host, data, starId, companions) {
     },
     modelNotes: [radius.note,
       'Distance is from the NASA composite table; stellar properties use one published default solution, with labelled composite values only where it has none.',
-      'Stellar colour is the colour of a blackbody at the star’s temperature; surface detail is illustrative.'].filter(Boolean),
+      BLACKBODY_NOTE, ...appearance.look.notes].filter(Boolean),
   };
+}
+
+const BLACKBODY_NOTE = 'Stellar colour is the colour of a blackbody at the star’s temperature.';
+
+/** A star's look (worlds.js), its colour, and the mass and luminosity its planets' climates need. */
+function dressStar({ name, radius, teff, massSun, logg = null, spectype }) {
+  // A placeholder radius says nothing about the star's brightness.
+  const radiusSun = radius.note?.startsWith('No usable') ? null : radius.radius;
+  const look = starLook({ name, teff, radiusSun: radiusSun ?? 1, massSun, logg, spectype });
+  return { look, color: look.color, massSun: positive(massSun) ? massSun : null,
+    luminosity: luminosity({ radiusSun, teff: look.teff, massSun, type: look.type }) };
 }
 function planetCount(entry) { return `${entry.planets.length} confirmed ${entry.planets.length === 1 ? 'planet' : 'planets'}.`; }
 function stellarScore(row) { return ['st_rad', 'st_mass', 'st_teff'].filter((key) => usable(row, key)).length; }

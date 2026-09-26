@@ -34,6 +34,8 @@ const fragmentShader = /* glsl */ `
 
   uniform vec3 uColor;
   uniform float uIntensity;
+  // Where the light comes from: the origin for the Sun, anywhere for another star.
+  uniform vec3 uStarPosition;
   // cos of the angle, seen from the shell's own centre, at which the planet's
   // limb sits - where the shell's back faces stop being hidden behind it.
   uniform float uLimb;
@@ -46,8 +48,7 @@ const fragmentShader = /* glsl */ `
 
     vec3 normal = normalize( vWorldNormal );
     vec3 toCamera = normalize( cameraPosition - vWorldPosition );
-    // The Sun sits at the origin of the scene.
-    vec3 toSun = normalize( -vWorldPosition );
+    vec3 toSun = normalize( uStarPosition - vWorldPosition );
 
     float facing = dot( normal, toCamera );
     float sunward = dot( normal, toSun );
@@ -90,6 +91,7 @@ export function createAtmosphere(radius, spec) {
       uColor: { value: new THREE.Color(spec.color) },
       uIntensity: { value: 1.6 * (spec.intensity ?? 1) },
       uLimb: { value: limb },
+      uStarPosition: { value: new THREE.Vector3() },
     },
     vertexShader,
     fragmentShader,

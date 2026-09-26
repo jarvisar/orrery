@@ -11,3 +11,19 @@ Thumbs.db
 # The desktop app's staged copy of the site, and its build output.
 desktop/web/
 desktop/dist/
+
+# AI coding-agent files (instructions, skills, local settings); kept locally only.
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+GEMINI.md
+.mcp.json
+.cursor/
+.cursorrules
+.windsurf/
+.windsurfrules
+.aider*
+.codex/
+.continue/
+.github/copilot-instructions.md

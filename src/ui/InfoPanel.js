@@ -138,6 +138,8 @@ export class InfoPanel {
       body.reference ? el('p', {}, [body.reference.href ? link(body.reference.href, body.reference.label) : body.reference.label])
         : el('p', { text: body.sourceName ? 'Publication references are recorded in the source file history.' : 'Reference available in the archive.' }),
       body.distanceReference?.href && el('p', {}, [link(body.distanceReference.href, `Distance: ${body.distanceReference.label}`)]),
+      body.appearanceReference && el('p', {}, [link(body.appearanceReference.href, `Appearance: ${body.appearanceReference.label}`)]),
+      body.diskReference && el('p', {}, [link(body.diskReference.href, `Disk: ${body.diskReference.label}`)]),
       body.companionSource && el('p', {}, [link(body.companionSource, 'Stellar hierarchy: Open Exoplanet Catalogue ↗')]),
       el('p', { text: `${body.sourceName ?? 'NASA default solution'} · retrieved ${(body.sourceDate ?? this.catalogue.fetchedAt).slice(0, 10)} (UTC). Quoted errors and limits are from the source.` }),
     ].filter(Boolean));

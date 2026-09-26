@@ -130,7 +130,8 @@ async function boot() {
   renderer.toneMappingExposure = settings.get('exposure');
 
   loading.begin('catalogue', 'Reading the catalogue…');
-  await system.build();
+  // Another star's worlds are painted on the GPU as they are built.
+  await system.build({ onPaint: (fraction, name) => loading.progress(fraction, `Painting ${name}…`) });
   system.setShadowQuality(settings.get('shadowQuality'));
   viewport.setShadowsEnabled(system.sunLight.castShadow);
 
@@ -288,7 +289,8 @@ function buildInterface(ctx) {
   };
   const settingsPanel = new SettingsPanel(settings, {
     // Around another star there are no moons, dwarf planets, belts or shadows to show.
-    omit: catalogue.isExoplanet ? ['showMoons', 'showDwarfs', 'showBelts', 'beltDensity', 'shadowQuality'] : [],
+    // Another star's only belts are a measured dust disk, if it has one.
+    omit: catalogue.isExoplanet ? ['showMoons', 'showDwarfs', ...(catalogue.disk ? [] : ['showBelts', 'beltDensity']), 'shadowQuality'] : [],
   });
   const helpOverlay = new HelpOverlay({ exoplanet: catalogue.isExoplanet });
   const markers = new Markers(system, camera, (id) => selectBody(id));

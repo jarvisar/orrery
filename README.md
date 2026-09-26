@@ -59,5 +59,6 @@ See [desktop/README.md](desktop/README.md) for installing, building and releasin
 - Pole and rotation data from the IAU WGCCRE reports (Archinal et al.)
 - Exoplanet data from the [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu/)
 - Binary and multiple star data from the [Open Exoplanet Catalogue](https://github.com/OpenExoplanetCatalogue/open_exoplanet_catalogue) (MIT, license in `public/data/`)
+- Exoplanet appearances, habitable zones and dust disks from the published studies cited in the info panel (see [how they look](docs/exoplanets.md#how-they-look))
 - [Inter](https://github.com/rsms/inter) and [Jost](https://github.com/indestructible-type/Jost) fonts (SIL Open Font License, licenses in `public/fonts/`)
 - three.js (MIT, license in `vendor/three/`)

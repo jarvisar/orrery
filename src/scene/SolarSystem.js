@@ -15,8 +15,8 @@
 import * as THREE from 'three';
 import { periodDays } from '../data/bodies.js';
 import { SOLAR_SYSTEM } from '../data/systems.js';
-import { exoplanetSurface } from './exoplanetSurface.js';
-import { stellarColor } from '../data/exoplanets.js';
+import { exoplanetSurface, stellarSurface, starDisplayColor } from './exoplanetSurface.js';
+import { WorldPainter, paintRings } from './worldTextures.js';
 import {
   bodyRadius, heliocentricDistance, satelliteDistance, ringRadius,
   SCALE_EXPONENT_RANGE,
@@ -88,8 +88,9 @@ export class SolarSystem {
    * with 1x1 placeholders in the slots it will eventually use, so the shader
    * compiles once and arriving textures are pure uploads.
    */
-  async build() {
+  async build({ onPaint } = {}) {
     this._buildLighting();
+    if (this.catalogue.isExoplanet) await this._paintWorlds(onPaint);
 
     // Parents before children, so a moon can read its primary's scaled radius.
     const ordered = [...this.catalogue.bodies].sort((a, b) => depth(a, this.catalogue.byId) - depth(b, this.catalogue.byId));
@@ -103,12 +104,29 @@ export class SolarSystem {
     for (const view of this.bodies.values()) if (view.kind === 'star') this._buildCorona(view);
   }
 
+  /**
+   * Another star's worlds have no image textures: each is painted once, on the
+   * GPU, from its description in src/data/worlds.js (see worldTextures.js).
+   */
+  async _paintWorlds(onPaint) {
+    this.painter = new WorldPainter(this.assets.renderer);
+    this._maps = new Map();
+    const bodies = this.catalogue.bodies.filter((b) => b.look);
+    for (const [i, body] of bodies.entries()) {
+      onPaint?.(i / bodies.length, body.name);
+      const { look } = body;
+      if (body.kind !== 'star') this._maps.set(body.id, await this.painter.paintPlanet(look));
+      else if (look.banded) this._maps.set(body.id, await this.painter.paintPlanet(look.banded));
+      else if (look.granules) this._maps.set(body.id, await this.painter.paintStar(look));
+    }
+  }
+
   _buildLighting() {
     const { catalogue } = this;
     // decay: 0 because real inverse-square falloff over a compressed solar
     // system leaves Neptune in total darkness.
     this.sunLight = new THREE.PointLight(0xfff4e0, STAR_LIGHT, 0, 0);
-    if (catalogue.isExoplanet) this.sunLight.color.set(catalogue.byId.get(catalogue.starId).color);
+    if (catalogue.isExoplanet) this.sunLight.color.copy(adaptedLight(catalogue.byId.get(catalogue.starId).color));
     this.sunLight.name = 'sunlight';
     // Shadows are for moons crossing planets and rings; an exoplanet system has
     // neither, and a point light's shadow is six extra renders of the scene.
@@ -133,7 +151,7 @@ export class SolarSystem {
       const lit = planets.filter((p) => p.parent === star.id || pairs.has(p.parent));
       this._starlight.set(star.id, { star, path, lit });
       if (star.id === catalogue.starId || !lit.length) continue;
-      const light = new THREE.PointLight(star.color, STAR_LIGHT, 0, 0);
+      const light = new THREE.PointLight(adaptedLight(star.color), STAR_LIGHT, 0, 0);
       this.root.add(light);
       this.starLights.set(star.id, light);
     }
@@ -195,10 +213,14 @@ export class SolarSystem {
     if (body.rings) this._attachRings(view, body, radius);
     if (body.clouds) this._attachShell(view, body.clouds, radius, 'clouds');
     if (body.atmosphere) this._attachShell(view, body.atmosphere, radius, 'atmosphere');
+    if (body.look?.clouds) this._attachExoClouds(view, body.look, radius);
     if (body.glow) {
       const air = createAtmosphere(radius, body.glow);
+      // Scattered starlight takes the star's colour.
+      if (body.look) air.material.uniforms.uColor.value.multiply((this.starLights.get(body.parent) ?? this.sunLight).color);
       air.userData.bodyId = body.id;
       view.tilt.add(air);
+      view.air = air;
       this._disposables.push(air.geometry, air.material);
     }
 
@@ -226,8 +248,16 @@ export class SolarSystem {
         });
 
     this._claimSlots(material, body, isStar, radius);
-    if (isStar) sunSurface(material, 1.4, body.exoplanet ? starTint(body.color) : null);
-    if (body.exoplanet) exoplanetSurface(material, body);
+    const maps = this._maps?.get(body.id);
+    if (isStar && body.look) {
+      const surface = stellarSurface(material, body.look, maps?.data ?? null, body.look.banded ? maps : null);
+      // Granules come and go on a clock of their own, not the simulation's.
+      view.onFrame = () => { surface.uniforms.uTime.value = performance.now() / 1000; };
+    } else if (isStar) {
+      sunSurface(material, 1.4);
+    } else if (body.look) {
+      exoplanetSurface(material, body.look, maps, radius);
+    }
     if (body.nightLights) nightSideEmissive(material);
     if (body.terminator) softTerminator(material, body.terminator);
 
@@ -345,7 +375,18 @@ export class SolarSystem {
     this._shadowCasters.push({ view, onPlanet, onRings });
     this._shapeRings(view);
 
-    this.assets.texture(body.rings.map, 'map', 0).then((texture) => {
+    // Another star's giant has rings painted from a profile (worldTextures.js),
+    // in its own star's light: ring particles are unlit here.
+    let texture;
+    if (body.rings.palette) {
+      const painted = paintRings(body.rings, body.look?.seed);
+      this._disposables.push(painted);
+      material.color.copy((this.starLights.get(body.parent) ?? this.sunLight).color);
+      texture = Promise.resolve(painted);
+    } else {
+      texture = this.assets.texture(body.rings.map, 'map', 0);
+    }
+    texture.then((texture) => {
       material.map = texture;
       onPlanet.uniforms.uRingMap.value = texture;
     });
@@ -381,6 +422,31 @@ export class SolarSystem {
     }
     for (const view of this.bodies.values()) view.corona?.scale.setScalar(view.radius * CORONA_RADII);
     this._fitStarlight();
+  }
+
+  /**
+   * Another world's clouds: the cloud cover baked into its data map's green
+   * channel, which is what an alphaMap reads. They turn with the planet and
+   * drift slowly on top, like Earth's.
+   */
+  _attachExoClouds(view, look, radius) {
+    const maps = this._maps?.get(view.id);
+    if (!maps) return;
+    const [w, h] = sphereSegments(radius);
+    const geometry = new THREE.SphereGeometry(radius * 1.008, w, h);
+    const material = new THREE.MeshPhongMaterial({
+      color: look.clouds.color, alphaMap: maps.data, transparent: true, opacity: 0.92, depthWrite: false, shininess: 0,
+    });
+    if (look.terminator) softTerminator(material, look.terminator);
+    const shell = new THREE.Mesh(geometry, material);
+    shell.name = `${view.id}-clouds`;
+    shell.renderOrder = 2;
+    shell.userData.bodyId = view.id;
+    shell.raycast = raycastSphere;
+    view.tilt.add(shell);
+    view.shells.push({ mesh: shell, spinPeriodHours: 2400, corotating: true });
+    this._disposables.push(geometry, material);
+    this.pickables.push(shell);
   }
 
   /** Cloud deck or atmospheric haze: a thin transparent shell just above the surface. */
@@ -435,14 +501,17 @@ export class SolarSystem {
     const coronaTexture = makeGlowTexture(256, [
       [0.0, 1.0], [0.1, 0.62], [0.2, 0.3], [0.35, 0.11], [0.55, 0.035], [0.8, 0.008], [1.0, 0],
     ]);
+    // Another star's glow takes its own colour, scaled as the Sun's is.
+    const look = sun.body.look;
+    const tint = look ? starDisplayColor(look.teff) : null;
+    if (tint) tint.multiplyScalar(1 / Math.max(tint.r, tint.g, tint.b));
     const coronaMaterial = new THREE.SpriteMaterial({
       map: coronaTexture,
-      color: new THREE.Color(1.0, 0.7, 0.42).multiplyScalar(0.55),
+      color: (tint?.clone() ?? new THREE.Color(1.0, 0.7, 0.42)).multiplyScalar(0.55 * (look?.type === 'brownDwarf' ? 0.25 : 1)),
       transparent: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
-    if (sun.body.exoplanet) coronaMaterial.color.multiply(starTint(sun.body.color));
     const corona = new THREE.Sprite(coronaMaterial);
     corona.scale.setScalar(sun.radius * CORONA_RADII);
     corona.renderOrder = -1;
@@ -461,7 +530,7 @@ export class SolarSystem {
     ]);
     const glareMaterial = new THREE.SpriteMaterial({
       map: glareTexture,
-      color: new THREE.Color(1.0, 0.84, 0.64).multiplyScalar(0.5).multiply(sun.body.exoplanet ? starTint(sun.body.color) : WHITE),
+      color: (tint ? tint.clone().lerp(WHITE, 0.35) : new THREE.Color(1.0, 0.84, 0.64)).multiplyScalar(0.5 * (look?.type === 'brownDwarf' ? 0.3 : 1)),
       transparent: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
@@ -471,8 +540,70 @@ export class SolarSystem {
     glare.scale.setScalar(0.18);
     glare.renderOrder = -1;
     sun.group.add(glare);
+    if (look?.type === 'neutron') this._buildBeams(sun, tint);
 
     this._disposables.push(coronaMaterial, coronaTexture, glareMaterial, glareTexture);
+  }
+
+  /**
+   * A pulsar's two beams: faint cones along a magnetic axis tilted from its
+   * spin axis, sweeping round. Illustrative, and said so in the info panel:
+   * the real beams are radio waves and turn many times a second.
+   */
+  _buildBeams(star, tint) {
+    const length = star.baseRadius * 60;
+    const geometry = new THREE.ConeGeometry(length * 0.09, length, 48, 1, true);
+    geometry.translate(0, -length / 2, 0);
+    const material = new THREE.ShaderMaterial({
+      uniforms: { uColor: { value: tint.clone().lerp(WHITE, 0.4).multiplyScalar(0.9) }, uLength: { value: length } },
+      vertexShader: /* glsl */ `
+        #include <common>
+        #include <logdepthbuf_pars_vertex>
+        uniform float uLength;
+        varying float vAlong;
+        varying float vFacing;
+        void main() {
+          vAlong = -position.y / uLength;
+          vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+          vFacing = abs( dot( normalize( normalMatrix * normal ), normalize( -mvPosition.xyz ) ) );
+          gl_Position = projectionMatrix * mvPosition;
+          #include <logdepthbuf_vertex>
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        #include <common>
+        #include <logdepthbuf_pars_fragment>
+        uniform vec3 uColor;
+        varying float vAlong;
+        varying float vFacing;
+        void main() {
+          #include <logdepthbuf_fragment>
+          float fade = pow( 1.0 - vAlong, 2.2 ) * smoothstep( 0.0, 0.04, vAlong );
+          gl_FragColor = vec4( uColor * fade * pow( vFacing, 1.5 ) * 0.6, 1.0 );
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }
+      `,
+      side: THREE.DoubleSide, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    const spin = new THREE.Group();
+    const axis = new THREE.Group();
+    axis.rotation.z = 35 * DEG;
+    for (const flip of [0, Math.PI]) {
+      const beam = new THREE.Mesh(geometry, material);
+      beam.rotation.x = flip;
+      beam.renderOrder = -1;
+      axis.add(beam);
+    }
+    spin.add(axis);
+    // In the tilt node, so the beams scale with the star.
+    star.tilt.add(spin);
+    const surface = star.onFrame;
+    star.onFrame = () => {
+      surface?.();
+      spin.rotation.y = (performance.now() / 3000) * Math.PI * 2;
+    };
+    this._disposables.push(geometry, material);
   }
 
   /**
@@ -549,6 +680,14 @@ export class SolarSystem {
 
     for (const [id, light] of this.starLights) light.position.copy(this.bodies.get(id).group.position);
 
+    if (this.catalogue.isExoplanet) {
+      for (const view of this.bodies.values()) {
+        view.onFrame?.();
+        // The Sun sits at the origin; other stars' planets are lit from wherever theirs is.
+        if (view.air && view.lightPosition) view.air.material.uniforms.uStarPosition.value.copy(view.lightPosition);
+      }
+    }
+
     this._updateRingShadows();
   }
 
@@ -581,8 +720,9 @@ export class SolarSystem {
 
     for (const caster of this._shadowCasters) {
       caster.view.group.updateMatrixWorld(true);
-      updateSunDirection(caster.onPlanet, caster.view.mesh, this._sunWorld);
-      updateSunDirection(caster.onRings, caster.view.rings, this._sunWorld);
+      const star = this.catalogue.isExoplanet ? caster.view.lightPosition ?? this._sunWorld : this._sunWorld;
+      updateSunDirection(caster.onPlanet, caster.view.mesh, star);
+      updateSunDirection(caster.onRings, caster.view.rings, star);
     }
   }
 
@@ -631,6 +771,7 @@ export class SolarSystem {
   }
 
   dispose() {
+    this.painter?.dispose();
     for (const item of this._disposables) item.dispose?.();
     for (const view of this.bodies.values()) view.rings?.geometry.dispose();
     this._disposables.length = 0;
@@ -745,18 +886,16 @@ function orientBody(target, body, catalogue) {
   return target.setFromRotationMatrix(_basis.makeBasis(_node, _pole, _third));
 }
 
-/**
- * Another star's colour relative to the Sun's, as a multiplier on the Sun's
- * graded photosphere and glow. The 1.5 power exaggerates the difference so a
- * hot star reads as blue-white rather than paler orange.
- */
 const WHITE = new THREE.Color(1, 1, 1);
-const SUN_COLOR = new THREE.Color(stellarColor(5772));
-function starTint(color) {
-  const c = new THREE.Color(color);
-  const channels = [c.r / SUN_COLOR.r, c.g / SUN_COLOR.g, c.b / SUN_COLOR.b].map((v) => v ** 1.5);
-  const peak = Math.max(...channels);
-  return new THREE.Color(...channels.map((v) => v / peak));
+
+/**
+ * Another star's light, about halfway to white. Eyes adapt to the light they
+ * are in, as they do to a warm room, so under a red dwarf ice still looks
+ * white-ish rather than the orange a daylight-balanced camera would record;
+ * enough of the star's colour is kept that its planets are visibly lit by it.
+ */
+function adaptedLight(color) {
+  return new THREE.Color(color).lerp(WHITE, 0.5);
 }
 
 /** Stops are [radius, intensity] pairs, both 0..1, painted white for the material to tint. */

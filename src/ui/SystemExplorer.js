@@ -3,7 +3,10 @@ import { ARCHIVE, PARSEC_LY, number, stellarColor } from '../data/exoplanets.js'
 import { searchKey } from '../data/starNames.js';
 import { loadStellarCatalogue, starsShown } from '../data/stellarSystems.js';
 
-const FEATURED = ['TRAPPIST-1', 'Proxima Cen', 'Kepler-16', 'Kepler-47', 'TOI-700', 'Kepler-186', '55 Cnc', 'HD 219134', 'HR 8799', 'Kepler-90'];
+const FEATURED = [
+  'tau Cet', 'Proxima Cen', 'TRAPPIST-1', 'eps Eri', 'Kepler-16', 'HR 8799', 'PDS 70', 'KOI-351', 'bet Pic', '55 Cnc',
+  'KELT-9', 'HD 189733', '51 Peg', 'PSR B1257+12', "Barnard's star", 'TOI-700', 'Kepler-452', 'Kepler-47', 'Kepler-186', 'HD 219134',
+];
 /** Catalogue order a person expects: Kepler-2 before Kepler-10. */
 const collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 const byName = (a, b) => collator.compare(a.name, b.name);

@@ -89,6 +89,24 @@ export function stellarMassEstimate(values) {
   }
   return { mass: null, note: null };
 }
+/**
+ * A main-sequence star's temperature from its spectral type or mass (the same
+ * Pecaut & Mamajek table, read the other way), or null outside the table.
+ */
+export function dwarfTemperature({ spectype, mass } = {}) {
+  const spectral = /^([BAFGKM])\s*(\d(?:\.\d+)?)?/.exec((spectype ?? '').trim());
+  if (spectral) {
+    const subtype = 'BAFGKM'.indexOf(spectral[1]) + 1 + Number(spectral[2] ?? 5) / 10;
+    if (subtype >= DWARFS[0][0] && subtype <= DWARFS.at(-1)[0]) {
+      return interpolate(DWARFS.map(([s, t]) => [s, t]), subtype);
+    }
+  }
+  if (positive(mass) && mass >= DWARFS.at(-1)[2] && mass <= DWARFS[0][2]) {
+    return interpolate([...DWARFS].reverse().map(([, t, m]) => [Math.log(m), t]), Math.log(mass));
+  }
+  return null;
+}
+
 /** Log-linear interpolation through [x, mass] points sorted by x. */
 function interpolate(points, x) {
   const i = Math.max(1, points.findIndex(([px]) => px >= x));

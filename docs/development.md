@@ -78,6 +78,8 @@ desktop/      the Electron app
 
 `src/data/bodies.js` has the measurements for every planet and moon. Exoplanet data is in `public/data/exoplanets.json` and is turned into systems by `src/data/exoplanets.js`. All real distances go through `src/scene/scaling.js` before they are drawn.
 
+Exoplanets and their stars have no image textures. `src/data/worlds.js` decides what each one probably looks like, and `src/scene/worldTextures.js` paints its maps on the GPU when the system opens. See [How They Look](exoplanets.md#how-they-look).
+
 three.js is copied into `vendor/three/` so the page doesn't load anything from a CDN. The only exception is VR controller models, which come from jsDelivr (simple shapes are drawn if they can't be loaded). To update three.js, change its version in `package.json` and run `npm run vendor`.
 
 Textures and models are compressed from the original files with `scripts/optimize-textures.py` and `gltf-transform`. The originals are in the git history. The background sky is built from the Milky Way panorama and the Yale Bright Star Catalogue:

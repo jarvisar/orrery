@@ -24,6 +24,9 @@ export const REMOTE_ORIGINS = [
 export const LINK_ORIGINS = [
   'https://github.com',
   'https://exoplanetarchive.ipac.caltech.edu',
+  // Papers behind the observed exoplanet appearances and dust disks.
+  'https://doi.org',
+  'https://arxiv.org',
 ];
 
 const remote = REMOTE_ORIGINS.join(' ');

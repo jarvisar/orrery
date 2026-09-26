@@ -76,9 +76,8 @@ export function nightSideEmissive(material) {
  *
  * @returns {{uniforms: {uIntensity: {value: number}}}}
  */
-export function sunSurface(material, intensity = 1.4, tint = null) {
-  // Another star's colour, relative to the Sun's (see starTint in SolarSystem.js).
-  const uniforms = { uIntensity: { value: intensity }, uStarTint: { value: new THREE.Color(tint ?? 0xffffff) } };
+export function sunSurface(material, intensity = 1.4) {
+  const uniforms = { uIntensity: { value: intensity } };
   addPatch(material, 'sun-surface', (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
@@ -90,7 +89,7 @@ export function sunSurface(material, intensity = 1.4, tint = null) {
     shader.fragmentShader = shader.fragmentShader
       .replace(
         '#include <common>',
-        '#include <common>\nvarying vec3 vSunNormal;\nvarying vec3 vSunView;\nuniform float uIntensity;\nuniform vec3 uStarTint;'
+        '#include <common>\nvarying vec3 vSunNormal;\nvarying vec3 vSunView;\nuniform float uIntensity;'
       )
       .replace(
         '#include <map_fragment>',
@@ -108,7 +107,7 @@ export function sunSurface(material, intensity = 1.4, tint = null) {
         vec3 centreColor = vec3( 1.0, 0.74, 0.4 );
         vec3 photosphere = mix( limbColor, centreColor, smoothstep( 0.0, 0.9, mu ) );
         float limb = 0.3 + 0.7 * pow( mu, 0.6 );
-        diffuseColor.rgb = photosphere * limb * mottle * uIntensity * uStarTint;
+        diffuseColor.rgb = photosphere * limb * mottle * uIntensity;
         `
       );
   });

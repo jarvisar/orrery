@@ -11,6 +11,7 @@
 import * as THREE from 'three';
 import { BELTS, SIDEREAL_YEAR_DAYS } from '../data/bodies.js';
 import { heliocentricDistance } from './scaling.js';
+import { createDisk } from './Disks.js';
 
 export class Belts {
   /** @param {THREE.Scene} scene */
@@ -28,7 +29,15 @@ export class Belts {
   build(density = this.density) {
     this.clear();
     this.density = density;
-    for (const spec of (this.system.catalogue.isExoplanet ? [] : BELTS)) this.clouds.push(this._createCloud(spec, density));
+    const { catalogue } = this.system;
+    // Another star has no known belts, only the dust disks that have been measured.
+    if (catalogue.disk) {
+      const light = (this.system.starLights.get(catalogue.disk.starId) ?? this.system.sunLight).color;
+      this.disk = createDisk(catalogue.disk, light, this.system.scaleExponent);
+      this.root.add(this.disk.root);
+    }
+    const specs = catalogue.isExoplanet ? this.disk?.specs ?? [] : BELTS;
+    for (const spec of specs) this.clouds.push(this._createCloud(spec, density));
   }
 
   _createCloud(spec, density) {
@@ -113,10 +122,19 @@ export class Belts {
       const periodDays = SIDEREAL_YEAR_DAYS * meanAU ** 1.5;
       cloud.points.rotation.y = -(tDays / periodDays) * Math.PI * 2;
     }
+    if (this.disk) {
+      // Centred on its star, which in a multiple system moves.
+      const centre = this.system.bodies.get(this.system.catalogue.disk.starId)?.group.position;
+      if (centre) {
+        this.disk.update(centre, tDays);
+        for (const cloud of this.clouds) cloud.points.position.copy(centre);
+      }
+    }
   }
 
   rescale() {
     for (const cloud of this.clouds) this._writePositions(cloud);
+    this.disk?.setExponent(this.system.scaleExponent);
   }
 
   setVisible(visible) {
@@ -124,6 +142,8 @@ export class Belts {
   }
 
   clear() {
+    this.disk?.dispose();
+    this.disk = null;
     for (const cloud of this.clouds) {
       cloud.points.removeFromParent();
       cloud.geometry.dispose();
