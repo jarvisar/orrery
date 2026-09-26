@@ -104,7 +104,7 @@ Links can include `?body=saturn` and `?t=2017-05-01` (any ISO date or time, in U
 
 Click on **Star systems** to search for confirmed exoplanets from the [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu/). You can sort by nearest systems, most planets, multiple stars or newest discoveries. Search works with the archive's names or full star names, so "Tau Ceti" finds tau Cet and "51 Pegasi" finds 51 Peg. Some multi-star systems don't have enough data to draw every star, so their cards say "host star only" or how many stars are shown.
 
-You can also get there from the sky. About 170 of the stars you can see with the naked eye have known planets. In the whole-system view (**H**) each one has a faint ring round it, unless **Labels** is off. Point at one to see its name, and click it to open a card with a **Travel** button. Stars only respond in that view, and the card closes when you leave it.
+You can also get there from the sky. About 170 of the stars you can see with the naked eye have known planets. In the whole-system view (**H**) each one has a faint ring round it, unless **Labels** is off. Point at one to see its name and how far away it is, and click it to go there. Stars only respond in that view.
 
 Exoplanet systems use the same controls as the solar system. Systems where the planets would be too small to see next to a distant companion star, like Proxima Centauri, open on the host star's planets. Press **H** to see every star.
 

@@ -62,7 +62,6 @@ export class Picker {
     this._bind();
   }
 
-  /** Called on every click, with what was hit, or null for a click on nothing. */
   onSelect(callback) { this._onSelect = callback; }
 
   /** Makes something outside the catalogue clickable. Its meshes carry `userData.bodyId`. */
@@ -109,7 +108,8 @@ export class Picker {
         if (!wasClick || !this.enabled || event.button !== 0) return;
 
         this._updatePointer(event);
-        this._onSelect?.(this._pick());
+        const hit = this._pick();
+        if (hit) this._onSelect?.(hit);
       },
       pointerleave: () => {
         this._pressed = false;

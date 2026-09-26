@@ -1,5 +1,5 @@
 /**
- * The stars in the sky that have planets, so a click on one can offer a visit.
+ * The stars in the sky that have planets, so a click on one can take you there.
  *
  * public/data/sky-hosts.json lists the exoplanet hosts bright enough to see
  * (the importer writes it; see skyHosts() in src/data/exoplanets.js). Each is

@@ -19,7 +19,7 @@ import { SOLAR_SYSTEM } from './data/systems.js';
 import { makeSystem } from './data/exoplanets.js';
 import { loadStellarCatalogue } from './data/stellarSystems.js';
 import { ExoplanetCatalogue } from './core/ExoplanetCatalogue.js';
-import { SystemExplorer } from './ui/SystemExplorer.js';
+import { SystemExplorer, systemUrl } from './ui/SystemExplorer.js';
 import { Viewport } from './core/Viewport.js';
 import { AssetLoader } from './core/AssetLoader.js';
 import { Settings } from './core/Settings.js';
@@ -45,7 +45,6 @@ import { FlightHud } from './ui/FlightHud.js';
 import { SettingsPanel } from './ui/SettingsPanel.js';
 import { HelpOverlay } from './ui/HelpOverlay.js';
 import { Markers } from './ui/Markers.js';
-import { StarCard } from './ui/StarCard.js';
 import { TourGuide } from './ui/TourGuide.js';
 import { InstallToast } from './ui/InstallToast.js';
 import { UpdateToast } from './ui/UpdateToast.js';
@@ -311,7 +310,6 @@ function buildInterface(ctx) {
   });
   const helpOverlay = new HelpOverlay({ exoplanet: catalogue.isExoplanet });
   const markers = new Markers(system, camera, (id) => selectBody(id));
-  const starCard = new StarCard(camera);
   const installToast = new InstallToast();
   const updateToast = new UpdateToast(); // desktop app only; see desktop/src/updates.js
   const gamepad = new GamepadInput();
@@ -349,7 +347,6 @@ function buildInterface(ctx) {
       setFlight(false, { refocus: false });
       helpOverlay.close();
       settingsPanel.close();
-      starCard.close();
       director.setEnabled(false);
       picker.setEnabled(false);
       hideTooltip();
@@ -470,7 +467,7 @@ function buildInterface(ctx) {
 
   root.append(topbar, infoPanel.root, tours.caption, timeBar.root);
   document.body.append(
-    markers.root, starCard.root, flightHud.root, tooltip, stats, hint, installToast.root, updateToast.root,
+    markers.root, flightHud.root, tooltip, stats, hint, installToast.root, updateToast.root,
     padHud.root, settingsPanel.root, helpOverlay.root, explorer.panel
   );
 
@@ -484,7 +481,6 @@ function buildInterface(ctx) {
     }
     if (state.flying) setFlight(false, { refocus: false });
     if (!fromTour) tours.stop();
-    starCard.close();
     state.inOverview = false;
     picker.refreshHover();
 
@@ -512,7 +508,6 @@ function buildInterface(ctx) {
   function showOverview(radiusAU = catalogue.overviewAU, { instant = false, centreId = null } = {}) {
     if (state.flying) setFlight(false, { refocus: false });
     tours.stop();
-    starCard.close();
     state.focusedId = null;
     state.inOverview = true;
     picker.refreshHover();
@@ -592,7 +587,6 @@ function buildInterface(ctx) {
       director.focusOn(null);
       bodyPicker.select(null);
       infoPanel.show(null);
-      starCard.close();
       state.inOverview = false;
       orbits.setFocus(null);
       state.focusedId = null;
@@ -645,13 +639,10 @@ function buildInterface(ctx) {
   /* --- hover tooltip ----------------------------------------------------- */
 
   picker.onSelect((id) => {
-    // A star opens its card; a body, or a click on empty sky, puts it away.
+    // A star with planets: go there. Its system is another page, as from the atlas.
     const host = skyHosts.get(id);
-    if (host) {
-      hideTooltip();
-      starCard.open(host);
-    } else if (id) selectBody(id);
-    else starCard.close();
+    if (host) window.location.href = systemUrl(host.name);
+    else selectBody(id);
   });
   picker.onHover((id, x, y) => {
     if (!id || !settings.get('showLabels')) return hideTooltip();
@@ -1023,7 +1014,7 @@ function buildInterface(ctx) {
     switch (event.code) {
       // The one place Escape is handled, so closing a panel never also drops focus.
       case 'Escape':
-        if (closeSurface() || starCard.close()) break;
+        if (closeSurface()) break;
         if (state.touring) tours.stop();
         else if (state.flying) setFlight(false);
         else selectBody(null);
@@ -1060,7 +1051,7 @@ function buildInterface(ctx) {
   installKonamiCode();
 
   return {
-    state, stats, tooltip, timeBar, infoPanel, flightHud, bodyPicker, markers, starCard, tours, vr, gamepad,
+    state, stats, tooltip, timeBar, infoPanel, flightHud, bodyPicker, markers, tours, vr, gamepad,
     selectBody, showOverview, explorer, setFlight, hideTooltip, welcome, updateGamepad, showsHostRings,
     reduceMotion,
   };
@@ -1111,10 +1102,9 @@ function startLoop(ctx) {
     orbits.update(immersive ? vr.viewerPosition : camera.position, clock.days);
     if (!immersive) {
       // The camera has moved this frame, but its matrices are only brought up
-      // to date when it renders. Labels and the star card are placed from them.
+      // to date when it renders. Labels are placed from them.
       camera.updateMatrixWorld();
       ui.markers.update(viewport.width, viewport.height);
-      ui.starCard.update(viewport.width, viewport.height);
     }
     hostRings.setShown(ui.showsHostRings());
     hostRings.update(dt, { instant: ui.reduceMotion() });
