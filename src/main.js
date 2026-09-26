@@ -873,16 +873,14 @@ function buildInterface(ctx) {
   function padOrbitInput(dt) {
     const speed = settings.get('padSensitivity');
     const invert = settings.get('padInvertY') ? -1 : 1;
-    // Not mid-flight to a body: input would pile up and be spent at once on arrival.
-    if (!director.isTransitioning) {
-      director.drive({
-        orbitX: gamepad.left.x * speed,
-        orbitY: gamepad.left.y * speed * invert,
-        panX: gamepad.right.x * speed,
-        panY: gamepad.right.y * speed,
-        zoom: gamepad.rt - gamepad.lt,
-      }, dt);
-    }
+    // Mid-flight to a body, the sticks take over what they move (CameraDirector._claim).
+    director.drive({
+      orbitX: gamepad.left.x * speed,
+      orbitY: gamepad.left.y * speed * invert,
+      panX: gamepad.right.x * speed,
+      panY: gamepad.right.y * speed,
+      zoom: gamepad.rt - gamepad.lt,
+    }, dt);
 
     if (gamepad.pressed('menu')) return enterPadMenus();
     if (gamepad.pressed('a')) timeBar.togglePause();

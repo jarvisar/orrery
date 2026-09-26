@@ -25,8 +25,18 @@ const STICK_PAN_RATE = 0.9;
 /** Full trigger: zooms by e to this power a second, about sixfold. */
 const STICK_ZOOM_RATE = 1.8;
 
+/**
+ * OrbitControls' gesture states (its _STATE, not exported): none, and the ones
+ * that zoom - the wheel (which starts with no pointer down), the middle button,
+ * and a pinch with either two-finger pan or rotate.
+ */
+const NO_GESTURE = -1;
+const ZOOM_GESTURES = new Set([NO_GESTURE, 1, 5, 6]);
+
 const _delta = new THREE.Vector3();
 const _desired = new THREE.Vector3();
+const _pathTarget = new THREE.Vector3();
+const _pathPosition = new THREE.Vector3();
 const _offset = new THREE.Vector3();
 const _sunward = new THREE.Vector3();
 const _side = new THREE.Vector3();
@@ -59,6 +69,11 @@ export class CameraDirector {
     this._lastFocusPosition = new THREE.Vector3();
     this._transition = null;
     this._scaleExponent = system.scaleExponent;
+    // The wheel and a pinch spend their zoom inside the event, before update()
+    // could see it, so they claim it here instead.
+    this.controls.addEventListener('start', () => {
+      if (ZOOM_GESTURES.has(this.controls.state)) this._claim('zoom');
+    });
   }
 
   /**
@@ -116,14 +131,13 @@ export class CameraDirector {
       this.camera.position.copy(view.group.position).add(_offset);
       this._transition = null;
     } else {
-      this._transition = {
-        elapsed: 0,
+      this._beginTransition({
         duration,
         fromTarget: this.controls.target.clone(),
         fromPosition: this.camera.position.clone(),
         offset: _offset.clone(),
         toTarget: null,
-      };
+      });
     }
 
     this._lastFocusPosition.copy(view.group.position);
@@ -163,15 +177,14 @@ export class CameraDirector {
       this._transition = null;
       return;
     }
-    this._transition = {
-      elapsed: 0,
+    this._beginTransition({
       duration,
       fromTarget: this.controls.target.clone(),
       fromPosition: this.camera.position.clone(),
       offset: _offset.clone(),
       // A moving centre is tracked all the way there, like a focused body.
       toTarget: centre ? null : target,
-    };
+    });
   }
 
   /**
@@ -189,6 +202,10 @@ export class CameraDirector {
   drive({ orbitX = 0, orbitY = 0, panX = 0, panY = 0, zoom = 0 }, dt) {
     const { controls } = this;
     if (!controls.enabled) return;
+    // Mid-transition, what the sticks move is theirs; see _claim().
+    if (orbitX || orbitY) this._claim('rotate');
+    if (panX || panY) this._claim('pan');
+    if (zoom) this._claim('zoom');
     if (orbitX || orbitY) {
       controls._rotateLeft(orbitX * STICK_ORBIT_RATE * dt);
       controls._rotateUp(orbitY * STICK_ORBIT_RATE * dt);
@@ -211,11 +228,47 @@ export class CameraDirector {
   }
 
   update(dt) {
+    // Input can end a transition, and following then takes over this same frame.
+    if (this._transition) this._claimFromInput();
     if (this._transition) this._advanceTransition(dt);
     else if (this.focus ?? this.anchor) this._follow();
 
     this.controls.update(dt);
     this._updateClipping();
+  }
+
+  /**
+   * A transition has three parts: where the camera looks (pan), the angle it
+   * looks from (rotate) and how far away it is (zoom). Whatever the user moves
+   * mid-transition is theirs from then on, and the rest carries on without it,
+   * so a drag on the way to a planet turns the view instead of being undone
+   * the next frame.
+   */
+  _claim(part) {
+    const t = this._transition;
+    if (!t) return;
+    t.claimed[part] = true;
+    if (t.claimed.pan && t.claimed.rotate && t.claimed.zoom) this._endTransition();
+  }
+
+  /** Dragging, read from OrbitControls' accumulators, which damping keeps for a while after. */
+  _claimFromInput() {
+    const { controls } = this;
+    if (controls._panOffset.lengthSq() > 0) this._claim('pan');
+    // Auto-rotate feeds the same accumulator, but only while no pointer is down.
+    if (controls.state !== NO_GESTURE && (controls._sphericalDelta.theta || controls._sphericalDelta.phi)) this._claim('rotate');
+  }
+
+  _beginTransition(transition) {
+    // Drift left over from an earlier drag is not a claim on this one.
+    this.controls._sphericalDelta.set(0, 0, 0);
+    this.controls._panOffset.set(0, 0, 0);
+    this._transition = { ...transition, elapsed: 0, claimed: { pan: false, rotate: false, zoom: false } };
+  }
+
+  /** Following picks up from the last frame's position, which the transition keeps current. */
+  _endTransition() {
+    this._transition = null;
   }
 
   _advanceTransition(dt) {
@@ -224,14 +277,30 @@ export class CameraDirector {
     const k = easeInOutCubic(Math.min(1, t.elapsed / t.duration));
 
     const followed = this.focus ?? this.anchor;
+    const { target } = this.controls;
     _desired.copy(t.toTarget ?? followed.group.position);
-    this.controls.target.lerpVectors(t.fromTarget, _desired, k);
-    this.camera.position.lerpVectors(t.fromPosition, _desired.add(t.offset), k);
+    _pathTarget.lerpVectors(t.fromTarget, _desired, k);
+    _pathPosition.lerpVectors(t.fromPosition, _desired.add(t.offset), k);
 
-    if (t.elapsed >= t.duration) {
-      this._transition = null;
-      if (followed) this._lastFocusPosition.copy(followed.group.position);
+    const { claimed } = t;
+    if (!claimed.pan && !claimed.rotate && !claimed.zoom) {
+      target.copy(_pathTarget);
+      this.camera.position.copy(_pathPosition);
+    } else {
+      // Keep what the user has taken, and take the rest from the path.
+      _offset.copy(this.camera.position).sub(target);
+      _pathPosition.sub(_pathTarget);
+      if (claimed.pan) {
+        // Where they panned to, carried along as a followed body moves.
+        if (followed) target.add(_delta.copy(followed.group.position).sub(this._lastFocusPosition));
+      } else target.copy(_pathTarget);
+      const distance = claimed.zoom ? _offset.length() : _pathPosition.length();
+      (claimed.rotate ? _offset : _offset.copy(_pathPosition)).normalize();
+      this.camera.position.copy(target).addScaledVector(_offset, distance);
     }
+    if (followed) this._lastFocusPosition.copy(followed.group.position);
+
+    if (t.elapsed >= t.duration) this._endTransition();
   }
 
   /** Carries the camera along with the body it is watching. */
