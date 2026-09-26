@@ -1,7 +1,7 @@
 {
   "name": "orrery-desktop",
   "productName": "Orrery",
-  "version": "2.1.3",
+  "version": "2.1.4",
   "private": true,
   "type": "module",
   "description": "An interactive, physically-grounded 3D orrery of the solar system, with the real sky and guided tours.",
