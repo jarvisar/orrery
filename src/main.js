@@ -176,10 +176,9 @@ async function boot() {
 
   const picker = new Picker(canvas, camera, system);
   picker.addSelectable(VISITOR_ID, visitor.meshes);
-  // Stars with planets, once the sky is drawn: a click on one offers a visit.
+  // Stars with planets, once the sky is drawn, ringed in the whole-system view,
+  // where a click on one offers a visit (see buildInterface).
   const skyHosts = new SkyHosts();
-  picker.setFallback((direction, tolerance) => skyHosts.nearest(direction, tolerance)?.id ?? null);
-  // And rings round them in the whole-system view, so they can be found.
   const hostRings = new HostRings(scene);
 
   const post = new Post(renderer, scene, camera);
@@ -487,6 +486,7 @@ function buildInterface(ctx) {
     if (!fromTour) tours.stop();
     starCard.close();
     state.inOverview = false;
+    picker.refreshHover();
 
     const view = id ? lookup(id) : null;
     if (id && !view) return;
@@ -515,6 +515,7 @@ function buildInterface(ctx) {
     starCard.close();
     state.focusedId = null;
     state.inOverview = true;
+    picker.refreshHover();
     const centre = centreId ? lookup(centreId) ?? null : null;
     state.overview = { radiusAU, centre };
     if (vr.active) vr.overview(radiusAU, { instant, centre });
@@ -628,10 +629,18 @@ function buildInterface(ctx) {
     if (flight.autopilot) flightHud.notify(`Autopilot: flying to ${flight.target.name}`);
   }
 
-  /** Whether the stars with planets are ringed: the whole-system view only, with labels on. */
-  function showsHostRings() {
-    return state.inOverview && !state.flying && !state.touring && !vr.presenting && settings.get('showLabels');
+  /** The whole-system view, the one place stars with planets can be chosen. */
+  function inWholeSystemView() {
+    return state.inOverview && !state.flying && !state.touring && !vr.presenting;
   }
+
+  /** Whether they are ringed there: with labels on. */
+  function showsHostRings() {
+    return inWholeSystemView() && settings.get('showLabels');
+  }
+
+  picker.setFallback((direction, tolerance) =>
+    (inWholeSystemView() ? skyHosts.nearest(direction, tolerance)?.id ?? null : null));
 
   /* --- hover tooltip ----------------------------------------------------- */
 

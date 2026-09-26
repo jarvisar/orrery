@@ -78,6 +78,9 @@ export class Picker {
    */
   setFallback(fallback) { this._fallback = fallback; }
 
+  /** Tests hover again next frame: what can be picked has changed, though the pointer has not moved. */
+  refreshHover() { if (this._hovering) this._hoverDirty = true; }
+
   _bind() {
     this._handlers = {
       pointerdown: (event) => {

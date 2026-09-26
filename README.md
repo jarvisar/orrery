@@ -11,7 +11,7 @@ Visit the [GitHub Pages site](https://jarvisar.github.io/orrery/) to access the 
 Click on a planet or moon to focus on it. Drag to rotate the camera and scroll to zoom. Click on the date to change it, or press Space to pause.
 
 - **Tours** takes you through a few groups of planets and moons.
-- **Star systems** lets you search for and explore exoplanet systems. You can also click on a star in the sky that has planets and travel there.
+- **Star systems** lets you search for and explore exoplanet systems. In the whole-system view (**H**), stars with planets are ringed, and you can click one to travel there.
 - **G** switches to flight mode. Click to capture the mouse, use W/S for the throttle, A/D to roll and Shift to boost. Press Esc to exit.
 - **H** returns to the overview.
 - **?** shows the full list of controls.
