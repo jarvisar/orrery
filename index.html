@@ -34,16 +34,19 @@
 <!-- The first three textures the loading screen waits on, requested before the
      module graph has even been parsed. Only when the network is serving them:
      Chrome will not match a preload to a request the service worker answers,
-     so on an installed or returning visit they would just be read twice. -->
+     so on an installed or returning visit they would just be read twice. The
+     images are preloaded as fetches because that is how src/core/AssetLoader.js
+     requests them, to decode them itself; an image preload would go unused. -->
 <script>
-  if (!navigator.serviceWorker?.controller) {
-    for (const [as, href] of [
-      ['fetch', 'public/textures/manifest.json'],
-      ['image', 'public/textures/stars_milkyway.webp'],
-      ['image', 'public/textures/sun.webp'],
+  // The desktop app (desktop/) reads them from disk, where a preload is a second read.
+  if (!navigator.serviceWorker?.controller && !window.orreryDesktop) {
+    for (const href of [
+      'public/textures/manifest.json',
+      'public/textures/stars_milkyway.webp',
+      'public/textures/sun.webp',
     ]) {
       document.head.append(Object.assign(document.createElement('link'),
-        { rel: 'preload', as, href, crossOrigin: 'anonymous' }));
+        { rel: 'preload', as: 'fetch', href, crossOrigin: 'anonymous' }));
     }
   }
 </script>

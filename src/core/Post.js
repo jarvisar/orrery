@@ -37,10 +37,14 @@ export class Post {
       // is multisampled is the resolution controller's call; see setSize() and
       // src/core/Viewport.js.
       samples: MULTISAMPLES,
+      // Nothing reads the depth buffer once the scene is drawn, so the
+      // multisampled one is neither resolved nor written back to memory.
+      resolveDepthBuffer: false,
+      storeMultisampledDepthBuffer: false,
     });
 
     this.composer = new EffectComposer(renderer, target);
-    this.composer.addPass(new RenderPass(scene, camera));
+    this.composer.addPass(new ScenePass(scene, camera));
 
     // Threshold just above white, so only the Sun, lit atmosphere limbs and the
     // brightest stars bloom.
@@ -82,10 +86,49 @@ export class Post {
     else this.renderer.render(this.scene, this.camera);
   }
 
+  /**
+   * Compiles every material in the scene, in view or not, for where render()
+   * draws it, so nothing compiles mid-frame the first time it comes into view.
+   * three compiles a material one way for the screen (tone mapped, as with
+   * effects off or in a headset) and another for the HDR target, and picks by
+   * the render target bound at the time.
+   *
+   * @param {object} [options]
+   * @param {boolean} [options.screen] The screen's variant rather than the one
+   *   in use now; a headset draws with those.
+   */
+  async compileAsync({ screen = !this.enabled || this.renderer.xr.isPresenting } = {}) {
+    const { renderer } = this;
+    const previous = renderer.getRenderTarget();
+    renderer.setRenderTarget(screen ? null : this.composer.readBuffer);
+    const ready = renderer.compileAsync(this.scene, this.camera);
+    renderer.setRenderTarget(previous);
+    await ready;
+    // The first draw with a program also looks up its uniforms and
+    // attributes, each a round trip to the browser's GPU process. Now, too.
+    for (const program of renderer.info.programs ?? []) {
+      program.getUniforms();
+      program.getAttributes();
+    }
+  }
+
   dispose() {
     this.composer.dispose();
     this.bloom.dispose();
     this.finish.dispose();
+  }
+}
+
+/** The scene pass, which lets a tiled (phone) GPU drop the depth buffer once the scene is drawn. */
+class ScenePass extends RenderPass {
+  render(renderer, writeBuffer, readBuffer, deltaTime, maskActive) {
+    super.render(renderer, writeBuffer, readBuffer, deltaTime, maskActive);
+    // Still bound. A multisampled target is dealt with by three when it
+    // resolves (see storeMultisampledDepthBuffer above).
+    if (readBuffer.samples === 0 && !this.renderToScreen) {
+      const gl = renderer.getContext();
+      gl.invalidateFramebuffer(gl.FRAMEBUFFER, [gl.DEPTH_ATTACHMENT]);
+    }
   }
 }
 
@@ -166,6 +209,9 @@ class FinishPass extends Pass {
     };
     this.material = new THREE.RawShaderMaterial({
       name: 'FinishPass',
+      // Covers the whole screen; nothing to test against or keep.
+      depthTest: false,
+      depthWrite: false,
       uniforms: this.uniforms,
       vertexShader: /* glsl */ `
         precision highp float;

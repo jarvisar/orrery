@@ -186,8 +186,9 @@ async function boot() {
   loading.begin('shaders', 'Compiling shaders…');
   director.focusOn(system.bodies.get(initialBodyId(catalogue)), { instant: true });
   await starsLoaded;
-  await renderer.compileAsync(scene, camera);
+  await post.compileAsync();
   assets.pumpUploads(999);
+  assets.uploadSceneTextures(scene);
 
   const ui = buildInterface({
     settings, clock, scene, assets, system, orbits, belts, sky,
@@ -220,7 +221,9 @@ async function boot() {
   // Everything still queued (moons, dwarf planets) streams in after first paint.
   await assets.drain({ concurrency: 4 });
   // One more compile pass, in case a streamed model brought its own materials.
-  await renderer.compileAsync(scene, camera).catch(() => {});
+  await post.compileAsync().catch(() => {});
+  // A headset draws with the screen's variants; have them ready before it starts.
+  if (post.enabled && await VRMode.isSupported()) await post.compileAsync({ screen: true }).catch(() => {});
 
   // Last, so filling the offline copy never competes with the first load, and
   // mostly revalidates what the HTTP cache already holds.
@@ -673,6 +676,9 @@ function buildInterface(ctx) {
     post.setEnabled(value);
     // With effects off the frame goes straight to the canvas, which is always multisampled.
     orbits.setSmoothing(value && !viewport.multisample);
+    // Every material now draws with its other variant; compile the rest now
+    // rather than each the first time it comes into view.
+    post.compileAsync().catch(() => {});
   });
   settings.on('reduceMotion', (value) => {
     document.body.classList.toggle('reduce-motion', value);
@@ -714,7 +720,7 @@ function buildInterface(ctx) {
     viewport.setShadowsEnabled(system.sunLight.castShadow);
     // Toggling shadows changes every material's program; recompile now rather
     // than stall on the next frame.
-    viewport.renderer.compileAsync(scene, camera).catch(() => {});
+    post.compileAsync().catch(() => {});
   });
 
   /* --- menus, drawers and dialogs ---------------------------------------- */
@@ -1055,6 +1061,8 @@ function startLoop(ctx) {
 
     orbits.update(immersive ? vr.viewerPosition : camera.position, clock.days);
     if (!immersive) ui.markers.update(viewport.width, viewport.height);
+    // A headset is drawn in full detail throughout.
+    system.updateDetail(immersive ? null : camera.position, pixelScale(viewport, camera));
     // An upload's cost lands in the next interval, and is not the resolution's fault.
     if (assets.pumpUploads()) viewport.discardNextSample();
     post.render(dt);
@@ -1086,6 +1094,11 @@ function startLoop(ctx) {
       frames = 0;
     }
   });
+}
+
+/** Drawing-buffer pixels per scene unit, one unit in front of the camera. */
+function pixelScale(viewport, camera) {
+  return (viewport.height * viewport.pixelRatio) / 2 / Math.tan((camera.fov * Math.PI) / 360);
 }
 
 /**

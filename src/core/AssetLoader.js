@@ -16,6 +16,11 @@
  *    Images decode to ImageBitmaps, pre-flipped for WebGL. Uploading an <img>
  *    flips and converts every pixel on the main thread: 55-170ms for a 2k map
  *    in headless Chrome, against 5-13ms from an ImageBitmap.
+ *
+ * 4. Released images. Once a map is on the GPU its decoded copy is freed: a 2k
+ *    map is 8MB decoded, and all of them together hold on to over 250MB that a
+ *    phone cannot spare. three would upload them again from that copy if the
+ *    WebGL context were lost; they are fetched and decoded again instead.
  */
 
 import * as THREE from 'three';
@@ -52,6 +57,8 @@ export class AssetLoader {
     this._inFlight = new Set();
     this._uploadQueue = [];
     this._draining = false;
+    /** Uploaded textures whose decoded image has been freed. */
+    this._released = new Set();
 
     this.placeholders = {
       white: makeSolidTexture(255, 255, 255),
@@ -59,6 +66,9 @@ export class AssetLoader {
       black: makeSolidTexture(0, 0, 0),
       clear: makeSolidTexture(0, 0, 0, 0),
     };
+
+    // After three's own handler, which has by then forgotten every upload.
+    renderer.domElement.addEventListener('webglcontextrestored', () => this._restore());
   }
 
   placeholderFor(slot) {
@@ -75,8 +85,11 @@ export class AssetLoader {
    * @param {string} name   Manifest stem, e.g. 'europa_bump'.
    * @param {string} slot   Material slot it will occupy, which decides colour space.
    * @param {number} priority Lower numbers load first.
+   * @param {object} [options]
+   * @param {boolean} [options.keepImage] Keep the decoded image once uploaded,
+   *   for a texture three reads again on the CPU (a scene background).
    */
-  texture(name, slot = 'map', priority = 10) {
+  texture(name, slot = 'map', priority = 10, { keepImage = false } = {}) {
     const known = this._requests.get(name);
     if (known) {
       const queued = this._queue.find((t) => t.name === name);
@@ -87,7 +100,7 @@ export class AssetLoader {
     let resolve;
     const promise = new Promise((res) => { resolve = res; });
     this._requests.set(name, promise);
-    this._queue.push({ name, slot, priority, resolve });
+    this._queue.push({ name, slot, priority, keepImage, resolve });
     return promise;
   }
 
@@ -152,12 +165,13 @@ export class AssetLoader {
   }
 
   async _loadTexture(job) {
-    const { name, slot, resolve } = job;
+    const { name, slot, keepImage, resolve } = job;
     try {
       const url = `${TEXTURE_DIR}${await resolveFile(name)}`;
       const texture = await this._decode(url);
 
       texture.name = name;
+      texture.userData = { url, slot, keepImage };
       texture.colorSpace = COLOR_SLOTS.has(slot) ? THREE.SRGBColorSpace : THREE.NoColorSpace;
       texture.anisotropy = this._maxAnisotropy;
 
@@ -228,12 +242,73 @@ export class AssetLoader {
       const { texture, resolve } = this._uploadQueue.shift();
       try {
         this.renderer.initTexture(texture);
+        this._release(texture);
       } catch {
         // E.g. context loss; the first draw that uses it will upload it instead.
       }
       resolve(texture);
     }
     return uploaded;
+  }
+
+  /**
+   * Frees an uploaded texture's decoded image; see the note at the top of this
+   * file. Its size stays behind, which is all three reads of it from then on.
+   */
+  _release(texture) {
+    const { image, userData } = texture;
+    if (userData.keepImage || typeof ImageBitmap === 'undefined' || !(image instanceof ImageBitmap)) return;
+    texture.image = { width: image.width, height: image.height };
+    image.close();
+    this._released.add(texture);
+  }
+
+  /**
+   * A lost context has come back, and three will upload every texture again on
+   * first use. A released one is given blank storage of its size (dataReady)
+   * until its image has been fetched and decoded again, which the HTTP or
+   * offline cache usually has, and is then filled in place.
+   */
+  _restore() {
+    for (const texture of this._released) {
+      texture.source.dataReady = false;
+      texture.needsUpdate = true;
+      this._decode(texture.userData.url).then((fresh) => {
+        const { width, height } = texture.image;
+        // Changed on the server meanwhile: three needs new storage for it.
+        if (fresh.image.width !== width || fresh.image.height !== height) texture.dispose();
+        texture.image = fresh.image;
+        texture.source.dataReady = true;
+        texture.needsUpdate = true;
+        this._uploadQueue.push({ texture, resolve: () => {} });
+      }).catch((err) => console.warn(`[assets] texture "${texture.name}" failed to reload`, err));
+    }
+    this._released.clear();
+  }
+
+  /**
+   * Uploads every texture a material in the scene holds, shown or not: a
+   * model's own, and those drawn on a canvas. Otherwise each uploads mid-frame
+   * the first time its object comes into view. Already uploaded ones cost
+   * nothing.
+   */
+  uploadSceneTextures(scene) {
+    const textures = new Set();
+    scene.traverse((object) => {
+      for (const material of [object.material ?? []].flat()) {
+        for (const value of Object.values(material)) if (value?.isTexture) textures.add(value);
+        for (const uniform of Object.values(material.uniforms ?? {})) {
+          if (uniform?.value?.isTexture) textures.add(uniform.value);
+        }
+      }
+    });
+    for (const texture of textures) {
+      try {
+        this.renderer.initTexture(texture);
+      } catch {
+        // Uploaded on first use instead, as it would have been.
+      }
+    }
   }
 
   dispose() {

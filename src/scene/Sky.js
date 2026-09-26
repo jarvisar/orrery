@@ -76,7 +76,8 @@ export class Sky {
   }
 
   load() {
-    this.assets.texture('stars_milkyway', 'map', -1).then((texture) => {
+    // three reads a background's image to turn it into a cube map, again after a lost context.
+    this.assets.texture('stars_milkyway', 'map', -1, { keepImage: true }).then((texture) => {
       texture.mapping = THREE.EquirectangularReflectionMapping;
       this.scene.background = texture;
       this.scene.backgroundIntensity = 0.24;

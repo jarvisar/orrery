@@ -43,6 +43,15 @@ const CORONA_RADII = 6;
 /** Scales the catalogue's bump scales down; at full strength crater rims cast hard black edges. */
 const BUMP_SOFTENING = 0.65;
 
+/**
+ * A body this few drawing-buffer pixels in radius is drawn as a coarse sphere,
+ * and switches back past the second; the gap stops one on the line flickering.
+ * At 4px a 24-sided outline strays from a circle by a thirtieth of a pixel.
+ */
+const COARSE_BELOW = 3;
+const COARSE_UNTIL = 4;
+const COARSE_SEGMENTS = [24, 12];
+
 /** Sphere tessellation by on-screen size. */
 function sphereSegments(radiusUnits) {
   if (radiusUnits >= 120) return [128, 64];
@@ -226,9 +235,43 @@ export class SolarSystem {
 
     orientBody(view.tilt.quaternion, body, this.catalogue);
     view.elements = this._scaleElements(body, view);
+    this._prepareDetail(view);
 
     this.bodies.set(body.id, view);
     return view;
+  }
+
+  /** A coarse copy of each of a body's spheres (surface, cloud deck, air), for updateDetail(). */
+  _prepareDetail(view) {
+    view.tilt.traverse((child) => {
+      if (!child.isMesh || child.geometry.type !== 'SphereGeometry') return;
+      const full = child.geometry;
+      const coarse = new THREE.SphereGeometry(full.parameters.radius, ...COARSE_SEGMENTS);
+      view.detail.push({ mesh: child, full, coarse });
+      this._disposables.push(coarse);
+    });
+  }
+
+  /**
+   * Draws each body that is only a few pixels across with a coarse sphere. From
+   * afar nearly all of the scene's triangles would otherwise go on bodies
+   * smaller than a pixel, which a phone's GPU still has to sort into tiles one
+   * by one. At that size the two look the same.
+   *
+   * @param {THREE.Vector3|null} viewer Where the camera is; null for full detail everywhere (a headset).
+   * @param {number} pixelScale Drawing-buffer pixels per scene unit, one unit away.
+   */
+  updateDetail(viewer, pixelScale) {
+    for (const view of this.bodies.values()) {
+      if (!view.detail.length) continue;
+      const apparent = viewer
+        ? (view.radius / Math.max(viewer.distanceTo(view.group.position), 1e-6)) * pixelScale
+        : Infinity;
+      const coarse = apparent < (view.coarse ? COARSE_UNTIL : COARSE_BELOW);
+      if (coarse === view.coarse) continue;
+      view.coarse = coarse;
+      for (const { mesh, full, coarse: low } of view.detail) mesh.geometry = coarse ? low : full;
+    }
   }
 
   _attachSphere(view, body, radius) {
@@ -805,6 +848,9 @@ class BodyView {
     this.ringShadow = null;
     this.shells = [];
     this.elements = null;
+    /** Each sphere's full and coarse geometry, and which is drawn; see SolarSystem#updateDetail. */
+    this.detail = [];
+    this.coarse = false;
   }
 
   /** Outermost extent including rings, for camera framing. */
