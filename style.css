@@ -1147,6 +1147,55 @@ body.reduce-motion .hud.is-active .hud__hint { animation: none; opacity: 1; }
 }
 .tooltip.is-visible { opacity: 1; }
 
+/* --- a star with planets, chosen in the sky ------------------------------ */
+
+/* Placed by src/ui/StarCard.js, which keeps it on its star as the view turns. */
+.starcard {
+  position: fixed;
+  inset: 0;
+  z-index: 11;
+  pointer-events: none;
+  contain: layout;
+}
+.starcard[hidden] { display: none; }
+/* Wider than the rings in the whole-system view (src/scene/HostRings.js), so it circles one of them. */
+.starcard__ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--accent-soft);
+  will-change: transform;
+}
+.starcard__plate {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 224px;
+  max-width: calc(100vw - 20px);
+  padding: 4px 6px 8px 16px;
+  pointer-events: auto;
+  will-change: transform;
+}
+.starcard__head { display: flex; align-items: center; justify-content: space-between; }
+.starcard__close svg { width: 16px; height: 16px; }
+.starcard__title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 350;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.starcard__summary { margin: 4px 10px 4px 0; font-size: 12.5px; color: var(--text-dim); }
+.starcard__travel { margin-left: -10px; color: var(--accent); text-decoration: none; }
+.starcard__travel:hover { color: var(--sun); }
+
 /* --- settings drawer ----------------------------------------------------- */
 
 .drawer {

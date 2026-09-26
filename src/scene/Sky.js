@@ -124,6 +124,13 @@ export class Sky {
     this.scene.add(this.stars);
   }
 
+  /** The stars as drawn: directions (x, y, z per star) and magnitudes, brightest first. Null until loaded. */
+  get drawn() {
+    if (!this.stars) return null;
+    const { position, aMagnitude } = this.stars.geometry.attributes;
+    return { positions: position.array, magnitudes: aMagnitude.array };
+  }
+
   setPixelRatio(ratio) {
     this.material.uniforms.uPixelRatio.value = ratio;
   }

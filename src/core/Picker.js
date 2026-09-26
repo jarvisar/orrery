@@ -1,17 +1,26 @@
 /**
  * Mouse and touch picking.
  *
- * - Only body meshes are tested, never the sky sphere, orbit paths or belts.
+ * - Body meshes are tested, never the sky sphere, orbit paths or belts. Where
+ *   none is hit, a fallback may offer something else (stars with planets; see
+ *   setFallback), found by the pointer's direction alone.
  * - A drag is not a click, so releasing after rotating the camera does not
  *   change focus.
  * - Hover is tested at most once per frame, and not at all for touch or
- *   mid-drag.
+ *   mid-drag. The view moving under a still pointer (easing to a stop, a
+ *   transition) re-tests it too, a few times a second.
  */
 
 import * as THREE from 'three';
 
 /** Pointer travel, in pixels, past which a press is a drag rather than a click. */
 const DRAG_THRESHOLD = 6;
+
+/** How often, in ms, hover is re-tested while the view moves under a still pointer. */
+const VIEW_RETEST_MS = 100;
+
+/** How near, in pixels, the pointer must come to what the fallback offers. A finger is less exact. */
+const FALLBACK_REACH = { mouse: 8, pen: 8, touch: 16 };
 
 export class Picker {
   /**
@@ -42,10 +51,18 @@ export class Picker {
     this._extras = new Map();
     this._onSelect = null;
     this._onHover = null;
+    this._fallback = null;
+    this._pointerType = 'mouse';
+    this._viewHeight = 1;
+    /** A mouse or pen over the canvas, which is what hover is for. */
+    this._hovering = false;
+    this._lastView = new THREE.Matrix4();
+    this._lastViewTest = 0;
 
     this._bind();
   }
 
+  /** Called on every click, with what was hit, or null for a click on nothing. */
   onSelect(callback) { this._onSelect = callback; }
 
   /** Makes something outside the catalogue clickable. Its meshes carry `userData.bodyId`. */
@@ -53,6 +70,13 @@ export class Picker {
     this._extras.set(id, meshes);
   }
   onHover(callback) { this._onHover = callback; }
+
+  /**
+   * What to offer where no body is hit: `(direction, tolerance) => id|null`,
+   * given the pointer's world-space unit direction and the angle, in radians,
+   * that a few pixels span at the centre of the view.
+   */
+  setFallback(fallback) { this._fallback = fallback; }
 
   _bind() {
     this._handlers = {
@@ -69,24 +93,28 @@ export class Picker {
           this._setHover(null);
         }
         this._updatePointer(event);
-        if (event.pointerType !== 'touch' && !this._moved) this._hoverDirty = true;
+        this._hovering = event.pointerType !== 'touch';
+        if (this._hovering && !this._moved) this._hoverDirty = true;
       },
       pointerup: (event) => {
         if (!event.isPrimary) return;
         const wasClick = this._pressed && !this._moved;
+        // The drag, if it was one, is over: hover resumes with the next move.
         this._pressed = false;
+        this._moved = false;
         if (event.pointerType !== 'touch') this._hoverDirty = true;
         if (!wasClick || !this.enabled || event.button !== 0) return;
 
         this._updatePointer(event);
-        const hit = this._pick();
-        if (hit) this._onSelect?.(hit);
+        this._onSelect?.(this._pick());
       },
       pointerleave: () => {
         this._pressed = false;
+        this._moved = false;
+        this._hovering = false;
         this._setHover(null);
       },
-      pointercancel: () => { this._pressed = false; },
+      pointercancel: () => { this._pressed = false; this._moved = false; },
     };
 
     for (const [type, handler] of Object.entries(this._handlers)) {
@@ -102,11 +130,16 @@ export class Picker {
     );
     this.lastClientX = event.clientX;
     this.lastClientY = event.clientY;
+    this._pointerType = event.pointerType;
+    this._viewHeight = rect.height;
   }
 
   _pick() {
     this.raycaster.setFromCamera(this._pointer, this.camera);
-    return this._firstHit()?.id ?? null;
+    const hit = this._firstHit()?.id;
+    if (hit || !this._fallback) return hit ?? null;
+    const pixel = (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov) / 2)) / this._viewHeight;
+    return this._fallback(this.raycaster.ray.direction, (FALLBACK_REACH[this._pointerType] ?? 8) * pixel);
   }
 
   /** Frontmost visible body along a world-space ray (for VR controllers), as {id, distance} or null. */
@@ -131,8 +164,15 @@ export class Picker {
 
   /** Called once per frame; a no-op unless the pointer moved. */
   update() {
-    if (!this._hoverDirty || !this.enabled) return;
+    if (!this.enabled) return;
+    if (this._hovering && !this._pressed && !this.camera.matrixWorld.equals(this._lastView)) {
+      const now = performance.now();
+      if (now - this._lastViewTest >= VIEW_RETEST_MS) this._hoverDirty = true;
+    }
+    if (!this._hoverDirty) return;
     this._hoverDirty = false;
+    this._lastView.copy(this.camera.matrixWorld);
+    this._lastViewTest = performance.now();
     this._setHover(this._pick());
   }
 

@@ -10,7 +10,10 @@ import { readFile } from 'node:fs/promises';
 import {
   validateCatalogue, normalizeRows, catalogueFromArchive, groupSystems, makeSystem, orbitModel, radiusEstimate,
   stellarRadiusEstimate, stellarMass, stellarColor, measuredText, parseReference, reference, archiveQuery,
+  skyHosts, validateSkyHosts,
 } from '../src/data/exoplanets.js';
+import { SkyHosts, matchDrawnStars, hostSummary } from '../src/core/SkyHosts.js';
+import { equatorialToScene } from '../src/sim/frames.js';
 import { searchKey } from '../src/data/starNames.js';
 import { planetLook, starLook, habitableZone } from '../src/data/worlds.js';
 import { OBSERVED_PLANETS } from '../src/data/appearances.js';
@@ -487,4 +490,79 @@ test('a missing planet in a range aborts the entire refresh', async () => {
   assert.equal(await service.refresh(), false);
   assert.match(service.lastError.message, /Archive changed/);
   assert.equal(service.data, data);
+});
+
+/* --- stars with planets, in the sky ---------------------------------------- */
+
+const committedSky = validateSkyHosts(JSON.parse(await readFile(new URL('../public/data/sky-hosts.json', import.meta.url))));
+/** public/data/stars.bin as Sky.js decodes it (format: scripts/build-sky.py). */
+const drawnStars = await readFile(new URL('../public/data/stars.bin', import.meta.url)).then((buffer) => {
+  const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  const count = buffer.byteLength / 8;
+  const positions = new Float32Array(count * 3), magnitudes = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    for (let axis = 0; axis < 3; axis++) positions[i * 3 + axis] = view.getInt16(i * 8 + axis * 2, true) / 32767;
+    magnitudes[i] = view.getUint8(i * 8 + 6) / 25 - 1.5;
+  }
+  return { positions, magnitudes };
+});
+
+test('the sky lists the hosts bright enough to see, where they are, brightest first', () => {
+  const catalogue = catalogueFromArchive([
+    raw({ hostname: 'Bright', pl_name: 'Bright b', sy_dist: 10 }), raw({ hostname: 'Bright', pl_name: 'Bright c' }),
+    raw({ hostname: 'Brighter', pl_name: 'Brighter b' }), raw({ hostname: 'Faint', pl_name: 'Faint b' }),
+    raw({ hostname: 'Unplaced', pl_name: 'Unplaced b' }),
+  ]);
+  const sky = skyHosts([
+    { pl_name: 'Bright c', ra: 10.123456, dec: -5.5, sy_vmag: 4.123 },
+    { pl_name: 'Brighter b', ra: 200, dec: 30, sy_vmag: 1 },
+    { pl_name: 'Faint b', ra: 1, dec: 1, sy_vmag: 7 },
+    { pl_name: 'Unplaced b', ra: null, dec: null, sy_vmag: 3 },
+  ], catalogue);
+  assert.deepEqual(sky.hosts, [['Brighter', 200, 30, 1, 1, null], ['Bright', 10.1235, -5.5, 4.12, 2, 10]]);
+  assert.equal(sky.fetchedAt, catalogue.fetchedAt);
+  assert.equal(hostSummary({ planets: 2, distance: 10 }), '2 planets · 32.62 ly');
+  assert.equal(hostSummary({ planets: 1, distance: null }), '1 planet · distance unknown');
+});
+
+test('malformed sky host lists are rejected', () => {
+  const list = (hosts) => ({ schemaVersion: 1, fetchedAt: '2026-01-01T00:00:00Z', hosts });
+  assert.ok(validateSkyHosts(list([['tau Cet', 26, -16, 3.5, 3, 3.6]])));
+  for (const host of [['tau Cet', 360, -16, 3.5, 3, 3.6], ['tau Cet', 26, -91, 3.5, 3, 3.6], ['tau Cet', 26, -16, 7, 3, 3.6],
+    ['tau Cet', 26, -16, 3.5, 0, 3.6], ['tau Cet', 26, -16, 3.5, 3, -1], ['', 26, -16, 3.5, 3, 3.6], ['tau Cet', '26', -16, 3.5, 3, 3.6],
+    ['tau Cet', 26, -16, 3.5, 3], null]) {
+    assert.throws(() => validateSkyHosts(list([host])), /Invalid sky host/, JSON.stringify(host));
+  }
+  assert.throws(() => validateSkyHosts({ ...list([]), schemaVersion: 2 }), /Unrecognized/);
+});
+
+test('hosts in the sky are placed on the stars the sky draws, and every one can be visited', () => {
+  const matched = matchDrawnStars(committedSky.hosts, drawnStars);
+  // Only a few near the naked-eye limit are missing from the star catalogue the sky draws.
+  assert.ok(matched.length >= committedSky.hosts.length * 0.95, `${matched.length} of ${committedSky.hosts.length} matched`);
+  const names = new Set(entries.map((s) => s.name));
+  assert.ok(committedSky.hosts.every(([name]) => names.has(name)));
+  for (const name of ['tau Cet', 'eps Eri', '51 Peg', '55 Cnc', 'bet Pic']) assert.ok(matched.some((h) => h.name === name), name);
+  // No two hosts share a star.
+  assert.equal(new Set(matched.map((h) => `${h.x},${h.y},${h.z}`)).size, matched.length);
+});
+
+test('a star is picked by the angle to it, within the tolerance and no farther', async () => {
+  const [ra, dec] = committedSky.hosts.find(([name]) => name === 'tau Cet').slice(1, 3);
+  const sky = await new SkyHosts().load(drawnStars, {
+    fetcher: async () => ({ ok: true, json: async () => committedSky }),
+  });
+  const pixel = 0.001; // radians, about one pixel at a typical field of view
+  const at = (decOffset) => equatorialToScene(ra, dec + decOffset);
+  assert.equal(sky.nearest(at(0), 8 * pixel).name, 'tau Cet');
+  assert.equal(sky.nearest(at(0.3), 8 * pixel)?.name, 'tau Cet');
+  assert.equal(sky.nearest(at(2), 8 * pixel), null);
+  assert.equal(sky.get('sky:tau Cet').planets, committedSky.hosts.find(([name]) => name === 'tau Cet')[4]);
+  assert.equal(sky.get('tau Cet'), undefined);
+
+  // The system already on screen is not offered, and nothing is without a drawn sky.
+  const there = await new SkyHosts().load(drawnStars, { except: 'tau Cet', fetcher: async () => ({ ok: true, json: async () => committedSky }) });
+  assert.notEqual(there.nearest(at(0), 8 * pixel)?.name, 'tau Cet');
+  const blank = await new SkyHosts().load(null, { fetcher: async () => ({ ok: true, json: async () => committedSky }) });
+  assert.equal(blank.hosts.length, 0);
 });

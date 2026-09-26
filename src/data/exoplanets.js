@@ -57,6 +57,55 @@ export function archiveQuery({ first, last } = {}) {
 export const QUERY = archiveQuery();
 export const QUERY_URL = `${ARCHIVE}/TAP/sync?${new URLSearchParams({ query: QUERY, format: 'json' })}`;
 
+/* --- hosts in the sky ------------------------------------------------------- */
+
+/** Written by the importer beside the catalogue, and loaded with the sky, where the catalogue is not. */
+export const SKY_HOSTS_PATH = 'public/data/sky-hosts.json';
+/** The faintest star the sky draws from its catalogue (Sky.js, scripts/build-sky.py). */
+export const SKY_MAGNITUDE_LIMIT = 6.5;
+/** Where the brighter hosts are. By planet, since that is how the composite table is keyed. */
+export const SKY_QUERY = `select pl_name, ra, dec, sy_vmag from pscomppars where sy_vmag <= ${SKY_MAGNITUDE_LIMIT}`;
+export const SKY_QUERY_URL = `${ARCHIVE}/TAP/sync?${new URLSearchParams({ query: SKY_QUERY, format: 'json' })}`;
+
+/**
+ * The catalogue's hosts that are bright enough to be a star in the sky, each as
+ * [name, RA°, Dec° (J2000), V magnitude, planets, distance in pc or null],
+ * brightest first. `raw` is the SKY_QUERY response.
+ */
+export function skyHosts(raw, data) {
+  if (!Array.isArray(raw)) throw new Error('Invalid archive response');
+  const places = new Map();
+  for (const row of raw) {
+    if (typeof row?.pl_name === 'string' && [row.ra, row.dec, row.sy_vmag].every(Number.isFinite)) places.set(row.pl_name, row);
+  }
+  const hosts = [];
+  for (const system of groupSystems(data)) {
+    const place = system.planets.map((p) => places.get(p.pl_name)).find(Boolean);
+    if (!place || place.sy_vmag > SKY_MAGNITUDE_LIMIT) continue;
+    hosts.push([system.name, Number(place.ra.toFixed(4)), Number(place.dec.toFixed(4)), Number(place.sy_vmag.toFixed(2)),
+      system.planets.length, system.distance && Number(system.distance.toPrecision(4))]);
+  }
+  hosts.sort((a, b) => a[3] - b[3] || (a[0] < b[0] ? -1 : 1));
+  return validateSkyHosts({ schemaVersion: 1, fetchedAt: data.fetchedAt, hosts });
+}
+
+export function validateSkyHosts(data) {
+  if (data?.schemaVersion !== 1 || !Number.isFinite(Date.parse(data.fetchedAt)) || !Array.isArray(data.hosts)) {
+    throw new Error('Unrecognized sky host list.');
+  }
+  const finite = Number.isFinite;
+  for (const host of data.hosts) {
+    const [name, ra, dec, magnitude, planets, distance] = Array.isArray(host) ? host : [];
+    if (host?.length !== 6 || typeof name !== 'string' || !name.trim() ||
+        !(finite(ra) && ra >= 0 && ra < 360) || !(finite(dec) && Math.abs(dec) <= 90) ||
+        !(finite(magnitude) && magnitude <= SKY_MAGNITUDE_LIMIT) || !(Number.isInteger(planets) && planets > 0) ||
+        !(distance === null || (finite(distance) && distance > 0))) {
+      throw new Error(`Invalid sky host ${JSON.stringify(host)?.slice(0, 80)}.`);
+    }
+  }
+  return data;
+}
+
 /* --- the stored catalogue --------------------------------------------------- */
 
 /**

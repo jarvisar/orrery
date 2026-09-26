@@ -17,6 +17,7 @@ export const SHORTCUTS = [
       { keys: ['Scroll'], desc: 'Zoom in and out' },
       { keys: ['Right-drag'], desc: 'Pan' },
       { keys: ['Click'], desc: 'Focus a body' },
+      { keys: ['Click a star'], desc: 'Travel there, if it has planets' },
       { keys: ['H'], desc: 'The whole system' },
       { keys: ['Esc'], desc: 'Free view, or exit flight' },
       { keys: ['[', ']'], desc: 'Previous or next body' },

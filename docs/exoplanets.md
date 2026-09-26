@@ -9,7 +9,7 @@ Exoplanet systems use the same renderer as the solar system. Each system is conv
 Planet and star data comes from the [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu/) through its [TAP service](https://exoplanetarchive.ipac.caltech.edu/docs/TAP/usingTAP.html). No API key is needed.
 
 - Each planet uses its default published solution from the `ps` table (`default_flag=1`), so a planet's measurements and its star's measurements come from the same paper. Different planets in the same system can come from different papers.
-- Distances come from the `pscomppars` (composite) table.
+- Distances come from the `pscomppars` (composite) table, and so do the sky positions and brightness of the stars you can click in the sky.
 - If the default solution is missing a period, orbit size, eccentricity, or the star's mass, radius, temperature or spectral type, the composite table's value is used instead and labeled as such in the info panel.
 - See the [column definitions](https://exoplanetarchive.ipac.caltech.edu/docs/API_TD_columns.html) for what each value means.
 
@@ -22,11 +22,13 @@ Companion star masses that aren't reported are estimated from temperature or spe
 ## Updating the Data
 
 ```sh
-npm run exoplanets:update   # public/data/exoplanets.json
+npm run exoplanets:update   # public/data/exoplanets.json and sky-hosts.json
 npm run stars:update        # public/data/stellar-systems.json
 ```
 
 Both scripts check the new data before saving it. If the download fails, the data is invalid, the catalogue is more than 5% smaller than before, or any system can't be drawn, the old file is kept.
+
+`sky-hosts.json` lists the hosts bright enough to see without a telescope (V magnitude 6.5 or brighter), with where they are and how many planets they have. It's a few kilobytes, so the sky can load it without the whole catalogue. Each one is matched to the star the sky draws for it, and the few that the sky's star catalogue doesn't include can't be clicked. The two files are replaced together or not at all.
 
 The deploy workflow runs both scripts on every push to `main` and every Monday. The desktop app includes whichever files are committed, so update them before a release.
 

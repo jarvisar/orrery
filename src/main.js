@@ -24,12 +24,14 @@ import { Viewport } from './core/Viewport.js';
 import { AssetLoader } from './core/AssetLoader.js';
 import { Settings } from './core/Settings.js';
 import { Picker } from './core/Picker.js';
+import { SkyHosts, hostSummary } from './core/SkyHosts.js';
 import { GamepadInput } from './core/Gamepads.js';
 import { Post } from './core/Post.js';
 import { SolarSystem } from './scene/SolarSystem.js';
 import { Orbits } from './scene/Orbits.js';
 import { Belts } from './scene/Belts.js';
 import { Sky } from './scene/Sky.js';
+import { HostRings } from './scene/HostRings.js';
 import { EARTH_RADIUS_UNITS } from './scene/scaling.js';
 import { CameraDirector } from './camera/CameraDirector.js';
 import { FlightControls } from './camera/FlightControls.js';
@@ -43,6 +45,7 @@ import { FlightHud } from './ui/FlightHud.js';
 import { SettingsPanel } from './ui/SettingsPanel.js';
 import { HelpOverlay } from './ui/HelpOverlay.js';
 import { Markers } from './ui/Markers.js';
+import { StarCard } from './ui/StarCard.js';
 import { TourGuide } from './ui/TourGuide.js';
 import { InstallToast } from './ui/InstallToast.js';
 import { UpdateToast } from './ui/UpdateToast.js';
@@ -173,6 +176,11 @@ async function boot() {
 
   const picker = new Picker(canvas, camera, system);
   picker.addSelectable(VISITOR_ID, visitor.meshes);
+  // Stars with planets, once the sky is drawn: a click on one offers a visit.
+  const skyHosts = new SkyHosts();
+  picker.setFallback((direction, tolerance) => skyHosts.nearest(direction, tolerance)?.id ?? null);
+  // And rings round them in the whole-system view, so they can be found.
+  const hostRings = new HostRings(scene);
 
   const post = new Post(renderer, scene, camera);
   post.setEnabled(settings.get('effects'));
@@ -181,18 +189,23 @@ async function boot() {
     post.setSize(view.width, view.height, view.pixelRatio, view.multisample);
     orbits.setSmoothing(post.enabled && !view.multisample);
     sky.setPixelRatio(view.pixelRatio);
+    hostRings.setPixelRatio(view.pixelRatio);
   });
 
   loading.begin('shaders', 'Compiling shaders…');
   director.focusOn(system.bodies.get(initialBodyId(catalogue)), { instant: true });
   await starsLoaded;
+  // The system on screen is not somewhere to travel to.
+  skyHosts.load(sky.drawn, { except: catalogue.isExoplanet ? catalogue.id : null })
+    .then(() => hostRings.setHosts(skyHosts.hosts))
+    .catch((error) => console.warn('[sky] stars with planets unavailable', error));
   await post.compileAsync();
   assets.pumpUploads(999);
   assets.uploadSceneTextures(scene);
 
   const ui = buildInterface({
     settings, clock, scene, assets, system, orbits, belts, sky,
-    director, flight, picker, viewport, visitor, post,
+    director, flight, picker, skyHosts, hostRings, viewport, visitor, post,
   });
   // Another star opens on the planets: its own, where they would be lost in a
   // wide stellar orbit (catalogue.home), else the whole system.
@@ -205,11 +218,11 @@ async function boot() {
   // uncovers a live scene rather than a black canvas.
   post.render(0);
   startLoop({
-    viewport, system, orbits, belts, director, flight, picker, clock, assets, ui, visitor, post,
+    viewport, system, orbits, belts, director, flight, picker, clock, assets, ui, visitor, post, hostRings,
   });
 
   if (new URLSearchParams(window.location.search).has('debug')) {
-    window.orrery = { THREE, scene, camera, renderer, viewport, assets, system, orbits, belts, sky, post, director, clock, settings, ui };
+    window.orrery = { THREE, scene, camera, renderer, viewport, assets, system, orbits, belts, sky, skyHosts, post, director, clock, settings, ui };
   }
 
   document.getElementById('ui').hidden = false;
@@ -243,7 +256,7 @@ function registerServiceWorker() {
 
 function buildInterface(ctx) {
   const { settings, clock, scene, assets, system, orbits, belts, sky,
-          director, flight, picker, viewport, visitor, post } = ctx;
+          director, flight, picker, skyHosts, hostRings, viewport, visitor, post } = ctx;
   const catalogue = system.catalogue;
   const root = document.getElementById('ui');
   root.classList.toggle('is-exoplanet', catalogue.isExoplanet);
@@ -252,6 +265,8 @@ function buildInterface(ctx) {
 
   const state = {
     flying: false, focusedId: null, showStats: false, touring: false,
+    // In the whole-system view, where the stars with planets are ringed.
+    inOverview: false,
     // The overview last shown, so a headset opens on the same one.
     overview: { radiusAU: catalogue.overviewAU, centre: null },
     // The controller is the input in use, and whether it is driving the menus.
@@ -297,6 +312,7 @@ function buildInterface(ctx) {
   });
   const helpOverlay = new HelpOverlay({ exoplanet: catalogue.isExoplanet });
   const markers = new Markers(system, camera, (id) => selectBody(id));
+  const starCard = new StarCard(camera);
   const installToast = new InstallToast();
   const updateToast = new UpdateToast(); // desktop app only; see desktop/src/updates.js
   const gamepad = new GamepadInput();
@@ -334,6 +350,7 @@ function buildInterface(ctx) {
       setFlight(false, { refocus: false });
       helpOverlay.close();
       settingsPanel.close();
+      starCard.close();
       director.setEnabled(false);
       picker.setEnabled(false);
       hideTooltip();
@@ -342,6 +359,7 @@ function buildInterface(ctx) {
       // Star sizes are in pixels, and a headset's pixels are about as far
       // apart, by angle, as a monitor's at 1x.
       sky.setPixelRatio(1);
+      hostRings.setPixelRatio(1);
       // The headset's own frame is multisampled.
       orbits.setSmoothing(false);
       const view = state.focusedId ? lookup(state.focusedId) : null;
@@ -356,6 +374,7 @@ function buildInterface(ctx) {
       orbits.setResolution(size.x, size.y);
       orbits.setSmoothing(post.enabled && !viewport.multisample);
       sky.setPixelRatio(viewport.pixelRatio);
+      hostRings.setPixelRatio(viewport.pixelRatio);
       if (state.focusedId) director.focusOn(lookup(state.focusedId), { instant: true });
       else director.overview(state.overview.radiusAU, { instant: true, centre: state.overview.centre });
     },
@@ -452,7 +471,7 @@ function buildInterface(ctx) {
 
   root.append(topbar, infoPanel.root, tours.caption, timeBar.root);
   document.body.append(
-    markers.root, flightHud.root, tooltip, stats, hint, installToast.root, updateToast.root,
+    markers.root, starCard.root, flightHud.root, tooltip, stats, hint, installToast.root, updateToast.root,
     padHud.root, settingsPanel.root, helpOverlay.root, explorer.panel
   );
 
@@ -466,6 +485,8 @@ function buildInterface(ctx) {
     }
     if (state.flying) setFlight(false, { refocus: false });
     if (!fromTour) tours.stop();
+    starCard.close();
+    state.inOverview = false;
 
     const view = id ? lookup(id) : null;
     if (id && !view) return;
@@ -491,7 +512,9 @@ function buildInterface(ctx) {
   function showOverview(radiusAU = catalogue.overviewAU, { instant = false, centreId = null } = {}) {
     if (state.flying) setFlight(false, { refocus: false });
     tours.stop();
+    starCard.close();
     state.focusedId = null;
+    state.inOverview = true;
     const centre = centreId ? lookup(centreId) ?? null : null;
     state.overview = { radiusAU, centre };
     if (vr.active) vr.overview(radiusAU, { instant, centre });
@@ -568,6 +591,8 @@ function buildInterface(ctx) {
       director.focusOn(null);
       bodyPicker.select(null);
       infoPanel.show(null);
+      starCard.close();
+      state.inOverview = false;
       orbits.setFocus(null);
       state.focusedId = null;
       hideTooltip();
@@ -603,12 +628,26 @@ function buildInterface(ctx) {
     if (flight.autopilot) flightHud.notify(`Autopilot: flying to ${flight.target.name}`);
   }
 
+  /** Whether the stars with planets are ringed: the whole-system view only, with labels on. */
+  function showsHostRings() {
+    return state.inOverview && !state.flying && !state.touring && !vr.presenting && settings.get('showLabels');
+  }
+
   /* --- hover tooltip ----------------------------------------------------- */
 
-  picker.onSelect((id) => selectBody(id));
+  picker.onSelect((id) => {
+    // A star opens its card; a body, or a click on empty sky, puts it away.
+    const host = skyHosts.get(id);
+    if (host) {
+      hideTooltip();
+      starCard.open(host);
+    } else if (id) selectBody(id);
+    else starCard.close();
+  });
   picker.onHover((id, x, y) => {
     if (!id || !settings.get('showLabels')) return hideTooltip();
-    tooltip.textContent = lookup(id)?.body.name ?? '';
+    const host = skyHosts.get(id);
+    tooltip.textContent = host ? `${host.name} · ${hostSummary(host)}` : lookup(id)?.body.name ?? '';
     tooltip.style.left = `${x}px`;
     tooltip.style.top = `${y}px`;
     tooltip.classList.add('is-visible');
@@ -975,7 +1014,7 @@ function buildInterface(ctx) {
     switch (event.code) {
       // The one place Escape is handled, so closing a panel never also drops focus.
       case 'Escape':
-        if (closeSurface()) break;
+        if (closeSurface() || starCard.close()) break;
         if (state.touring) tours.stop();
         else if (state.flying) setFlight(false);
         else selectBody(null);
@@ -1012,13 +1051,14 @@ function buildInterface(ctx) {
   installKonamiCode();
 
   return {
-    state, stats, tooltip, timeBar, infoPanel, flightHud, bodyPicker, markers, tours, vr, gamepad,
-    selectBody, showOverview, explorer, setFlight, hideTooltip, welcome, updateGamepad,
+    state, stats, tooltip, timeBar, infoPanel, flightHud, bodyPicker, markers, starCard, tours, vr, gamepad,
+    selectBody, showOverview, explorer, setFlight, hideTooltip, welcome, updateGamepad, showsHostRings,
+    reduceMotion,
   };
 }
 
 function startLoop(ctx) {
-  const { viewport, system, orbits, belts, director, flight, picker, clock, assets, ui, visitor, post } = ctx;
+  const { viewport, system, orbits, belts, director, flight, picker, clock, assets, ui, visitor, post, hostRings } = ctx;
   const { renderer, camera } = viewport;
   const { vr } = ui;
 
@@ -1060,7 +1100,15 @@ function startLoop(ctx) {
     }
 
     orbits.update(immersive ? vr.viewerPosition : camera.position, clock.days);
-    if (!immersive) ui.markers.update(viewport.width, viewport.height);
+    if (!immersive) {
+      // The camera has moved this frame, but its matrices are only brought up
+      // to date when it renders. Labels and the star card are placed from them.
+      camera.updateMatrixWorld();
+      ui.markers.update(viewport.width, viewport.height);
+      ui.starCard.update(viewport.width, viewport.height);
+    }
+    hostRings.setShown(ui.showsHostRings());
+    hostRings.update(dt, { instant: ui.reduceMotion() });
     // A headset is drawn in full detail throughout.
     system.updateDetail(immersive ? null : camera.position, pixelScale(viewport, camera));
     // An upload's cost lands in the next interval, and is not the resolution's fault.
