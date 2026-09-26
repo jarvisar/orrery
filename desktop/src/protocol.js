@@ -1,12 +1,10 @@
 /**
  * Serves the web app to the window from app://orrery/, straight off disk.
  *
- * Not file://. The page is ES modules behind an import map, and fetches its
- * textures and star catalogue; Chromium treats every file:// URL as its own
- * opaque origin, which breaks the modules, the fetches and localStorage alike.
- * A privileged standard scheme behaves like an https:// site instead: a real,
- * stable, secure origin, so WebXR, the clipboard and pointer lock are all
- * available, and settings survive a restart.
+ * Not file://: Chromium treats every file:// URL as its own opaque origin,
+ * which breaks the ES modules, fetches and localStorage. A privileged standard
+ * scheme behaves like an https:// site, a stable secure origin, so WebXR, the
+ * clipboard and pointer lock work and settings survive a restart.
  */
 import { protocol } from 'electron';
 import { readFile, stat } from 'node:fs/promises';

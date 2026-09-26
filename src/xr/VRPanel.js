@@ -1,21 +1,13 @@
 /**
- * The panel in VR: what the page's interface does, on something the viewer
- * can hold.
+ * The page's interface in VR. No DOM reaches a headset, so it is drawn on a
+ * canvas on a plane that floats above the left controller like a palette,
+ * always upright and turned to the eyes. With bare hands it is summoned by
+ * turning the left palm to the eyes, and stays put when the hand drops.
  *
- * None of the DOM makes it into a headset, so this is drawn on a canvas and
- * shown on a plane that floats above the left controller the way a painter
- * holds a palette - always upright and turned to the eyes, however the wrist
- * is turned, so it can be read and pointed at from the other hand without
- * contortion. With bare hands it is summoned the same way, by turning the left
- * palm to the eyes, and stays where it was left when the hand drops.
- *
- * It says what is in focus and when it is, and has buttons for what the
- * controllers do not already have a button for. The buttons are sized for a
- * laser at arm's length and for a fingertip: six centimetres by three, a
- * centimetre apart, over the 22 by 22 millimetres and 12 millimetre gaps Meta
- * asks of anything meant to be touched. Text is sized with the same guide's
- * legibility floor in mind, about 24 millimetres tall a metre away; at the
- * distance a held panel sits, the smallest here comes close to it.
+ * Buttons are six centimetres by three, a centimetre apart, over the 22 by 22
+ * millimetres and 12 millimetre gaps Meta asks of anything meant to be
+ * touched. Text is sized with the same guide's legibility floor in mind, about
+ * 24 millimetres tall a metre away.
  */
 
 import * as THREE from 'three';
@@ -231,7 +223,7 @@ export class VRPanel {
     return Math.abs(local.x) <= WIDTH_M / 2 + margin && Math.abs(local.y) <= HEIGHT_M / 2 + margin;
   }
 
-  /** A button's centre in world space, for anything that needs to aim at one. */
+  /** A button's centre in world space. */
   buttonPosition(id, out = new THREE.Vector3()) {
     const button = BUTTONS.find((b) => b.id === id);
     if (!button) return null;
@@ -256,7 +248,6 @@ export class VRPanel {
     this.invalidate();
   }
 
-  /** Lights a button up for a moment, as the only feedback a press by hand gets. */
   flash(id) {
     this._flash = id;
     this._flashUntil = performance.now() + FLASH_MS;

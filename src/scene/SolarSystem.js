@@ -7,11 +7,9 @@
  *    └ tilt - axial tilt, set once so the pole keeps pointing the same way
  *       └ mesh - spins on its own Y axis
  *
- * Keeping the orbit out of the rotation chain is deliberate. The old version
- * parented moons to the planet mesh, so the planet's spin dragged its moons
- * around with it and the two motions could not be told apart. Here a moon's
- * world position is its primary's position plus its own orbital offset, and
- * nothing inherits anyone's rotation.
+ * Moons are not parented to their planet: a moon's world position is its
+ * primary's position plus its own orbital offset, so nothing inherits anyone's
+ * spin.
  */
 
 import * as THREE from 'three';
@@ -42,14 +40,10 @@ const SOLAR_RADIUS_KM = 695_700;
 /** Corona sprite size, in solar radii. */
 const CORONA_RADII = 6;
 
-/**
- * The catalogue's bump scales were tuned for a much harsher look: at full
- * strength every crater rim casts a hard black edge and the terminator turns to
- * gravel. Two-thirds keeps the relief and loses the grit.
- */
+/** Scales the catalogue's bump scales down; at full strength crater rims cast hard black edges. */
 const BUMP_SOFTENING = 0.65;
 
-/** Sphere tessellation by on-screen size. The old code used 128x128 for everything. */
+/** Sphere tessellation by on-screen size. */
 function sphereSegments(radiusUnits) {
   if (radiusUnits >= 120) return [128, 64];
   if (radiusUnits >= 50) return [96, 48];
@@ -72,7 +66,6 @@ export class SolarSystem {
     this.bodies = new Map();
     /** Meshes the raycaster is allowed to hit. */
     this.pickables = [];
-    /** Everything this class owns, for disposal. */
     this._disposables = [];
 
     /** The Scale setting; see src/scene/scaling.js. Set before build(). */
@@ -112,8 +105,8 @@ export class SolarSystem {
 
   _buildLighting() {
     const { catalogue } = this;
-    // decay: 0 because the real inverse-square falloff over a compressed solar
-    // system leaves Neptune in total darkness. The trade is intentional.
+    // decay: 0 because real inverse-square falloff over a compressed solar
+    // system leaves Neptune in total darkness.
     this.sunLight = new THREE.PointLight(0xfff4e0, STAR_LIGHT, 0, 0);
     if (catalogue.isExoplanet) this.sunLight.color.set(catalogue.byId.get(catalogue.starId).color);
     this.sunLight.name = 'sunlight';
@@ -146,8 +139,7 @@ export class SolarSystem {
     }
     this._fitStarlight();
 
-    // Just enough fill that the night side is a silhouette rather than a hole -
-    // roughly what starlight and a little camera exposure would show.
+    // Just enough fill that the night side is a silhouette rather than a hole.
     this.ambient = new THREE.AmbientLight(0x6c7894, 0.1);
     this.root.add(this.ambient);
   }
@@ -223,9 +215,8 @@ export class SolarSystem {
     this._disposables.push(geometry);
 
     const isStar = body.kind === 'star';
-    // Rock and cloud are close to perfectly matte. A broad Phong highlight on
-    // them is what makes a planet look like a plastic ball; only a body with a
-    // specular map - oceans, Pluto's nitrogen ice - gets a glint, and a tight one.
+    // Rock and cloud are near-matte; a broad Phong highlight looks like plastic.
+    // Only a body with a specular map (oceans, Pluto's ice) gets a tight glint.
     const material = isStar
       ? new THREE.MeshBasicMaterial({ color: 0xffffff })
       : new THREE.MeshPhongMaterial({
@@ -234,8 +225,6 @@ export class SolarSystem {
           specular: body.textures?.specularMap ? 0x2a2a2a : 0x000000,
         });
 
-    // Claim every map slot up front with a placeholder so the program that gets
-    // compiled now is the same one used once the real textures arrive.
     this._claimSlots(material, body, isStar, radius);
     if (isStar) sunSurface(material, 1.4, body.exoplanet ? starTint(body.color) : null);
     if (body.exoplanet) exoplanetSurface(material, body);
@@ -259,7 +248,10 @@ export class SolarSystem {
     this._streamTextures(material, body);
   }
 
-  /** Points every declared map slot at a placeholder of the right colour space. */
+  /**
+   * Points every declared map slot at a placeholder of the right colour space,
+   * so the program compiled now is the one used once real textures arrive.
+   */
   _claimSlots(material, body, isStar, radius) {
     const slots = body.textures ?? {};
     material.map = this.assets.placeholderFor('map');
@@ -278,22 +270,20 @@ export class SolarSystem {
     }
   }
 
-  /** Kicks off the actual downloads and swaps each one in as it lands. */
   _streamTextures(material, body) {
     const priority = body.kind === 'star' || body.kind === 'planet' ? 0 : 20;
     for (const [slot, name] of Object.entries(body.textures ?? {})) {
       this.assets.texture(name, slot, priority).then((texture) => {
         material[slot] = texture;
-        // The real map carries the detail; the catalogue colour was only ever a
-        // stand-in for the seconds before it arrived.
+        // The catalogue colour only stands in until the map arrives.
         if (slot === 'map') material.color.set(0xffffff);
       });
     }
   }
 
   async _attachModel(view, body) {
-    // Irregular moons ship as glTF. Until it arrives, stand in a sphere of the
-    // right size so the body is still selectable and the layout does not shift.
+    // Irregular moons ship as glTF; until it arrives a same-sized placeholder
+    // keeps the body selectable.
     const radius = view.baseRadius;
     const placeholderGeo = new THREE.IcosahedronGeometry(radius, 2);
     const placeholderMat = new THREE.MeshPhongMaterial({ color: body.color ?? 0x999999, flatShading: true });
@@ -347,8 +337,7 @@ export class SolarSystem {
     this._disposables.push(material);
     this.pickables.push(rings);
 
-    // Analytic shadows, both ways. See src/scene/ringShadow.js for why these
-    // are not done with a shadow map.
+    // Analytic shadows both ways; see ringShadow.js for why not a shadow map.
     const onPlanet = receiveRingShadow(view.material, { innerRadius: 0, outerRadius: 0 });
     onPlanet.uniforms.uRingMap.value = clear;
     const onRings = receivePlanetShadow(material, { planetRadius: radius });
@@ -363,11 +352,9 @@ export class SolarSystem {
   }
 
   /**
-   * (Re)builds the ring geometry for the current Scale. Everything else about a
-   * body scales uniformly with its tilt node, but the ring-to-planet ratio is
-   * itself compressed by the exponent, so the rings need their own radii.
-   * Radii are in the tilt node's local space, where the planet has its build-time
-   * radius - the node's scale takes care of the rest.
+   * (Re)builds the ring geometry for the current Scale. The ring-to-planet ratio
+   * is itself compressed by the exponent, so it can't just follow the tilt
+   * node's scale. Radii are in the tilt node's local space (build-time radius).
    */
   _shapeRings(view) {
     const { innerRadii, outerRadii } = view.body.rings;
@@ -382,9 +369,8 @@ export class SolarSystem {
   }
 
   /**
-   * Applies a new Scale exponent in place. Positions follow on the next
-   * update(); sizes change here, by scaling each body's tilt node rather than
-   * rebuilding meshes, so textures, materials and compiled shaders are all kept.
+   * Applies a new Scale exponent in place by scaling each tilt node rather than
+   * rebuilding meshes. Positions follow on the next update().
    */
   setScaleExponent(exponent) {
     this.scaleExponent = exponent;
@@ -430,9 +416,8 @@ export class SolarSystem {
     view.shells.push({
       mesh: shell,
       spinPeriodHours: spec.spinPeriodHours ?? 0,
-      // Weather moves with the ground beneath it. A cloud deck on its own
-      // period, as Earth's used to be, slides across the continents at
-      // hundreds of degrees a day; this one drifts slowly relative to them.
+      // Corotating shells add their own slow drift on top of the surface's
+      // spin, rather than sliding across the continents on a separate period.
       corotating: Boolean(spec.corotating),
     });
     this._disposables.push(geometry, material);
@@ -440,14 +425,9 @@ export class SolarSystem {
   }
 
   /**
-   * The Sun's glow, in two layers.
-   *
-   * The corona is a few solar radii across, so it scales with the Sun and
-   * frames it close up. The glare is a fixed size on screen, so from Neptune -
-   * where the Sun is a couple of pixels wide - it still reads as the brightest
-   * thing in the sky rather than one more star. Both sit at the Sun's centre and
-   * are depth tested, so the disc hides them where it covers them and a planet
-   * crossing in front cuts a clean silhouette out of the light.
+   * The Sun's glow, in two layers: a corona a few solar radii across that
+   * scales with the Sun, and a fixed-screen-size glare so it still stands out
+   * from Neptune. Both are depth tested, so planets in front cut silhouettes.
    */
   _buildCorona(sun) {
     if (!sun) return;
@@ -466,10 +446,8 @@ export class SolarSystem {
     const corona = new THREE.Sprite(coronaMaterial);
     corona.scale.setScalar(sun.radius * CORONA_RADII);
     corona.renderOrder = -1;
-    // A sprite's corners are added after the view transform, so its size is in
-    // view units rather than world units. On screen the two are the same. In a
-    // headset the view is scaled down to metres, and the corona would come out
-    // hundreds of times too big, so it is sized against the camera's own scale.
+    // A sprite's size is in view units, not world units. In a headset the view
+    // is scaled down to metres, so size it against the camera's own scale.
     corona.onBeforeRender = (renderer, scene, camera) => {
       const viewScale = _vec.setFromMatrixColumn(camera.matrixWorldInverse, 0).length();
       corona.scale.setScalar(sun.radius * CORONA_RADII * viewScale);
@@ -498,11 +476,8 @@ export class SolarSystem {
   }
 
   /**
-   * Converts catalogue elements into scene units.
-   *
-   * `a` is kept in its natural unit (AU for planets, km for moons) and the
-   * compression is applied per-frame to the instantaneous radius instead. That
-   * is what lets Pluto genuinely cross inside Neptune's orbit.
+   * `a` stays in its natural unit (AU for planets, km for moons); compression
+   * is applied per frame to the instantaneous radius (see scaling.js).
    */
   _scaleElements(body, view) {
     if (!body.orbit) return null;
@@ -549,7 +524,6 @@ export class SolarSystem {
     return target;
   }
 
-  /** Advances every body to the given simulated day. */
   update(tDays) {
     if (this.catalogue.stellarNodes?.length) {
       stellarPositions(this.catalogue.stellarNodes, tDays, (au) => heliocentricDistance(au, this.scaleExponent), this.stellarPositions);
@@ -579,12 +553,9 @@ export class SolarSystem {
   }
 
   /**
-   * Turns a tidally locked moon so its prime meridian faces its primary.
-   *
-   * A free spin at the catalogue period would lock too, but only in rate - the
-   * phase would be arbitrary, and the Moon would show Earth its far side.
-   * Parents update before children (the map is built in depth order), so the
-   * primary's position is already current here.
+   * Turns a tidally locked moon so its prime meridian faces its primary (a free
+   * spin would match the rate but not the phase). Relies on parents updating
+   * first: the map is built in depth order.
    */
   _faceParent(view) {
     const parent = this.bodies.get(view.body.parent);
@@ -598,10 +569,8 @@ export class SolarSystem {
   }
 
   /**
-   * Re-aims the analytic ring shadows. The planet spins, so the Sun's direction
-   * in its object space changes every frame; the subtree matrices have to be
-   * current before that can be read off, which is why this forces an update
-   * rather than waiting for the renderer to do it.
+   * Re-aims the analytic ring shadows. Forces a matrix update because the Sun's
+   * direction in the spinning planet's object space is needed before render.
    */
   _updateRingShadows() {
     if (this._shadowCasters.length === 0) return;
@@ -617,7 +586,6 @@ export class SolarSystem {
     }
   }
 
-  /** Shows or hides a whole class of bodies without destroying anything. */
   setCategoryVisible(kind, visible) {
     for (const view of this.bodies.values()) {
       if (view.body.kind !== kind) continue;
@@ -626,19 +594,14 @@ export class SolarSystem {
     }
   }
 
-  /** True if the body exists and its category is currently shown. */
   isVisible(id) {
     const view = this.bodies.get(id);
     return Boolean(view?.visible);
   }
 
   /**
-   * Narrows the shadow camera to the system you are looking at.
-   *
-   * A single cube shadow map cannot span from the Sun to Eris with any useful
-   * precision. Bracketing near/far around the focused body spends the entire
-   * depth range where it is actually visible, which is what makes moon-on-planet
-   * shadows resolve at all.
+   * Brackets the shadow camera's near/far around the focused body; one cube map
+   * can't span the Sun to Eris with enough precision for moon-on-planet shadows.
    */
   focusShadows(view) {
     if (!this.sunLight?.castShadow || !view) return;
@@ -650,10 +613,9 @@ export class SolarSystem {
     shadow.camera.far = distance + margin;
     shadow.camera.updateProjectionMatrix();
 
-    // One cube face spans 2 x distance at 90 degrees, so a texel is that wide
-    // over the map size. The normal offset has to clear a texel or the lit face
-    // shadows itself; it is capped so it cannot detach a shadow from a small
-    // body entirely.
+    // A cube face spans 2 x distance at 90 degrees. The normal offset must clear
+    // a texel or the lit face shadows itself, but is capped so it can't detach
+    // a small body's shadow entirely.
     const texel = (2 * distance) / shadow.mapSize.width;
     shadow.normalBias = Math.min(texel * 1.5, view.radius * 0.25);
   }
@@ -678,7 +640,6 @@ export class SolarSystem {
   }
 }
 
-/** One body's nodes plus the derived numbers the rest of the app reads. */
 class BodyView {
   constructor(body, radius) {
     this.body = body;
@@ -705,7 +666,7 @@ class BodyView {
     this.elements = null;
   }
 
-  /** Outermost extent, so the camera knows how far back to sit. */
+  /** Outermost extent including rings, for camera framing. */
   get boundingRadius() {
     return Math.max(this.radius, this.ringOuter * this.tilt.scale.x);
   }
@@ -722,11 +683,8 @@ function depth(body, byId) {
 }
 
 /**
- * A ring whose U coordinate runs radially.
- *
- * three's own RingGeometry projects a square UV across the ring's bounding box,
- * which forces you to ship a full 2048x2048 image of a shape that only varies
- * with radius. With a radial U the same rings are described by a 921x1 strip.
+ * A ring whose U coordinate runs radially, so ring textures can be a 1px-high
+ * strip; three's RingGeometry projects a square UV across the bounding box.
  */
 function createRadialRingGeometry(inner, outer, segments) {
   const positions = [];
@@ -788,10 +746,9 @@ function orientBody(target, body, catalogue) {
 }
 
 /**
- * How another star's colour differs from the Sun's, as a multiplier on the
- * Sun's own graded photosphere and glow. A Sun twin then looks just like the
- * Sun; the 1.5 power exaggerates the difference a little, so a hot star reads
- * as blue-white rather than as a paler orange.
+ * Another star's colour relative to the Sun's, as a multiplier on the Sun's
+ * graded photosphere and glow. The 1.5 power exaggerates the difference so a
+ * hot star reads as blue-white rather than paler orange.
  */
 const WHITE = new THREE.Color(1, 1, 1);
 const SUN_COLOR = new THREE.Color(stellarColor(5772));
@@ -802,11 +759,7 @@ function starTint(color) {
   return new THREE.Color(...channels.map((v) => v / peak));
 }
 
-/**
- * Radial falloff painted once into a canvas; cheaper and softer than a sprite
- * sheet. Stops are [radius, intensity] pairs, both 0..1, painted white so the
- * material colour does the tinting.
- */
+/** Stops are [radius, intensity] pairs, both 0..1, painted white for the material to tint. */
 function makeGlowTexture(size, stops) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
@@ -822,11 +775,8 @@ function makeGlowTexture(size, stops) {
 }
 
 /**
- * Picking against the true sphere rather than its triangles. Mesh.raycast tests
- * every triangle once the bounding sphere lets the ray through - all 16,000 of
- * the Sun's, on every frame the mouse moves across it. The sphere answers the
- * same question in one step, and more exactly. Assign as a sphere mesh's
- * `raycast`.
+ * Assign as a sphere mesh's `raycast`: picks against the true sphere instead
+ * of testing every triangle (16,000 for the Sun) on each mouse move.
  */
 const _sphere = new THREE.Sphere();
 const _hit = new THREE.Vector3();
@@ -834,8 +784,7 @@ function raycastSphere(raycaster, intersects) {
   const { ray } = raycaster;
   _sphere.center.setFromMatrixPosition(this.matrixWorld);
   _sphere.radius = this.geometry.parameters.radius * this.matrixWorld.getMaxScaleOnAxis();
-  // Only front faces are drawn, so from inside there is nothing to hit - as
-  // with the triangle test this replaces.
+  // Only front faces are drawn, so from inside there is nothing to hit.
   if (_sphere.containsPoint(ray.origin) || !ray.intersectSphere(_sphere, _hit)) return;
 
   const distance = ray.origin.distanceTo(_hit);
@@ -849,7 +798,7 @@ function fitToRadius(object, radius) {
   const longest = Math.max(size.x, size.y, size.z) / 2 || 1;
   object.scale.setScalar(radius / longest);
 
-  // Re-centre on the origin so it spins about itself rather than about an offset.
+  // Re-centre so it spins about itself.
   const centre = new THREE.Box3().setFromObject(object).getCenter(new THREE.Vector3());
   object.position.sub(centre);
 }

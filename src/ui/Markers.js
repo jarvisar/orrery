@@ -1,12 +1,9 @@
 /**
  * Screen-space markers for bodies that are too small to see.
  *
- * Zoomed out far enough to take in the whole system, every planet is well under
- * a pixel across - the old build's wide shot was an empty starfield with some
- * rings drawn on it, and the only way to reach Neptune was the dropdown. A
- * marker fades in as a body shrinks below a few pixels and fades out as you
- * approach it, so there is always something to aim at and never two
- * representations of the same body competing on screen.
+ * On a wide shot every planet is well under a pixel across. A marker fades in
+ * as a body shrinks below a few pixels and out as you approach, so there is
+ * always something to aim at and never two versions of a body on screen.
  */
 
 import * as THREE from 'three';
@@ -39,8 +36,8 @@ export class Markers {
     this.entries = [];
 
     for (const view of system.bodies.values()) {
-      // Every moon labelled at once would crowd the view at any zoom. A moon
-      // is only marked while its own system is the one being looked at.
+      // Moons are only marked while their own system is in focus, or they
+      // would crowd the view at any zoom.
       const isMoon = view.kind === 'moon';
 
       const node = el(
@@ -62,15 +59,14 @@ export class Markers {
         ]
       );
 
-      // Hidden until the first update places it; otherwise every marker flashes
-      // in the top-left corner for one frame.
+      // Hidden until first placed, or it flashes in the top-left for a frame.
       node.style.display = 'none';
       this.root.append(node);
       this.entries.push({
         view, node, isMoon, shown: false, crowded: false,
         lastX: -1, lastY: -1, lastOpacity: -1,
         labelWidth: LABEL_LEAD + measureText(view.name) + LABEL_TRAIL,
-        // This frame's placement, kept on the entry so a frame allocates nothing.
+        // This frame's placement, kept here so a frame allocates nothing.
         x: 0, y: 0, distance: 0, opacity: 0,
         box: { x: 0, y: 0, w: 0, h: LABEL_HEIGHT },
       });
@@ -150,8 +146,8 @@ export class Markers {
       candidates.push(entry);
     }
 
-    // Nearest first, so when the inner planets stack up on a wide shot the one
-    // in front keeps its name and the ones behind it fall back to a bare dot.
+    // Nearest first, so where markers stack up the front one keeps its label
+    // and the ones behind fall back to a bare dot.
     candidates.sort((a, b) => a.distance - b.distance);
 
     const reserved = this._reserved;
@@ -164,7 +160,6 @@ export class Markers {
       box.w = entry.labelWidth;
       const crowded = reserved.some((rect) => overlaps(rect, box));
 
-      // Crowded out, it keeps only the dot.
       if (crowded) box.w = LABEL_LEAD;
       reserved.push(box);
       this._place(entry, x, y, entry.opacity, crowded);
@@ -213,9 +208,8 @@ function overlaps(a, b) {
 }
 
 /**
- * Label widths, measured once on a 2D canvas rather than read back from layout.
- * Asking the DOM for offsetWidth every frame would force a synchronous reflow
- * in the middle of the render loop.
+ * Label widths, measured once on a canvas: reading offsetWidth every frame
+ * would force a synchronous reflow in the render loop.
  */
 let _measureContext = null;
 function measureText(text) {

@@ -1,11 +1,9 @@
 /**
  * The Content-Security-Policy every page is served with.
  *
- * The page is all local files, so this mostly says "only from the app itself".
- * The exceptions are listed in REMOTE_ORIGINS. A new one is the one change in
- * the web app most likely to work in the browser and fail here, so
- * `npm run desktop:check` compares this list against the https:// origins the
- * source mentions.
+ * The page is all local files; the exceptions are REMOTE_ORIGINS. A new one
+ * would work in the browser and fail here, so `npm run desktop:check` compares
+ * this list against the https:// origins the source mentions.
  *
  * Kept free of Electron imports so the checks can read it from plain Node.
  */

@@ -12,11 +12,8 @@
 
 <style>
 /* ==========================================================================
-   Tetris, reached from the orrery with the Konami code.
-
-   Same materials as the main app: near-black space, one translucent glass
-   well, hairline borders, white as the only accent. The pieces take the
-   planet swatches, so the only colour on the page is the game itself.
+   Tetris, reached from the orrery with the Konami code. Same materials as
+   the main app; the pieces take the planet swatches.
    ========================================================================== */
 
 @font-face {
@@ -355,7 +352,6 @@ body[data-state="over"] .pause-btn { visibility: hidden; }
 .stat--best { grid-column: 1 / -1; }
 .stat--best .stat__value { color: var(--text-dim); }
 
-/* Hairline showing progress to the next level. */
 .progress {
   grid-column: 1 / -1;
   height: 1px;
@@ -1215,7 +1211,7 @@ function saveBest(value) {
   try {
     localStorage.setItem(BEST_KEY, String(value));
   } catch {
-    // Storage can be unavailable (private mode, blocked site data); the best score just won't persist.
+    // Private mode or blocked site data: the best score just won't persist.
   }
 }
 

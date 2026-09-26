@@ -1,11 +1,4 @@
-/**
- * Settings drawer.
- *
- * Replaces the lil-gui panel, which came from a CDN, looked like a debug
- * overlay, and exposed controls that destroyed and rebuilt the entire system on
- * change. Everything here is either free or applies incrementally, and the two
- * settings that do cost a rebuild say so.
- */
+/** Settings drawer. */
 
 import { el, icon, trapFocus } from './dom.js';
 import { SCALE_EXPONENT_RANGE } from '../scene/scaling.js';
@@ -114,7 +107,7 @@ export class SettingsPanel {
         'Skips camera fly-throughs and transitions.'
       ),
 
-      // Only while there is a controller to set up.
+      // Shown only while a controller is connected.
       (this.controller = el('div', { class: 'drawer__section', hidden: true }, [
         el('h3', { class: 'section-title', text: 'Controller' }),
         this._toggle('padInvertY', 'Invert up and down', 'Push up to look down, as a flight stick does.'),
@@ -229,7 +222,6 @@ export class SettingsPanel {
     ]);
   }
 
-  /** Shows the controller settings while one is connected. */
   setControllerConnected(connected) {
     this.controller.hidden = !connected;
   }

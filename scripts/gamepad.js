@@ -1,15 +1,10 @@
 #!/usr/bin/env node
 /**
- * Plugs in a controller that is not there, and uses it.
- *
- * navigator.getGamepads() is replaced with one standard-mapping pad whose
- * buttons, sticks and triggers this script sets, the way a browser would
- * report a real one. Every binding is driven and checked for what it should
- * do: orbiting, zooming, stepping through bodies and time, flight with its
- * throttle, boost and autopilot, moving round the menus and settings with the
- * D-pad, full screen, vibration, and a second make of controller relabelling
- * the buttons. Then the legend is checked for a clear spot on screen at a
- * phone, a phone on its side and a laptop.
+ * Drives every controller binding through a fake standard-mapping pad that
+ * replaces navigator.getGamepads(): camera, time, flight, menus and settings,
+ * full screen, vibration, and a second make of controller relabelling the
+ * buttons. Then checks the legend sits clear of the interface at phone,
+ * landscape phone and laptop sizes.
  *
  *   npm run gamepad                # skips cleanly if no Chrome is installed
  *   npm run gamepad -- --strict    # missing Chrome is a failure (used by CI)

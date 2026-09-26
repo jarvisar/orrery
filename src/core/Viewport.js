@@ -1,30 +1,17 @@
 /**
- * Renderer, camera and the resolution policy.
+ * Renderer, camera and adaptive resolution.
  *
- * Adaptive resolution is the interesting part. The scene starts at the
- * display's native pixel density and a controller watches the real interval
- * between frames. When the GPU cannot keep up it steps down a fixed ladder of
- * render scales; when there is headroom it climbs back, one rung at a time. A
- * laptop on integrated graphics ends up rendering at 70% and holding 60fps
- * instead of rendering at native and delivering 30.
+ * A controller watches the real interval between frames and moves along a
+ * ladder of render scales: down when the GPU cannot keep up, back up one rung
+ * at a time when there is headroom. Where worth having, the top rung is full
+ * resolution with multisampling, and the first step down drops only the MSAA.
  *
- * The top rung, on displays where it is worth having, is full resolution with
- * multisampling; the first step down keeps every pixel and drops the
- * multisampling, which costs less to look at than any cut in resolution.
- *
- * Every change of scale reallocates the canvas and the post-processing targets,
- * which is itself a hitch - so the controller is built to change scale rarely.
- * A struggling device drops straight to the rung that fits rather than walking
- * down one step every couple of seconds, and a rung that has already proven too
- * slow is not retried for a while, so a borderline device settles instead of
- * see-sawing between two sizes forever.
- *
- * It also has to tell a slow GPU from everything else that makes frames late.
- * A step down is kept only if frames actually got quicker: a phone holding the
- * page to 30fps to save battery, or a frame rate set by work on the CPU, looks
- * slow at any resolution, and blurring the scene would buy nothing. And frames
- * that uploaded a texture are left out of the count altogether, or the
- * streaming that follows the loading screen would read as a weak GPU.
+ * Each change reallocates the canvas and post targets (a hitch), so it changes
+ * rarely: it drops straight to the rung expected to fit, and does not retry a
+ * rung that proved too slow for a while, so a borderline device does not
+ * see-saw. A step down is kept only if frames actually got quicker (a battery-
+ * capped phone or CPU-bound frame is slow at any resolution), and frames that
+ * uploaded a texture are not counted.
  */
 
 import * as THREE from 'three';
@@ -37,36 +24,29 @@ import { sceneRadius } from '../scene/scaling.js';
 const LADDER = [1, 0.85, 0.7, 0.6, 0.5, 0.4, 0.33];
 
 /**
- * Densest a display is rendered at. Phones report anything from 2.6 to 4, and
- * rendering a 3x phone at 3x costs 2.25 times the pixels of 2x for a
- * difference nobody sees at arm's length - which is why capping at 2 is the
- * standard advice for three.js on mobile.
+ * Densest a display is rendered at. Phones report 2.6 to 4, and 3x costs 2.25
+ * times the pixels of 2x for no visible difference at arm's length.
  */
 const MAX_DENSITY = 2;
 
 /**
- * Multisampling the HDR frame is the top rung only on displays up to this
- * density. Each pixel then carries four half-float colours and depths, which
- * a phone's GPU writes out to memory and reads back to resolve: the most
- * bandwidth-hungry step in the frame. On a denser screen the scene is drawn
- * below the display's own density and scaled up, which softens the edges
- * anyway.
+ * Multisampling the HDR frame is the top rung only up to this density. 4x
+ * half-float MSAA is the most bandwidth-hungry step on a phone GPU, and a denser
+ * screen is drawn below its own density and upscaled, which softens edges anyway.
  */
 const MULTISAMPLE_MAX_DENSITY = 2;
 /** Roughly what multisampling adds to a whole frame, as measured; only used to judge how far to step down. */
 const MULTISAMPLE_COST = 1.3;
 
 /**
- * The ladder stops at whichever comes first: the page's own CSS resolution -
- * no sharper display is ever rendered blurrier than an ordinary web page - or,
- * on a display that is already 1x, just over half of it.
+ * The ladder stops at the page's CSS resolution (1x) or, on a display that is
+ * already 1x, at this fraction of it.
  */
 const MIN_SCALE_AT_1X = 0.55;
 
 /**
- * Frame-interval thresholds in milliseconds. These are compared against the
- * real gap between frames, which vsync pins near 16.7ms on a healthy 60Hz
- * display - so "fast" has to sit just above that, not below it.
+ * Frame-interval thresholds in ms. Vsync pins the real gap near 16.7ms on a
+ * healthy 60Hz display, so "fast" sits just above that, not below it.
  */
 const TARGET_MS = 16.7;
 const SLOW_MS = 22;
@@ -98,20 +78,18 @@ export class Viewport {
       canvas,
       antialias: true,
       powerPreference: 'high-performance',
-      // The scene spans six orders of magnitude, from a 3-unit moon to a
-      // 78,000-unit orbit. A logarithmic depth buffer is the only thing that
-      // keeps near geometry from z-fighting at that range.
+      // The scene spans a 3-unit moon to a 78,000-unit orbit; only a
+      // logarithmic depth buffer avoids z-fighting at that range.
       logarithmicDepthBuffer: true,
       stencil: false,
     });
 
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    // AgX rolls bright colour off toward white the way film does, where ACES
-    // pushes it toward saturated orange - which is what used to turn the Sun
-    // into a ball of cheese.
+    // AgX rolls bright colour off toward white; ACES pushes it toward saturated
+    // orange, which turns the Sun into a ball of cheese.
     this.renderer.toneMapping = THREE.AgXToneMapping;
     this.renderer.toneMappingExposure = 1.0;
-    // The frame is several passes now; count the whole frame, not the last pass.
+    // The frame is several passes; count the whole frame, not the last pass.
     this.renderer.info.autoReset = false;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -122,10 +100,7 @@ export class Viewport {
     /** Whether the post-processing target is multisampled. See {@link Viewport#ladder}. */
     this.multisample = this.multisampleAvailable;
     this.adaptiveResolution = true;
-    /**
-     * Set, for good, once the lowest rung is still too slow. Whatever else can
-     * be shed has to come from somewhere other than resolution.
-     */
+    /** Set for good once even the lowest rung is too slow. */
     this.constrained = false;
 
     this._frameTimes = [];
@@ -159,7 +134,6 @@ export class Viewport {
     return Math.min(window.devicePixelRatio || 1, MAX_DENSITY);
   }
 
-  /** Whether this display gets a multisampled top rung. */
   get multisampleAvailable() {
     return (window.devicePixelRatio || 1) <= MULTISAMPLE_MAX_DENSITY;
   }
@@ -187,11 +161,9 @@ export class Viewport {
     // Moved to a denser screen, where the top rung has no multisampling.
     if (this.multisample && !this.multisampleAvailable) this.multisample = false;
 
-    // Resize events arrive in pairs (resize and orientationchange) and for
-    // changes that do not alter the canvas at all. Setting the canvas size -
-    // even to what it already is - throws away the drawing buffer, and every
-    // listener reallocates its render targets, so do nothing unless something
-    // actually changed.
+    // Resize events arrive in pairs and for changes that do not alter the
+    // canvas. Setting the canvas size, even to the same value, throws away the
+    // drawing buffer and makes every listener reallocate, so skip no-ops.
     const applied = this._applied;
     if (applied.width === width && applied.height === height && applied.pixelRatio === pixelRatio &&
         applied.multisample === this.multisample) return;
@@ -234,19 +206,15 @@ export class Viewport {
     return size;
   }
 
-  /**
-   * Leaves the next frame interval out of the count. For frames that did
-   * something expensive that is not drawing, such as uploading a texture:
-   * their lateness says nothing about the resolution.
-   */
+  /** Leaves the next frame interval out of the count, e.g. after a texture upload. */
   discardNextSample() {
     this._discard = true;
   }
 
   /**
    * Feeds the interval that has just ended into the resolution controller.
-   * Judges the median of about a second of frames, so a single hitch - a GC
-   * pause, a shader compiling - does not drag the whole scene down a notch.
+   * Judges the median of about a second of frames, so a single hitch (GC, a
+   * shader compiling) does not force a step down.
    */
   sample(frameMs) {
     if (!this.adaptiveResolution || this.renderer.xr.isPresenting) return;
@@ -269,9 +237,8 @@ export class Viewport {
     const ladder = this.ladder;
     const index = this._rungIndex(ladder);
 
-    // Keep the last step down only if it bought frame time. If it did not,
-    // something other than pixels is setting the pace; put them back, and
-    // leave the resolution alone for a while.
+    // A step down that bought no frame time means something other than pixels
+    // sets the pace: undo it and leave the resolution alone for a while.
     const trial = this._trial;
     this._trial = null;
     if (trial && median > trial.median * NO_GAIN) {

@@ -1,42 +1,32 @@
-/**
- * User settings, persisted to localStorage and observable.
- *
- * Defaults are tuned for a mid-range laptop rather than a desktop GPU.
- */
+/** User settings, persisted to localStorage. Defaults suit a mid-range laptop. */
 
 import { SCALE_EXPONENT_RANGE } from '../scene/scaling.js';
 
 const STORAGE_KEY = 'solar-system:settings:v2';
 
 export const DEFAULTS = {
-  // Visibility
   showOrbits: true,
   showMoons: true,
   showDwarfs: true,
   showBelts: true,
   showLabels: true,
 
-  // Layout. The single compression exponent every length goes through.
+  // The single compression exponent every length goes through.
   scale: SCALE_EXPONENT_RANGE.default,
 
-  // Graphics.
   // Off by default: a point light's cube shadow map has roughly ten texels
-  // across a planet at Saturn's distance, which buys shadow acne and little
-  // else. The shadows that actually matter - Saturn's rings on Saturn, and
-  // Saturn on its rings - are computed analytically in src/scene/ringShadow.js
-  // and are always on.
+  // across a planet at Saturn's distance. Saturn's ring shadows are analytic
+  // (src/scene/ringShadow.js) and always on.
   shadowQuality: 0,
-  // Bloom, tone mapping over the whole frame, and dithering. See src/core/Post.js.
+  // See src/core/Post.js.
   effects: true,
   adaptiveResolution: true,
   beltDensity: 1,
   exposure: 1,
 
-  // Interface
   reduceMotion: false,
 
-  // Game controller. Pushing up looks up, as in most games; inverted is the
-  // flight-simulator way round.
+  // Pushing up looks up, as in most games; inverted is the flight-sim way.
   padInvertY: false,
   padSensitivity: 1,
   padRumble: true,
@@ -77,8 +67,7 @@ function load() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw);
-    // Drop anything that is not a known key, so an old build's leftovers cannot
-    // reintroduce a setting this version no longer validates.
+    // Drop unknown keys left over from older builds.
     return Object.fromEntries(
       Object.entries(parsed).filter(([key]) => key in DEFAULTS)
     );
@@ -91,7 +80,6 @@ function save(values) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(values));
   } catch {
-    // Private browsing, a full quota, or storage disabled entirely. The app
-    // works fine without persistence, so this is not worth surfacing.
+    // Private browsing, full quota or storage disabled; persistence is optional.
   }
 }

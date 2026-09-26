@@ -1,11 +1,7 @@
 /**
- * The body selector.
- *
- * Replaces a native `<select>` whose moons were hidden with the `hidden`
- * attribute - which browsers honour inconsistently, and which meant a moon
- * could be the selected value while being unreachable from the list. This
- * groups bodies by kind, shows moons under their primary, and hides a whole
- * group when that category is switched off rather than leaving dead entries in.
+ * The body selector: a custom list box rather than a `<select>`, since browsers
+ * honour `hidden` on options inconsistently. Bodies are grouped by kind, and a
+ * group is hidden whole when its category is switched off.
  */
 
 import { el, icon } from './dom.js';
@@ -124,7 +120,7 @@ export class BodyPicker {
     }
   }
 
-  /** Hides a whole category, matching the moon / dwarf visibility settings. */
+  /** Follows the moon / dwarf visibility settings. */
   setCategoryVisible(kind, visible) {
     for (const group of this._groups ?? []) {
       if (group.kind !== kind) continue;
@@ -201,8 +197,7 @@ export class BodyPicker {
       // shortcut pausing time.
       event.stopPropagation();
     } else if (/^[a-z]$/i.test(event.key)) {
-      // Type-ahead, as a native list box has: letters typed in quick
-      // succession spell out the start of a name.
+      // Type-ahead, as a native list box has.
       event.stopPropagation();
       const now = performance.now();
       this._typed = (now - this._typedAt < 700 ? this._typed : '') + event.key.toLowerCase();

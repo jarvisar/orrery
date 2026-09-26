@@ -2,9 +2,8 @@
 /**
  * Pre-deploy checks.
  *
- * There is no bundler to catch mistakes here, so this stands in for one. It is
- * deliberately narrow: it only checks the things that would break the live site
- * silently, where the first sign of trouble is a 404 in someone's console.
+ * There is no bundler, so this stands in for one. It only checks things that
+ * would break the live site silently, where the first sign is a 404.
  *
  *   npm run check
  */
@@ -21,7 +20,6 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const failures = [];
 const fail = (message) => failures.push(message);
 
-/** Every .js file under a directory, recursively. */
 async function jsFiles(dir) {
   const found = [];
   for (const entry of await readdir(join(ROOT, dir), { withFileTypes: true })) {

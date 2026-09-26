@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 /**
- * Dependency-free static server for local development.
- *
- * The site is plain ES modules with an import map and no build step, so what is
- * served here is byte-for-byte what GitHub Pages serves. The only thing a
- * bundler would add is minification.
+ * Dependency-free static server for local development. There is no build
+ * step, so this serves byte-for-byte what GitHub Pages serves.
  */
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';

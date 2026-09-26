@@ -1,11 +1,8 @@
 /**
- * Name labels in VR: the headset's version of src/ui/Markers.js.
- *
- * On a tabletop solar system most planets are a millimetre or two across, so
- * the same rule applies as on screen: a label fades in as its body shrinks out
- * of sight and fades out as it grows into view. Here the measure is the angle
- * the body subtends rather than its size in pixels, and each label is a sprite
- * sitting on its body, kept the same apparent size at any distance.
+ * Name labels in VR: the headset's version of src/ui/Markers.js. As on screen,
+ * a label fades in as its body shrinks out of sight and out as it grows into
+ * view, but measured by the angle the body subtends rather than pixels. Each
+ * label is a sprite on its body, kept the same apparent size at any distance.
  */
 
 import * as THREE from 'three';

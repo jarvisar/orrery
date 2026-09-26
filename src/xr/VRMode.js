@@ -1,26 +1,20 @@
 /**
  * Virtual reality.
  *
- * In a headset the camera stops being something the app points. It is the
- * viewer's own head, so everything that used to move the camera moves a rig
- * the head stands in instead: a group with a position, a heading and a
- * uniform scale.
+ * In a headset the camera is the viewer's head, so the app moves a rig the
+ * head stands in instead: a group with a position, a heading and a uniform
+ * scale. The scene is in units where the Earth is 48 across and a headset
+ * measures in metres, so the rig is rescaled to suit what is being looked at:
+ * a focused planet becomes a globe a little under two metres across, a couple
+ * of metres away; the whole system becomes a tabletop orrery. The eyes ride in
+ * the rig too, so stereo separation scales with it and depth reads as a model
+ * of that size.
  *
- * The scale is what makes it work. The scene is measured in units where the
- * Earth is 48 across and a headset measures in metres, so there is no one right
- * size for a person in it. The rig is resized to suit whatever is being looked
- * at. Focus a planet and it becomes a globe a couple of metres away, a little
- * under two across. Ask for the whole system and it shrinks to a tabletop
- * orrery, with Neptune's orbit a step or two from the Sun. The eyes ride in the
- * rig too, so the stereo separation scales with it and the depth always reads
- * as a model of that size, never as a planet seen with the eyes of an ant.
- *
- * Nothing flies the viewer anywhere. A camera sweeping across the solar system
- * is exactly the kind of motion a headset turns into nausea: the eyes see
- * acceleration the inner ear never feels. Moving between bodies is a short fade
- * through black instead. The only continuous motion is what the viewer makes
- * with a thumbstick or their own hands, and a thumbstick narrows the view a
- * little while it is moving them, which takes most of the sting out of it.
+ * Nothing flies the viewer anywhere, since a camera sweep is motion the eyes
+ * see and the inner ear never feels. Moving between bodies is a short fade
+ * through black. The only continuous motion comes from a thumbstick or the
+ * viewer's hands, and a thumbstick narrows the view a little while it moves
+ * them.
  *
  * Controls, on any controller with the xr-standard mapping:
  *
@@ -31,8 +25,7 @@
  *   A / B        play or pause / the whole system
  *   X / Y        previous / next body
  *
- * With bare hands, the gestures follow what Quest's own interface has taught
- * people rather than mapping controller buttons onto fingers:
+ * With bare hands, the gestures follow Quest's own interface:
  *
  *   Pinch             point and select, as the trigger does
  *   Pinch and drag    grab the system and move it, as the grip does; both
@@ -42,8 +35,9 @@
  *
  * A pinch has to do the grip's job too: Quest reserves the palm-up pinch for
  * its own menu and sends no squeeze for a hand. So a pinch that stays put is a
- * click, and one that moves a few centimetres becomes a grab. What a click selects is whatever the ray was on when the
- * fingers met, since the act of pinching tugs the ray off its target.
+ * click, and one that moves a few centimetres becomes a grab. A click selects
+ * whatever the ray was on when the fingers met, since pinching tugs the ray
+ * off its target.
  */
 
 import * as THREE from 'three';
@@ -338,7 +332,6 @@ export class VRMode {
     this._goTo(() => this._frameSystem(radiusAU), instant);
   }
 
-  /** Back to the standard framing of whatever is focused. */
   reframe() {
     if (this.focus) this.focusOn(this.focus);
   }
@@ -660,10 +653,9 @@ export class VRMode {
 
   /**
    * Closes the view in from the edges while a thumbstick is moving the
-   * viewer. Motion seen out of the corner of the eye is most of what makes
-   * artificial locomotion uncomfortable; motion seen straight ahead, much
-   * less. A grab never triggers it: moving the world by hand is motion the
-   * body is making, and the eyes and ears agree about it.
+   * viewer: peripheral motion is most of what makes artificial locomotion
+   * uncomfortable. A grab never triggers it, since the body is making that
+   * motion itself.
    */
   _updateVignette(dt) {
     const target = this._motion;
@@ -721,7 +713,6 @@ export class VRMode {
       };
       hand.ray.add(hand.laser);
 
-      // A stand-in, when the real model cannot be fetched.
       const standIn = factories?.controllers ? null : buildControllerStandIn();
       if (factories?.controllers) hand.grip.add(factories.controllers.createControllerModel(hand.grip));
       if (standIn) hand.grip.add(standIn);
@@ -908,7 +899,6 @@ export class VRMode {
     return out.setFromMatrixPosition(hand.ray.matrix);
   }
 
-  /** Lets go of anything a hand is doing. */
   _release(hand) {
     hand.squeezing = false;
     hand.pinch = null;
@@ -926,10 +916,9 @@ export class VRMode {
   }
 
   /**
-   * The world, held. One hand drags it: whatever point was under the hand when
-   * the grip closed stays under it. Two hands also scale and turn it, keeping
-   * both held points under their hands at once - pull them apart to zoom in,
-   * twist them to turn it.
+   * One hand drags the world: the point under the hand when the grip closed
+   * stays under it. Two hands also scale and turn it, keeping both held points
+   * under their hands.
    */
   _applyGrab() {
     if (this._transition?.phase === 'out') return;
@@ -1293,7 +1282,6 @@ export class VRMode {
     this.panel.flash(id);
   }
 
-  /** The body some hand's ray is on, if any. */
   _pointedId() {
     for (const hand of this.hands) if (hand.hoverType === 'body') return hand.hoverId;
     return null;
@@ -1301,7 +1289,7 @@ export class VRMode {
 
   _describe() {
     const pointedId = this._pointedId();
-    // The visitor is not in the catalogue, and is not about to introduce itself.
+    // The visitor has no catalogue entry, hence no name.
     const pointing = pointedId && (this.system.bodies.get(pointedId)?.name ?? 'Something');
     // Hands, when there are no controllers: the panel's hints then talk about pinching.
     const controllers = this.hands.some((hand) =>
@@ -1323,7 +1311,6 @@ export class VRMode {
 /** Resolved once, on the first call to VRMode.preload(). */
 let modelFactories = null;
 
-/** Whether a URL answers, within a few seconds. */
 async function canReach(url) {
   try {
     const response = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
@@ -1507,13 +1494,13 @@ function buildLaser() {
 
 /**
  * Controller and hand models are lit for a room, and the only light here is
- * the Sun - on the night side of a planet they would be black. A little
- * emission of their own keeps them visible anywhere.
+ * the Sun, so on a planet's night side they would be black. A little emission
+ * keeps them visible.
  *
- * They are also drawn after the panel, which is drawn over everything else: a
- * fingertip pressing a button has to be seen to touch it, not vanish behind
- * it. Only the transparent pass is ordered that way, hence the flag; at full
- * opacity it changes nothing else about how they look.
+ * They are also drawn after the panel, so a fingertip pressing a button is
+ * seen touching it rather than vanishing behind it. Only the transparent pass
+ * is ordered that way, hence the flag; at full opacity it changes nothing
+ * else.
  */
 function brighten(object) {
   object.traverse((child) => {

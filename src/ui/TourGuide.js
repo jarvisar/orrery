@@ -2,20 +2,17 @@
  * Guided tours.
  *
  * A tour flies from body to body and holds on each long enough to read one
- * caption, with the camera drifting slowly round it. It is a slideshow with
- * the real scene as the slides: time keeps running, and everything can still
- * be dragged and zoomed while it plays. Clicking some other body, or Escape,
- * ends it.
+ * caption. Time keeps running and the camera can still be dragged and zoomed;
+ * clicking another body, or Escape, ends it.
  *
- * Two elements: the menu that lives in the top bar, and the caption card that
- * takes the info panel's place while a tour is running.
+ * The menu lives in the top bar; the caption card takes the info panel's
+ * place while a tour runs.
  */
 
 import { el, icon } from './dom.js';
 import { TOURS, TOUR_BY_ID } from '../data/tours.js';
 import { BODY_BY_ID } from '../data/bodies.js';
 
-/** Seconds a flight between stops takes. */
 const FLIGHT_SECONDS = 2.6;
 
 export class TourGuide {
@@ -48,8 +45,6 @@ export class TourGuide {
     this._onDocumentClick = (event) => { if (!this.root.contains(event.target)) this.closeMenu(); };
     document.addEventListener('click', this._onDocumentClick);
   }
-
-  /* --- menu -------------------------------------------------------------- */
 
   _buildMenu() {
     this.button = el(
@@ -111,8 +106,6 @@ export class TourGuide {
     if (restoreFocus) this.button.focus();
   }
 
-  /* --- caption ----------------------------------------------------------- */
-
   _buildCaption() {
     this.eyebrow = el('div', { class: 'tour__eyebrow' });
     this.heading = el('h2', { class: 'tour__title' });
@@ -157,8 +150,6 @@ export class TourGuide {
       ]
     );
   }
-
-  /* --- playback ---------------------------------------------------------- */
 
   start(tourId) {
     const tour = TOUR_BY_ID.get(tourId);
@@ -232,7 +223,7 @@ export class TourGuide {
     this.caption.classList.toggle('is-paused', !this.playing);
   }
 
-  /** Called every frame. Holds count from arrival, not from departure. */
+  /** Called every frame. The hold counts from arrival, not departure. */
   update(dt) {
     if (!this.tour) return;
     if (this.playing) this._elapsed += dt;
@@ -251,7 +242,7 @@ export class TourGuide {
   }
 }
 
-/** Long enough to read the caption twice at a relaxed pace, within bounds. */
+/** Seconds to hold a caption: enough to read it twice, between 8 and 18. */
 function readingTime(text) {
   const words = text.split(/\s+/).length;
   return Math.min(18, Math.max(8, 3 + words * 0.3));

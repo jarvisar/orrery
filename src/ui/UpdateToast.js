@@ -3,12 +3,10 @@
  *
  * The desktop app (desktop/src/updates.js) updates itself where it can. Where
  * it cannot - the portable Windows build, macOS, the Linux .deb and .tar.gz -
- * it says so here instead, once per new version, and the button opens the
- * release page to download it. In a browser window.orreryDesktop is undefined
- * and this never shows.
+ * it says so here, once per new version, and the button opens the release
+ * page. In a browser window.orreryDesktop is undefined and this never shows.
  *
- * It borrows the install toast's plate and corner, which is free: browsers
- * offer installation, the desktop app never does.
+ * Shares the install toast's styling and corner; the two never coexist.
  */
 
 import { el, icon } from './dom.js';

@@ -1,12 +1,10 @@
 /**
  * `--self-test`: loads the app, checks it came up, and exits 0 or 1.
  *
- * The desktop counterpart of scripts/smoke.js, run against the real,
- * packaged app rather than a browser, so it also proves the packaging: every
- * file the page asks for is in the build, the protocol serves it with the
- * right type, the preload ran and the policy lets everything through. CI runs
- * it on all three platforms (desktop/scripts/smoke.js); on a Steam Deck it is
- * a quick way to see what GPU WebGL landed on.
+ * The desktop counterpart of scripts/smoke.js. Run against the packaged app,
+ * it also proves the packaging: every file is in the build, served with the
+ * right type, the preload ran and the CSP lets everything through. On a Steam
+ * Deck it is a quick way to see what GPU WebGL landed on.
  *
  * Fails on any console error (which includes uncaught exceptions and CSP
  * violations), any request the protocol could not answer, a renderer crash,

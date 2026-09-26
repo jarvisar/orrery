@@ -11,7 +11,6 @@ const SERVE = fileURLToPath(new URL('../serve.js', import.meta.url));
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Where Chrome lives, in the places worth looking. */
 export function findChrome() {
   const candidates = [
     process.env.PUPPETEER_EXECUTABLE_PATH,
@@ -97,9 +96,7 @@ export async function launch(executablePath) {
   });
 }
 
-/** Resolves once the loading screen has been removed from the page. */
 export function waitForApp(page) {
-  // Software rendering on a CI runner is slow; the timeout is generous on
-  // purpose, and only a genuine hang should hit it.
+  // Software rendering on a CI runner is slow; only a genuine hang should hit this.
   return page.waitForFunction(() => !document.getElementById('loading'), { timeout: 180_000 });
 }

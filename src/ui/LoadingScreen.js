@@ -2,8 +2,7 @@
  * Drives the loading screen that index.html paints before any module loads.
  *
  * Progress is weighted across named phases rather than counted in files, so the
- * bar moves at a roughly honest rate instead of sitting at 90% while the single
- * largest texture decodes.
+ * bar does not sit at 90% while the largest texture decodes.
  */
 
 export class LoadingScreen {
@@ -26,7 +25,6 @@ export class LoadingScreen {
     this._currentFraction = 0;
   }
 
-  /** Starts a phase and sets the caption shown under the bar. */
   begin(phase, message) {
     if (this._current && this._current !== phase) {
       this._completed += this.phases[this._current] ?? 0;
@@ -37,7 +35,7 @@ export class LoadingScreen {
     this._render();
   }
 
-  /** Reports progress within the current phase, 0..1. */
+  /** @param {number} fraction Progress within the current phase, 0..1. */
   progress(fraction, message) {
     this._currentFraction = Math.max(0, Math.min(1, fraction));
     if (message) this.status.textContent = message;
@@ -55,7 +53,7 @@ export class LoadingScreen {
     this.bar.style.width = '100%';
     this.status.textContent = 'Ready';
 
-    // One frame at 100% so the bar visibly completes instead of vanishing mid-fill.
+    // A beat at 100% so the bar visibly completes instead of vanishing mid-fill.
     await new Promise((resolve) => setTimeout(resolve, 220));
     this.root.classList.add('is-done');
     await new Promise((resolve) => setTimeout(resolve, 650));

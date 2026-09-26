@@ -2,11 +2,7 @@ import { CATALOGUE_PATH, archiveQuery, hostQuery, NAME_QUERY, QUERY_URL, catalog
 
 // jarvisar/cors-proxy accepts the full upstream URL in this header at /proxy.
 export const PROXY_URL = 'https://cors-proxy-phi.vercel.app/proxy';
-/**
- * The archive adds planets about once a week, and the deploy refreshes the
- * bundled copy on the same cadence; checking more often than this would only
- * repeat a dozen heavy archive queries for nothing.
- */
+/** The archive adds planets about weekly, and the deploy refreshes the bundled copy as often. */
 const MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 const PAGE_SIZE = 700; // Keep each response below serverless response-size limits.
 
@@ -55,10 +51,7 @@ export class ExoplanetCatalogue {
   refreshIfStale() {
     if (this.stale) return this.refresh();
   }
-  /**
-   * Whether the archive lists a host the saved copy does not: one tiny query,
-   * so a mistyped or stale link does not cost a whole refresh to rule out.
-   */
+  /** One small query, so a mistyped link does not cost a whole refresh to rule out. */
   async hasHost(name) {
     if (typeof name !== 'string' || !name.trim() || name.length > 120) return false;
     try { return (await this.request(hostQuery(name))).some((row) => row?.hostname === name); } catch { return false; }

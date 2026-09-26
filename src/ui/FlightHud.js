@@ -2,12 +2,12 @@
  * Heads-up display for flight mode.
  *
  * The aim marker tracks the smoothed steering vector rather than the raw
- * pointer, so what you see is what the camera is actually acting on. The
- * throttle is a lever you can drag and a boost you can hold, which is all a
- * touch screen has to fly with; with a keyboard they just mirror W, S and Shift.
+ * pointer, so it shows what the camera is acting on. The draggable throttle and
+ * hold-to-boost button are for touch screens; with a keyboard they mirror W, S
+ * and Shift.
  *
- * The destination gets a bracket while it is in view and, when it is not, an
- * arrow on a ring round the reticle pointing the shortest way to turn.
+ * The destination gets a bracket while in view, otherwise an arrow on a ring
+ * round the reticle pointing the shortest way to turn.
  */
 
 import * as THREE from 'three';
@@ -125,7 +125,7 @@ export class FlightHud {
     this._last = {};
   }
 
-  /** Dragging anywhere on the throttle panel sets the throttle from the track. */
+  /** Dragging anywhere on the panel sets the throttle from the track's height. */
   _bindLever() {
     let dragging = null;
     const apply = (event) => {

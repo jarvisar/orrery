@@ -14,7 +14,7 @@ import {
 import { searchKey } from '../src/data/starNames.js';
 import { ExoplanetCatalogue } from '../src/core/ExoplanetCatalogue.js';
 import { eccentricAnomaly } from '../src/sim/kepler.js';
-import { validateStellarCatalogue } from '../src/data/stellarSystems.js';
+import { validateStellarCatalogue, stellarLayout, stellarMassEstimate, starsShown } from '../src/data/stellarSystems.js';
 import { stellarPositions } from '../src/sim/stellar.js';
 import { heliocentricDistance, SCALE_EXPONENT_RANGE } from '../src/scene/scaling.js';
 import { parseXml, convertSystems } from './update-stellar-systems.js';
@@ -157,11 +157,65 @@ test('binary, triple and partial quadruple hierarchies preserve the correct plan
   assert.match(triple.byId.get(triple.starId).facts['Stellar mass'], /\(\+/);
   const quadruple = model('PH1');
   assert.equal(quadruple.bodies.filter((b) => b.kind === 'star').length, 2);
-  assert.match(quadruple.bodies[0].blurb, /Companions without complete orbits/);
+  assert.match(quadruple.bodies[0].blurb, /PH-1 Ba and PH-1 Bb aren’t shown because their orbits aren’t known/);
   assert.match(quadruple.byId.get('planet:PH1 b').parent, /^barycentre:/);
   const incomplete = model('Kepler-444');
   assert.equal(incomplete.bodies.filter((b) => b.kind === 'star').length, 1, 'an upper bound is not a measured stellar orbit');
   assert.match(incomplete.bodies[0].blurb, /Kepler-444 B/);
+});
+
+test('wide pairs with only a separation on the sky are drawn at that separation, and say so', () => {
+  const cygnus = model('16 Cyg B');
+  assert.equal(cygnus.bodies.filter((b) => b.kind === 'star').length, 3);
+  assert.equal(cygnus.companions.hidden, 0);
+  assert.match(cygnus.byId.get(cygnus.starId).modelNotes.join(' '), /separation on the sky is known \(837 AU\)/);
+  // Arcseconds become AU at NASA's distance: 1″ at 1 pc is 1 AU.
+  const entry = { name: 'Pair A', stars: 2, distance: 20, planets: [{ pl_name: 'Pair A b', hostname: 'Pair A', st_mass: 1 }] };
+  const supplement = { fetchedAt: '2026-01-01T00:00:00Z', systems: [{ name: 'Pair', tree: { kind: 'binary', names: [], planets: [], values: { sep_arcsec: 3, sep_arcseclim: 0 }, children: [
+    { kind: 'star', names: ['Pair A'], planets: [['Pair A b']], values: {}, children: [] },
+    { kind: 'star', names: ['Pair B'], planets: [], values: { st_spectype: 'M3V' }, children: [] },
+  ] } }] };
+  const layout = stellarLayout(entry, { rows: entry.planets }, supplement);
+  const orbit = layout.nodes.find((n) => n.name === 'Pair B').orbit;
+  assert.equal(orbit.aAU, 60);
+  assert.ok(Math.abs(orbit.periodDays / 365.25 - Math.sqrt(60 ** 3 / 1.37)) < 1e-6, 'Kepler with NASA’s host mass and the estimated companion');
+  assert.match(layout.nodes.find((n) => n.name === 'Pair B').massNote, /spectral type \(M3V\)/);
+});
+
+test('companion masses are estimated only for main-sequence stars and white dwarfs', () => {
+  assert.deepEqual(stellarMassEstimate({ st_mass: 0.8 }), { mass: 0.8, note: null });
+  assert.ok(Math.abs(stellarMassEstimate({ st_teff: 5770 }).mass - 1) < 1e-9);
+  assert.ok(Math.abs(stellarMassEstimate({ st_spectype: 'M3V' }).mass - 0.37) < 1e-9);
+  // K8 is a third of the way from K7 (0.64 M☉) to M0 (0.57 M☉), interpolated in log mass.
+  assert.ok(Math.abs(stellarMassEstimate({ st_spectype: 'K8' }).mass - 0.64 ** (2 / 3) * 0.57 ** (1 / 3)) < 1e-9);
+  assert.equal(stellarMassEstimate({ st_spectype: 'DA', st_teff: 9000 }).mass, 0.6);
+  assert.equal(stellarMassEstimate({ st_spectype: 'K0 III', st_teff: 4800 }).mass, null, 'giants are not guessed');
+  assert.equal(stellarMassEstimate({ st_teff: 1500 }).mass, null, 'nor brown dwarfs');
+});
+
+test('NASA decides what is a star; a supplement listing fewer is drawn with the rest counted', () => {
+  // OEC counts HD 41004 B b, a brown dwarf the archive lists as a planet, as a star.
+  const extra = model('HD 41004 A');
+  assert.equal(extra.bodies.filter((b) => b.kind === 'star').length, 1);
+  // OEC knows two of WASP-14's three stars.
+  const fewer = model('WASP-14');
+  assert.deepEqual([fewer.companions.shown, fewer.companions.listed, fewer.companions.names.length], [2, 3, 0]);
+  assert.match(fewer.bodies[0].blurb, /1 companion star isn’t shown because its orbit isn’t known/);
+  assert.equal(fewer.bodies[0].facts['Stars shown'], '2 of 3');
+  const hostOnly = model('Kepler-444');
+  assert.equal(hostOnly.bodies[0].facts['Stars shown'], '1 of 3');
+  assert.equal(starsShown(entries.find((e) => e.name === 'Kepler-444'), data, supplement), 1);
+  assert.equal(starsShown(entries.find((e) => e.name === '16 Cyg B'), data, supplement), 3);
+});
+
+test('stellar orbits trust the period when the catalogue’s size disagrees with it', () => {
+  // OEC gives one star's orbit about the centre of mass as the pair's; Welsh et al. (2012) give 0.2288 AU.
+  const kepler34 = model('Kepler-34');
+  const a = kepler34.bodies.find((b) => b.kind === 'star' && b.orbit).orbit.aAU;
+  assert.ok(Math.abs(a - 0.2288) < 0.001, `${a}`);
+  // Gliese 667 AB's 42.15-year orbit, entered in days, is corrected on import while the slip stands.
+  const gliese = model('GJ 667 C').bodies.find((b) => b.name === 'Gliese 667 A');
+  assert.ok(Math.abs(gliese.orbit.periodDays / 365.25 - 42.15) < 0.01);
 });
 
 test('planets around different stars stay attached to their own host, which leads its own system', () => {
@@ -196,7 +250,7 @@ test('binary mass fractions keep every nested centre of mass fixed, inside the o
           assert.ok(Math.abs(centre - positions.get(node.id)[axis]) < 1e-7, `${name} ${axis}`);
         }
       }
-      // Mass fractions under 1 once let a companion leave the frame at the largest Scale.
+      // No companion may leave the frame, even at the largest Scale.
       const bound = heliocentricDistance(system.overviewAU, exponent);
       for (const point of positions.values()) assert.ok(Math.hypot(point.x, point.y, point.z) < bound, `${name} at ${exponent}`);
     }
@@ -252,6 +306,16 @@ test('the companion importer reads the catalogue’s XML strictly', () => {
   assert.deepEqual(a.planets, [['Pair A b']]);
   assert.equal(b.values.st_spectype, 'M2 V');
   assert.throws(() => validateStellarCatalogue({ ...supplement, systems: [{ name: 'bad', tree: { kind: 'binary' } }] }));
+
+  // Separations are kept by unit, and a known slip is fixed only while it stands.
+  const gliese = (period) => convertSystems(`<systems><system><name>Gliese 667</name><binary>
+    <separation unit="arcsec">32.70</separation><separation errorplus="3" errorminus="3" unit="AU">228</separation>
+    <binary><period>${period}</period><star><name>Gliese 667 A</name></star><star><name>Gliese 667 B</name></star></binary>
+    <star><name>Gliese 667 C</name></star></binary></system></systems>`).systems[0].tree;
+  const outer = gliese(42.15);
+  assert.deepEqual(outer.values, { sep_au: 228, sep_aulim: 0, sep_auerr1: 3, sep_auerr2: -3, sep_arcsec: 32.7, sep_arcseclim: 0 });
+  assert.equal(outer.children[0].values.pl_orbper, 42.15 * 365.25);
+  assert.equal(gliese(15395).children[0].values.pl_orbper, 15395, 'an upstream fix is left alone');
 });
 
 test('TAP range cursors escape names', () => {

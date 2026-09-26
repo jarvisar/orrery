@@ -1,11 +1,9 @@
 /**
  * The desktop app: one window showing the web app, served from app://orrery/.
  *
- * The web app is not copied or changed for this. In development the window
- * serves the repository's working tree directly, so an edit to src/ shows up
- * on reload (Ctrl+R / Cmd+R); a packaged build carries a copy staged by
- * scripts/stage.js from the same list GitHub Pages deploys. See
- * desktop/README.md.
+ * In development the window serves the repository's working tree, so an edit
+ * to src/ shows up on reload; a packaged build carries a copy staged by
+ * scripts/stage.js from the same list GitHub Pages deploys.
  *
  * Switches, in addition to Chromium's own:
  *   --fullscreen        start full screen (automatic in Steam Deck Game Mode)
@@ -58,9 +56,8 @@ if (flag('software-gl')) {
   app.commandLine.appendSwitch('enable-unsafe-swiftshader');
 } else if (!flag('low-power-gpu')) {
   // The renderer asks for powerPreference: 'high-performance' (Viewport.js),
-  // which browsers on Windows mostly ignore: on a laptop with two GPUs the
-  // scene stays on the integrated one. Here the whole app can be put on the
-  // discrete GPU, which is what the page was asking for.
+  // which Chromium on Windows mostly ignores, leaving a two-GPU laptop on the
+  // integrated one. This puts the whole app on the discrete GPU.
   app.commandLine.appendSwitch('force_high_performance_gpu');
 }
 
@@ -132,10 +129,9 @@ async function start() {
   session.defaultSession.setPermissionCheckHandler((_contents, permission, origin) =>
     PERMISSIONS.has(permission) && origin?.replace(/\/$/, '') === ORIGIN);
 
-  // window.orreryDesktop.requestFullscreen() (preload.cjs). A browser only
-  // goes full screen in answer to a click or a key, never a controller button,
-  // so the web app has to ask for one first; here the request can simply be
-  // run as though the user had clicked.
+  // window.orreryDesktop.requestFullscreen() (preload.cjs). A browser only goes
+  // full screen in answer to a click or key, never a controller button; here
+  // the request runs as though the user had clicked.
   ipcMain.handle('orrery:request-fullscreen', (event) => {
     if (!isOwn(event.senderFrame?.url ?? '')) return false;
     return event.sender.executeJavaScript(

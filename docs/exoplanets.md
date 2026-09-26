@@ -13,7 +13,11 @@ Planet and star data comes from the [NASA Exoplanet Archive](https://exoplanetar
 - If the default solution is missing a period, orbit size, eccentricity, or the star's mass, radius, temperature or spectral type, the composite table's value is used instead and labeled as such in the info panel.
 - See the [column definitions](https://exoplanetarchive.ipac.caltech.edu/docs/API_TD_columns.html) for what each value means.
 
-Binary and multiple star systems use data from the [Open Exoplanet Catalogue](https://github.com/OpenExoplanetCatalogue/open_exoplanet_catalogue) (MIT license). Only planets that are in the NASA data are shown.
+Binary and multiple star systems use data from the [Open Exoplanet Catalogue](https://github.com/OpenExoplanetCatalogue/open_exoplanet_catalogue) (MIT license). Only planets that are in the NASA data are shown, and NASA's count of stars in each system is the one used. If the catalogue lists more stars than NASA (usually a brown dwarf that NASA counts as a planet), its data isn't used for that system.
+
+Companion star masses that aren't reported are estimated from temperature or spectral type using the main-sequence table from [Pecaut & Mamajek (2013)](https://www.pas.rochester.edu/~emamajek/EEM_dwarf_UBVIJHK_colors_Teff.txt). White dwarfs use a typical 0.6 M☉. Giant stars aren't estimated.
+
+`scripts/update-stellar-systems.js` has a short list of corrections for known mistakes in the catalogue, like a period entered in years instead of days. Each one only applies while the catalogue still has the wrong value.
 
 ## Updating the Data
 
@@ -35,7 +39,10 @@ The site checks NASA for new planets when its copy is more than a week old, or w
 - Missing planet radii are estimated from mass using [Chen & Kipping (2017)](https://exoplanetarchive.ipac.caltech.edu/docs/pscp_calc.html), the same method NASA uses. Minimum mass (M sin i) is used if that's all there is.
 - Missing star radii are calculated from luminosity and temperature, or from mass and surface gravity. Pulsars use a typical 12 km radius.
 - Star colors are based on each star's temperature.
-- Binary and multiple star systems are drawn when the Open Exoplanet Catalogue has enough data for the star orbits. Planets orbit either their own star or the center of mass of a pair. If some stars are missing data, the rest are drawn and the missing ones are listed in the info panel. If the stars can't be matched, only the host star is shown.
+- Binary and multiple star systems are drawn when the Open Exoplanet Catalogue has enough data for the star orbits. Planets orbit either their own star or the center of mass of a pair.
+- Most wide pairs only have a separation on the sky. If there is no period or orbit size, that separation is used as the orbit size (converted from arcseconds using NASA's distance if needed) and the period is calculated from the masses.
+- If a pair's reported orbit size doesn't match its period and masses, the size is calculated from the period instead.
+- Stars that can't be drawn are listed under the system in the info panel, and the atlas shows "host star only" or how many are shown. About 110 of the 432 multi-star systems show every star. Most of the rest have no companion data in the Open Exoplanet Catalogue, so only the host star is shown.
 - Each star only lights its own planets.
 - Systems where the planets would be too small to see next to a distant companion star, like Proxima Centauri, open on the host star's planets.
 
@@ -48,7 +55,7 @@ Every estimate is labeled in the info panel, along with the reported values, err
 - Sizes and distances are compressed.
 - The background sky is the view from Earth.
 - Moons, rings and debris disks aren't shown.
-- Binary star orbits are simplified and don't include gravitational effects between planets and stars.
+- Binary star orbits are simplified and don't include gravitational effects between planets and stars. Orbits based on a separation on the sky are usually smaller than the real ones.
 
 ## Testing
 

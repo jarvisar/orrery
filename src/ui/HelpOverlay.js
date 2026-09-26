@@ -1,11 +1,6 @@
 /**
- * Keyboard and controller reference.
- *
- * The old build documented its controls only in the repository README, and what
- * it documented had drifted from what the code did - W and S were described as
- * forward and back when they actually moved the camera up and down. Keeping the
- * reference in the app at least puts it next to the thing it describes; the
- * handlers themselves live in `src/main.js`.
+ * Keyboard and controller reference. The handlers live in `src/main.js`; keep
+ * this list in step with them.
  *
  * Controller buttons are drawn as the connected controller labels them, and
  * while one is connected its sections come first.
@@ -14,7 +9,6 @@
 import { el, icon, trapFocus } from './dom.js';
 import { padGlyph } from './padGlyphs.js';
 
-/** Display order for the controls dialog. */
 export const SHORTCUTS = [
   {
     group: 'Getting around',
@@ -95,7 +89,7 @@ export const SHORTCUTS = [
   },
 ];
 
-/** The same for a game controller, by button position; see src/ui/padGlyphs.js. */
+/** Controller buttons by position; see src/ui/padGlyphs.js. */
 export const CONTROLLER = [
   {
     group: 'Controller',
@@ -210,10 +204,7 @@ export class HelpOverlay {
     );
   }
 
-  /**
-   * Draws the controller sections for this make of controller, and puts them
-   * first; null puts them back after the keyboard's.
-   */
+  /** Draws controller sections for this make, first; null puts them after the keyboard's. */
   setController(family) {
     if (family === this._family) return;
     this._family = family;

@@ -1,24 +1,18 @@
 /**
  * Free-flight camera controls: arcade flying, not a simulator.
  *
- * Three ideas keep it easy to fly in a solar system this compressed:
+ *   - Speed follows altitude: full throttle covers roughly your height above the
+ *     nearest surface each second, so one throttle setting crosses a planetary
+ *     gap in seconds yet still creeps up to a moon.
+ *   - Near a body you move with it.
+ *   - Surfaces are solid; fly into one and you skim along it.
  *
- *   - Speed follows altitude. Full throttle covers roughly your height above the
- *     nearest surface each second, so the same throttle crosses an inter-planet
- *     gap in seconds and still lets you creep up to a moon without overshooting.
- *   - Near a body you move with it, so a planet does not slide away from under
- *     you while time is running.
- *   - Surfaces are solid. Fly into one and you skim along it.
+ * An optional autopilot turns towards a destination, flies there and parks a
+ * few radii out. Touching the controls takes over at once.
  *
- * On top of that there is an optional destination and an autopilot that turns
- * towards it, flies there and parks a few radii out. Touching the controls
- * takes over from it at once.
- *
- * Steering is a virtual stick. With a mouse the pointer is captured and moving
- * it pushes the stick, which drifts back to centre on its own, so it feels like
- * mouse-look with a little weight. With a finger (or a mouse where capture is
- * unavailable) the stick is wherever the drag started. A game controller's
- * left stick is a stick already, and adds straight in.
+ * Steering is a virtual stick. A captured mouse pushes it and it drifts back to
+ * centre; a finger (or an uncaptured mouse) deflects it from where the drag
+ * started; a controller's left stick adds straight in.
  *
  * Listeners are attached only while enabled.
  */
@@ -259,7 +253,6 @@ export class FlightControls {
     if (!this.enabled) return;
     const step = Math.min(dt, 0.1); // a backgrounded tab must not teleport the camera
 
-    // --- throttle ---------------------------------------------------------
     if (this._keys.has('KeyW')) this.adjustThrottle(this.throttleRate * step);
     if (this._keys.has('KeyS')) this.adjustThrottle(-this.throttleRate * step);
     if (this._pad.throttle) this.adjustThrottle(this.throttleRate * this._pad.throttle * step);
@@ -268,7 +261,6 @@ export class FlightControls {
       this.throttle *= Math.exp(-6 * step);
     }
 
-    // --- steering ---------------------------------------------------------
     if (this.captured) this._stick.multiplyScalar(Math.exp(-RECENTER * step));
     let x = this._stick.x + this._pad.x;
     let y = this._stick.y + this._pad.y;
@@ -302,11 +294,9 @@ export class FlightControls {
     _quaternion.setFromEuler(_euler);
     this.camera.quaternion.multiply(_quaternion);
 
-    // --- surroundings -----------------------------------------------------
     this._findNearest();
     this._carryAlong();
 
-    // --- speed ------------------------------------------------------------
     const maxSpeed = heliocentricDistance(this.system.catalogue.edgeAU, this.system.scaleExponent) * 0.05;
     const cruise = THREE.MathUtils.clamp(this.altitude * APPROACH, MIN_SPEED, maxSpeed);
     const target = this.throttle * cruise * (this.boosting ? this.boostFactor : 1);

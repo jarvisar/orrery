@@ -3,15 +3,14 @@
  *
  * Browsers only grant full screen in answer to a click, a tap or a key press:
  * a controller's buttons do not count (Firefox bug 1740573, and Chrome is the
- * same). So a request from the controller goes straight through if there was
- * a click or key press in the last few seconds, and otherwise waits for the
- * next one - which the caller says on screen. Leaving full screen needs no
- * such permission.
+ * same). So a controller request goes through if the page still has user
+ * activation, and otherwise waits for the next click or key press, which the
+ * caller announces on screen. Leaving full screen needs no gesture.
  */
 
 const root = document.documentElement;
 
-/** How long a waiting request lasts before it is dropped, in milliseconds. */
+/** How long a waiting request lasts before it is dropped. */
 const PENDING_MS = 10_000;
 
 let pending = null;

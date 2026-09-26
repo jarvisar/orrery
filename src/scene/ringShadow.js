@@ -1,28 +1,19 @@
 /**
- * Saturn's ring shadows, computed analytically instead of with a shadow map.
+ * Ring shadows, computed analytically instead of with a shadow map.
  *
- * A point-light cube shadow map cannot resolve anything useful here. At
- * Saturn's distance a 1024px cube face spans some 10,000 scene units, which
- * puts roughly ten texels across the whole planet - enough to produce shadow
- * acne across the lit face and nothing else. Raising the resolution far enough
- * to help costs six full depth passes per frame.
+ * At Saturn's distance a 1024px point-light cube face spans ~10,000 scene
+ * units, roughly ten texels across the planet: shadow acne and nothing else.
+ * Both shadows are exactly solvable instead:
  *
- * Both shadows that matter for a ringed planet are exactly solvable, though:
- *
- *   Rings onto planet - march from the surface point toward the Sun, find where
- *     that ray crosses the ring plane, and look up the ring's own opacity at
- *     that radius.
+ *   Rings onto planet - intersect the ray to the Sun with the ring plane and
+ *     look up the ring's opacity at that radius.
  *   Planet onto rings - a ray/sphere test from the ring point toward the Sun.
- *
- * Both are a few instructions, exact at any zoom, and free of artefacts.
  */
 
 import * as THREE from 'three';
 import { addPatch } from './shading.js';
 
 /**
- * Makes a planet's surface receive the shadow of its rings.
- *
  * @param {THREE.Material} material The planet's material.
  * @param {object} options
  * @param {number} options.innerRadius Ring inner radius, scene units.
@@ -91,14 +82,10 @@ export function receiveRingShadow(material, { innerRadius, outerRadius }) {
 }
 
 /**
- * Makes a ring plane fall dark where its planet eclipses the Sun, and light it
- * by how high the Sun stands above it.
- *
- * Rings are a thin layer of ice, and a thin layer lit at a grazing angle is
- * dim: near a Saturnian equinox, with the Sun edge-on to the plane, the rings
- * all but vanish. Seen from the side away from the Sun they are lit only by
- * what filters through, so the dense B ring goes dark and the sparse parts
- * glow - the photographic negative of the sunlit face.
+ * Darkens a ring plane where its planet eclipses the Sun, and lights it by the
+ * Sun's elevation above it: near equinox the rings all but vanish. From the
+ * unlit side only transmitted light shows, so dense bands go dark and sparse
+ * ones glow.
  *
  * @param {THREE.Material} material The ring material.
  * @param {object} options

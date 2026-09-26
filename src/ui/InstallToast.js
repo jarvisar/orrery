@@ -1,10 +1,9 @@
 /**
  * A one-time suggestion to install the app.
  *
- * It appears at most once per browser: on the first visit where installation is
- * possible, and only after the first-visit hint has had the floor. It stays
- * until it is answered, since it will never come back; after that, the link in
- * the settings panel is the way to install.
+ * Shown at most once per browser, after the first-visit hint, and it stays
+ * until answered since it never comes back. After that, the settings panel
+ * link is the way to install.
  */
 
 import { el, icon } from './dom.js';
@@ -58,10 +57,7 @@ export class InstallToast {
     });
   }
 
-  /**
-   * Shows the toast if it never has been, as soon as the browser offers
-   * installation - which may be now, later in this visit, or never.
-   */
+  /** Shows the toast, once ever, whenever the browser offers installation. */
   offer() {
     if (this._waiting || wasOffered()) return;
     this._waiting = true;

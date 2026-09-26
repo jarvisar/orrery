@@ -734,7 +734,6 @@ export const BODIES = [
   },
 ];
 
-/** Fast lookup by id. */
 export const BODY_BY_ID = new Map(BODIES.map((b) => [b.id, b]));
 
 /** Children of a given body, in catalogue order. */

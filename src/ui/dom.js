@@ -1,14 +1,10 @@
 /**
- * Small DOM helpers.
- *
- * The interface is built in JavaScript rather than declared in index.html so
- * that each panel owns its own markup, state and teardown in one file, and so
- * index.html can stay small enough to paint the loading screen immediately.
+ * Small DOM helpers. The interface is built here rather than in index.html so
+ * each panel owns its markup, and index.html stays small enough to paint the
+ * loading screen at once.
  */
 
 /**
- * Creates an element.
- *
  * @param {string} tag
  * @param {object} [props] Attributes; `class`, `text`, `html` and `on*` handlers
  *   are treated specially, everything else is set as an attribute.
@@ -109,7 +105,6 @@ const ICONS = {
   ],
 };
 
-/** Formats a distance in scene-agnostic terms for the info panel. */
 export function formatKm(km) {
   if (km >= 1e8) return `${(km / 1e6).toFixed(1)} million km`;
   if (km >= 1e6) return `${(km / 1e6).toFixed(2)} million km`;

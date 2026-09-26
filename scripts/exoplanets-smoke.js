@@ -42,6 +42,9 @@ try {
   assert.ok(await page.$('[data-system="Proxima Cen"]'));
   await page.$eval('.systems__tools input', (el) => { el.value = 'Tau Ceti'; el.dispatchEvent(new Event('input')); });
   assert.ok(await page.$('[data-system="tau Cet"]'), 'full Bayer names find the archive’s abbreviations');
+  // Cards say when only some of a system's stars can be drawn, once the supplement is in.
+  await page.$eval('.systems__tools input', (el) => { el.value = 'Kepler-444'; el.dispatchEvent(new Event('input')); });
+  await page.waitForFunction(() => document.querySelector('[data-system="Kepler-444"] small')?.textContent.includes('host star only'), { timeout: 10_000 });
   await page.$eval('.systems__tools input', (el) => { el.value = 'Proxima'; el.dispatchEvent(new Event('input')); });
   await page.addScriptTag({ path: require.resolve('axe-core/axe.min.js') });
   const violations = await page.evaluate(async () => (await axe.run(document.querySelector('.systems'), {
@@ -86,7 +89,7 @@ try {
     ['Kepler-16', 2, 'Kepler-16 b'], ['Kepler-47', 2, 'Kepler-47 d'],
     ['Proxima Cen', 3, 'Proxima Cen b'], ['PH1', 2, 'PH1 b'],
     ['Kepler-444', 1, 'Kepler-444 b'], ['HD 133131 A', 2, 'HD 133131 B b'],
-    ['PSR B1257+12', 1, 'PSR B1257+12 b'], ['HR 8799', 1, 'HR 8799 b'], ['GJ 414 A', 2, 'GJ 414 A b'],
+    ['PSR B1257+12', 1, 'PSR B1257+12 b'], ['HR 8799', 1, 'HR 8799 b'], ['GJ 414 A', 2, 'GJ 414 A b'], ['16 Cyg B', 3, '16 Cyg B b'],
   ]) {
     await page.goto(`${origin}/?debug&system=${encodeURIComponent(name)}`, { waitUntil: 'load' });
     await waitForApp(page);
@@ -131,6 +134,10 @@ try {
       await sleep(300);
       assert.equal(await page.$eval('.info__title', (el) => el.textContent), planet);
       assert.ok(!await page.$eval('.info', (el) => /NaN|Infinity/.test(el.textContent)));
+      // Stars NASA lists that cannot be drawn are named, or counted, next to the ones that are.
+      const note = await page.$eval('.info', (el) => el.querySelector('.info__hidden-stars')?.textContent ?? null);
+      if (name === 'Kepler-444') assert.equal(note, 'Not shown: Kepler-444 B, Kepler-444 C, orbits unknown.');
+      if (stars === 3 && name !== 'Kepler-444') assert.equal(note, null, `${name} draws all its stars`);
     }
     if (name === 'Kepler-16' || name === 'Proxima Cen' || name === 'GJ 414 A') {
       await page.evaluate(() => window.orrery.ui.showOverview(undefined, { instant: true }));

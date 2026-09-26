@@ -32,10 +32,8 @@ export const MIN_RATE = RATE_PRESETS[0].daysPerSecond;
 export const MAX_RATE = RATE_PRESETS[RATE_PRESETS.length - 1].daysPerSecond;
 
 /**
- * One simulated hour per second. Earth turns once every 24 seconds and the
- * Moon visibly creeps along its orbit, so the scene is alive without anything
- * spinning faster than the eye can follow. Faster rates are for watching
- * orbits, and there the planets' own rotation turns into a blur regardless.
+ * One simulated hour per second: Earth turns once every 24 seconds and the
+ * Moon visibly creeps along its orbit, without anything spinning into a blur.
  */
 export const DEFAULT_RATE_INDEX = 3;
 
@@ -110,7 +108,6 @@ export class Clock {
     this._travel = { from: this.days, to: days, elapsed: 0, seconds };
   }
 
-  /** True while an animated jump is still playing. */
   get isTravelling() {
     return this._travel !== null;
   }
@@ -133,16 +130,14 @@ export class Clock {
     this.travelTo(daysSinceJ2000(new Date()), options);
   }
 
-  /** Signed rate, for display. */
   get signedRate() {
     return this.daysPerSecond * this.direction;
   }
 
   /**
-   * A human-readable version of the current rate. Uses the preset's own label
-   * when the rate sits on one, so the readout says "1 month/s" rather than the
-   * arithmetically equal but unfamiliar "4.3 weeks/s"; anything in between is
-   * given in the largest unit that keeps it at or above one.
+   * The current rate for display. A rate on a preset uses its label ("1 month/s",
+   * not "4.3 weeks/s"); anything else uses the largest unit that keeps it at or
+   * above one.
    */
   describeRate() {
     const perSecond = Math.abs(this.daysPerSecond);

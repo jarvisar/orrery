@@ -1,17 +1,12 @@
 /**
  * Playback controls for the simulation clock.
  *
- * The old build had a single hidden behaviour here - pressing space froze
- * rotation - and no way to see or set where in time you were. Since every
- * position is now a function of the date, the clock is worth exposing: you can
- * run the system backwards, jump to today, and watch the date advance.
+ * The rate slider is on a log scale, since the useful range runs from real
+ * time to ten years a second - eight orders of magnitude. The named presets
+ * are detents on it, and the , and . keys step between them.
  *
- * The rate is a continuous slider on a log scale, since the useful range runs
- * from real time to ten years a second - eight orders of magnitude. The named
- * presets are detents on it, and the , and . keys step between them.
- *
- * The date itself opens a small panel for going somewhere in time: any date,
- * a short list of moments worth seeing, and a link back to this one.
+ * The date opens a panel for jumping to any date or a listed moment, and for
+ * copying a link to the current one.
  */
 
 import { el, icon } from './dom.js';
@@ -19,7 +14,7 @@ import { RATE_PRESETS, MIN_RATE, MAX_RATE } from '../sim/Clock.js';
 import { daysSinceJ2000 } from '../sim/kepler.js';
 import { MOMENTS } from '../data/moments.js';
 
-/** Slider resolution. Fine enough that the step between positions is invisible. */
+/** Slider resolution, fine enough that one step is invisible. */
 const STEPS = 1000;
 /** How close, in slider steps, a drag has to come to a preset to snap onto it. */
 const DETENT = 14;
@@ -78,8 +73,7 @@ export class TimeBar {
       this.stepRate(event.detail);
     });
 
-    // The detents drawn as graduations under the slider, so the scale reads
-    // like an instrument dial and the snap points are visible before a drag.
+    // Tick marks under the slider, so the snap points are visible before a drag.
     this.rateScale = el('span', { class: 'timebar__scale' }, [
       el(
         'span',
@@ -147,8 +141,6 @@ export class TimeBar {
     };
     document.addEventListener('click', this._onDocumentClick);
   }
-
-  /* --- going somewhere in time ------------------------------------------- */
 
   _buildPanel() {
     this.dateInput = el('input', {
@@ -335,7 +327,7 @@ export class TimeBar {
     this.tick();
   }
 
-  /** Refreshes the date readout. Cheap enough to call a few times a second. */
+  /** Refreshes the date readout; cheap enough to call a few times a second. */
   tick() {
     const date = this.clock.formatDate();
     if (this.dateMain.textContent !== date) this.dateMain.textContent = date;

@@ -1,20 +1,18 @@
 /**
- * The controller legend: which buttons do what, for whatever you are doing.
+ * The controller legend: which buttons do what in the current context.
  *
- * It comes up when a controller connects and whenever what the buttons do
- * changes - taking off, starting a tour - then fades, the way the first-visit
- * hint does. While the controller is moving round the interface it stays up,
- * since that is exactly when the way back out is easy to forget; once a menu
- * or panel is open it steps aside, as those explain themselves.
+ * It comes up when a controller connects or the bindings change (taking off,
+ * starting a tour), then fades. While the controller is moving round the
+ * interface it stays up, since that is when the way back out is easy to forget.
  *
- * A short line above it carries news: a controller connecting or going, or a
+ * A line above it carries news: a controller connecting or going, or a
  * full-screen request waiting on a key press.
  */
 
 import { el } from './dom.js';
 import { padGlyph, padName } from './padGlyphs.js';
 
-/** Seconds the legend stays before fading, when it is not being held up. */
+/** How long the legend stays before fading, unless held up. */
 const LINGER_MS = 7000;
 
 /** Keep in step with the bindings in src/main.js and the list in HelpOverlay.js. */
@@ -65,7 +63,6 @@ export class GamepadHud {
     this.root = el('div', { class: 'padbar', hidden: true }, [this.title, this.list]);
   }
 
-  /** Redraws the glyphs for another make of controller. */
   setFamily(family) {
     if (family === this.family) return;
     this.family = family;
@@ -74,9 +71,8 @@ export class GamepadHud {
   }
 
   /**
-   * Shows the legend for a context: 'orbit', 'tour', 'flight' or
-   * 'interface', or with null puts it away. Sticky holds it up until the
-   * next call; otherwise it fades after a few seconds.
+   * @param {'orbit'|'tour'|'flight'|'interface'|null} context Null puts it away.
+   * @param {{sticky?: boolean}} [options] Sticky holds it up until the next call.
    */
   show(context, { sticky = false } = {}) {
     this.context = context;
@@ -98,7 +94,7 @@ export class GamepadHud {
     this._reveal(Math.max(ms, this._lingerLeft()));
   }
 
-  /** Takes the news line down early, once what it was waiting on has happened. */
+  /** Takes the news line down early. */
   clearNotice() {
     if (!this._noticeActive) return;
     clearTimeout(this._noticeTimer);

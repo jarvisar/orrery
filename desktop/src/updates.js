@@ -22,7 +22,6 @@
 import { app, BrowserWindow, ipcMain, net, shell } from 'electron';
 import { SOURCE_URL } from './identity.js';
 
-/** Where the published release's latest.yml and installers are. */
 const RELEASE_FEED = `${SOURCE_URL}/releases/latest/download/`;
 /** Long enough that checking never competes with loading the scene. */
 const FIRST_CHECK_MS = 15_000;

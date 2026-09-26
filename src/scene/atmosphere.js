@@ -1,21 +1,13 @@
 /**
- * Atmospheric limb glow.
+ * Atmospheric limb glow: air is invisible face-on and bright edge-on.
  *
- * Seen from space, air is invisible face-on and bright edge-on: looking through
- * the limb you look through hundreds of kilometres of it at a grazing angle.
- * That thin lit rim is most of what makes a planet read as a place rather than
- * a textured ball.
+ * One transparent shell, slightly larger than the planet. Its back faces show
+ * only between the planet's edge and the shell's, drawing the halo off the
+ * limb; its front faces cover the disc, drawing haze that thickens toward the
+ * edge. Both fade across the terminator, with some forward-scattered light
+ * carried onto the night side (a crescent Earth's blue rim).
  *
- * One transparent shell, a little larger than the planet, does both halves of
- * the effect. Its back faces show only in the ring between the planet's edge
- * and the shell's, and draw the halo standing off the limb. Its front faces
- * cover the disc, and draw the haze thickening toward the edge of it. Both are
- * lit from the Sun's side and fade across the terminator, with a little
- * forward-scattered light carried round onto the night side, which is what
- * gives a crescent Earth its blue rim.
- *
- * Additive, and in HDR: the brightest part of the rim sits just above white, so
- * the bloom pass softens it the way a camera would.
+ * Additive and HDR: the rim peaks just above white so the bloom pass softens it.
  */
 
 import * as THREE from 'three';

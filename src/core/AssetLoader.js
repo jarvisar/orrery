@@ -1,29 +1,21 @@
 /**
- * Texture and model loading, with three things the old loader did not do.
+ * Texture and model loading.
  *
- * 1. Priority. Only the Sun, the eight planets and the sky block the loading
- *    screen. Moons, dwarf planets and every bump map stream in afterwards while
- *    the user is already flying around. Focusing a body promotes its textures to
- *    the front of the queue.
+ * 1. Priority. Only the Sun, the planets and the sky block the loading screen;
+ *    moons, dwarf planets and bump maps stream in afterwards. Focusing a body
+ *    promotes its textures to the front of the queue.
  *
- * 2. Placeholders that keep the shader stable. Every optional map slot starts
- *    life holding a 1x1 texture, so the material compiles once with its final
- *    set of features. Swapping in the real image later is a plain texture upload
- *    - it never triggers a shader recompile, which is what used to lock the tab
- *    for a second the first time you looked at a planet.
+ * 2. Placeholders. Every optional map slot starts with a 1x1 texture, so the
+ *    material compiles once with its final features and swapping in the real
+ *    image is a plain upload, never a shader recompile.
  *
- * 3. Paced GPU uploads. Images are decoded off the main thread, then pushed to
- *    the GPU one per frame via `renderer.initTexture`. A texture is only handed
- *    to the material that asked for it once it is uploaded, so no draw call
- *    ever finds itself uploading - and decoding - a texture mid-frame. That
- *    used to happen whenever a moon's maps arrived while it was on screen.
+ * 3. Paced GPU uploads. Images are decoded off the main thread and uploaded one
+ *    per frame via `renderer.initTexture`; a material only gets its texture once
+ *    uploaded, so no draw call uploads (or decodes) mid-frame.
  *
- *    Images are decoded to ImageBitmaps, already flipped the way WebGL wants
- *    them. Uploading an <img> makes the browser flip and convert every pixel
- *    on the main thread inside the upload call. Measured in headless Chrome,
- *    that was 55 to 170ms for one 2k map: a visible hitch for each of the
- *    forty-odd maps that stream in after the loading screen. The same upload
- *    from an ImageBitmap took 5 to 13ms.
+ *    Images decode to ImageBitmaps, pre-flipped for WebGL. Uploading an <img>
+ *    flips and converts every pixel on the main thread: 55-170ms for a 2k map
+ *    in headless Chrome, against 5-13ms from an ImageBitmap.
  */
 
 import * as THREE from 'three';
@@ -69,11 +61,9 @@ export class AssetLoader {
     };
   }
 
-  /** A 1x1 stand-in with the right colour space for a given map slot. */
   placeholderFor(slot) {
     if (slot === 'bumpMap' || slot === 'displacementMap') return this.placeholders.grey;
-    // Black stands in for an emissive map so an unloaded night side stays dark
-    // rather than flashing white before the real texture lands.
+    // So an unloaded night side stays dark rather than flashing white.
     if (slot === 'emissiveMap') return this.placeholders.black;
     return this.placeholders.white;
   }
@@ -87,8 +77,6 @@ export class AssetLoader {
    * @param {number} priority Lower numbers load first.
    */
   texture(name, slot = 'map', priority = 10) {
-    // Every request for a name shares one promise, whether the texture is
-    // queued, decoding or already done.
     const known = this._requests.get(name);
     if (known) {
       const queued = this._queue.find((t) => t.name === name);
@@ -103,10 +91,7 @@ export class AssetLoader {
     return promise;
   }
 
-  /**
-   * Raises the priority of not-yet-loaded textures so they jump the queue.
-   * Used when focusing a body whose detail maps are still streaming.
-   */
+  /** Moves still-queued textures up the queue. Returns whether any changed. */
   promote(names, priority = -5) {
     let changed = false;
     for (const name of names) {
@@ -119,7 +104,7 @@ export class AssetLoader {
     return changed;
   }
 
-  /** How many textures are still queued, decoding or uploading. Shown in the stats readout. */
+  /** Textures still queued, decoding or uploading. */
   get pending() {
     return this._queue.length + this._inFlight.size + this._uploadQueue.length;
   }
@@ -129,11 +114,8 @@ export class AssetLoader {
    *
    * @param {object} [options]
    * @param {number} [options.concurrency] How many decodes to keep in flight.
-   *   Browsers cap connections per origin anyway; 6 keeps the pipe full without
-   *   starving the main thread of decode slots.
    * @param {number} [options.maxPriority] Only load jobs at or below this
-   *   priority. This is what keeps moons and detail maps out of the initial
-   *   load while still queueing them up front.
+   *   priority; the rest stay queued.
    * @param {(loaded:number, total:number, name:string) => void} [options.onProgress]
    */
   async drain({ concurrency = 6, maxPriority = Infinity, onProgress } = {}) {
@@ -180,10 +162,9 @@ export class AssetLoader {
       texture.anisotropy = this._maxAnisotropy;
 
       if (name === 'saturn_rings') {
-        // A 1-pixel-tall radial strip. It needs mipmaps - seen near edge-on the
-        // radial axis is minified hard, and without them the Cassini division
-        // turns into crawling noise - but it must not wrap, or the outer edge
-        // of the rings bleeds into the inner.
+        // A 1-pixel-tall radial strip. Mipmaps stop the Cassini division
+        // crawling when seen near edge-on; clamping stops the outer edge
+        // bleeding into the inner.
         texture.wrapS = THREE.ClampToEdgeWrapping;
         texture.wrapT = THREE.ClampToEdgeWrapping;
         texture.minFilter = THREE.LinearMipmapLinearFilter;
@@ -204,7 +185,6 @@ export class AssetLoader {
     }
   }
 
-  /** An image, fully decoded and ready to upload, as a texture. */
   async _decode(url) {
     if (BITMAPS_WORK) {
       const response = await fetch(url);
@@ -216,18 +196,13 @@ export class AssetLoader {
       return texture;
     }
     const texture = await this._textureLoader.loadAsync(url);
-    // Left to itself the browser decodes an image lazily, synchronously,
-    // inside the texImage2D call that uploads it: tens of milliseconds for a
-    // 2k map on a phone, charged to whichever frame did the upload. decode()
-    // does it on another thread, ahead of time.
+    // Otherwise the browser decodes lazily inside texImage2D: tens of ms for a
+    // 2k map on a phone. decode() does it ahead of time, off the main thread.
     await texture.image.decode?.().catch(() => {});
     return texture;
   }
 
-  /**
-   * Loads a .glb and caches the parsed scene. The promise is what gets cached,
-   * so a model the scene and the loading screen both ask for is fetched once.
-   */
+  /** Loads a .glb; the promise is cached, so concurrent requests fetch once. */
   model(name) {
     if (!this.models.has(name)) {
       this.models.set(name, this._gltfLoader.loadAsync(`${MODEL_DIR}${name}.glb`).then((gltf) => {
@@ -244,9 +219,8 @@ export class AssetLoader {
   }
 
   /**
-   * Pushes decoded textures to the GPU and hands them to whoever asked. Called
-   * once per frame with a budget of one; uploading everything in one go is
-   * exactly the stall we are avoiding. Returns how many it uploaded.
+   * Uploads up to `budget` decoded textures and resolves their requests.
+   * Called once per frame with a budget of one. Returns how many it uploaded.
    */
   pumpUploads(budget = 1) {
     let uploaded = 0;
@@ -255,8 +229,7 @@ export class AssetLoader {
       try {
         this.renderer.initTexture(texture);
       } catch {
-        // A context loss mid-upload is not worth taking the frame down for;
-        // the first draw that uses the texture will upload it instead.
+        // E.g. context loss; the first draw that uses it will upload it instead.
       }
       resolve(texture);
     }
@@ -272,10 +245,7 @@ export class AssetLoader {
   }
 }
 
-/**
- * The manifest maps a stem to its actual filename, because colour maps ended up
- * as .webp and single-channel data maps as .jpg.
- */
+/** Maps a stem to its filename: colour maps are .webp, single-channel data maps .jpg. */
 let manifestPromise = null;
 async function loadManifest() {
   manifestPromise ??= fetch(`${TEXTURE_DIR}manifest.json`).then((r) => r.json());
@@ -290,9 +260,8 @@ async function resolveFile(name) {
 }
 
 /**
- * Whether createImageBitmap takes the options above. The same test three's own
- * GLTFLoader makes: Safari before 17 and Firefox before 98 either lack it or
- * ignore the flip, and get the <img> path instead.
+ * Whether createImageBitmap honours the options above (the same test as three's
+ * GLTFLoader): Safari < 17 and Firefox < 98 lack it or ignore the flip.
  */
 const BITMAPS_WORK = (() => {
   if (typeof createImageBitmap === 'undefined') return false;

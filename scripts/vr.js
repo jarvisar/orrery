@@ -1,16 +1,11 @@
 #!/usr/bin/env node
 /**
- * Puts the page in a headset that is not there, and uses it.
+ * Drives VR through IWER, Meta's WebXR emulator, standing in for a Quest 3:
+ * pointing and selecting, grabbing, two-handed scaling, the sticks and face
+ * buttons, the panel by ray and by fingertip, the palm gesture, and recentring.
  *
- * IWER, Meta's WebXR emulator, stands in for a Quest 3: it answers
- * navigator.xr, runs an immersive session in headless Chrome, and lets this
- * script move the head, controllers and hands and press their buttons. The
- * checks drive every way in: pointing and selecting, grabbing, both-hands
- * scaling, the sticks and face buttons, the panel by ray and by fingertip,
- * the left palm bringing the panel over, and recentring.
- *
- * The controller and hand models normally come from a CDN. Requests to it are
- * refused here, which keeps the run hermetic and exercises the offline stand-ins.
+ * Requests to the CDN the controller and hand models come from are refused,
+ * which keeps the run hermetic and exercises the offline stand-ins.
  *
  *   npm run vr               # skips cleanly if no Chrome is installed
  *   npm run vr -- --strict   # missing Chrome is a failure (used by CI)

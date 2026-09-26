@@ -1,10 +1,9 @@
 /**
  * Dates worth jumping to.
  *
- * Every one of these is something the model can actually show - a moment
- * defined by where the planets are, not by a spacecraft or an eclipse, which
- * the Keplerian elements here are not precise enough to reproduce. Each says
- * what to look at: a body to focus, or an overview framed to a radius in AU.
+ * Each is defined by where the planets are, not by a spacecraft or an eclipse,
+ * which the Keplerian elements here are not precise enough to reproduce. `view`
+ * is a body to focus, or an overview framed to a radius in AU.
  */
 
 /**

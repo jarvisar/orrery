@@ -1,23 +1,16 @@
 /**
- * Game controllers, through the Gamepad API.
+ * Game controllers, through the Gamepad API. The API only offers a snapshot, so
+ * this is polled from the frame loop and turns it into presses, auto-repeat and
+ * dead-zoned sticks.
  *
- * The API has no events worth relying on for input - only a snapshot of every
- * pad to be read each frame - so this is polled from the frame loop and turns
- * that snapshot into what the rest of the app wants to ask: was A pressed this
- * frame, is the D-pad being held (with key-style auto-repeat), where are the
- * sticks once their resting drift is taken out.
+ * Connections are found by diffing snapshots, since some browsers fire
+ * `gamepadconnected` late or not at all. Browsers also hide a controller until
+ * a button is pressed, so "connected" means "connected and touched". With
+ * several connected, only the last one used is read (summing them would add up
+ * every stick's drift).
  *
- * Connections are noticed by comparing snapshots rather than by listening for
- * `gamepadconnected`, which some browsers fire late or not at all. Browsers
- * also hide controllers from a page until one of their buttons is pressed, so
- * "connected" here means "connected and touched".
- *
- * With several controllers connected, the one listened to is whichever was
- * last used; reading them all at once would add up every stick's drift.
- *
- * Layout follows the standard mapping (w3c.github.io/gamepad/#remapping): the
- * names below are positions, and the glyphs in src/ui/padGlyphs.js say what a
- * given make of controller prints on them.
+ * Names are positions in the standard mapping (w3c.github.io/gamepad/#remapping);
+ * src/ui/padGlyphs.js has what each make prints on them.
  */
 
 /** Standard-mapping button indices, by position. `a` is the bottom face button. */
@@ -82,12 +75,10 @@ export class GamepadInput {
     this._diff(pads);
 
     const previous = this.pad;
-    // Whichever controller was last pressed is the one that counts.
     const pressing = pads.find((pad) => pad.index !== previous?.index && pad.buttons.some((b) => b.pressed));
     this.pad = pressing ?? pads.find((pad) => pad.index === previous?.index) ?? pads[0] ?? null;
-    // A controller taken up mid-press - and browsers only reveal one once a
-    // button is pressed - starts with that press already down, so it wakes
-    // the controller rather than also doing whatever the button does.
+    // A newly revealed controller starts with its waking press already down,
+    // so that press does not also trigger the button's action.
     const fresh = this.pad?.index !== previous?.index;
     if (fresh) {
       this._reset();
@@ -111,9 +102,8 @@ export class GamepadInput {
       this._update(name, down, dt, fresh);
     }
 
-    // The stick as a D-pad, with hysteresis so a stick held near the
-    // threshold does not chatter, and only along its stronger axis so a
-    // diagonal does not press two directions at once.
+    // The stick as a D-pad: hysteresis stops chatter near the threshold, and
+    // only the stronger axis counts so a diagonal is not two presses.
     const { x, y } = this.left;
     const horizontal = Math.abs(x) >= Math.abs(y);
     const beyond = (name, value) =>
@@ -204,7 +194,6 @@ export class GamepadInput {
     state.down = down;
   }
 
-  /** Forgets every held button, so a new controller does not start with the old one's presses. */
   _reset() {
     for (const state of this._buttons.values()) Object.assign(state, blankState());
     this.left.x = this.left.y = this.right.x = this.right.y = 0;

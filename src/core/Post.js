@@ -1,25 +1,13 @@
 /**
- * The finishing pipeline: HDR render, bloom, then a film-like final pass.
+ * Post-processing: HDR render, bloom, then a final pass that tone maps the
+ * whole frame at once, adds a slight vignette and dithers. The scene renders
+ * into a half-float target so the Sun can be brighter than white. Can be
+ * switched off in Settings.
  *
- * Rendering straight to the canvas clips every value at white and tone maps
- * each material separately, which is a large part of why a raw three.js scene
- * looks like a tech demo: highlights are hard-edged, the Sun is a flat disc,
- * and dark gradients band. Here the scene renders into a half-float target, so
- * the Sun can be several times brighter than white. Bloom spreads the
- * brightest light the way a lens does. One final pass then tone maps the whole
- * frame at once, adds a slight vignette, and dithers to kill banding in the
- * glows and the Milky Way.
- *
- * It costs a few full-screen passes, so it can be switched off in Settings; the
- * scene looks the same without it, minus the glow.
- *
- * The bloom is added back in the final pass rather than by the bloom pass
- * itself. Out of the box, UnrealBloomPass ends by blending its result into the
- * scene target - on every sample of a 4x multisampled half-float buffer, which
- * then has to be resolved a second time - only for the final pass to read the
- * whole frame straight back out. Folding the add into the final pass is the
- * same sum for two full-screen passes less, which matters most on phones,
- * where memory bandwidth is the scarcest thing there is.
+ * The bloom is added in the final pass rather than by the bloom pass itself.
+ * UnrealBloomPass would blend into the 4x multisampled scene target, which then
+ * needs a second resolve; folding the add into the final pass saves two
+ * full-screen passes, which matters on bandwidth-limited phones.
  */
 
 import * as THREE from 'three';
@@ -28,7 +16,6 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 
-/** Samples per pixel for the multisampled scene target. */
 const MULTISAMPLES = 4;
 
 export class Post {
@@ -46,26 +33,24 @@ export class Post {
     const size = renderer.getDrawingBufferSize(new THREE.Vector2());
     const target = new THREE.WebGLRenderTarget(size.x, size.y, {
       type: THREE.HalfFloatType,
-      // The canvas's own antialiasing does not apply to an offscreen target.
-      // Whether this one gets it is the resolution controller's call; see
-      // setSize() and src/core/Viewport.js.
+      // The canvas's antialiasing does not apply offscreen. Whether this target
+      // is multisampled is the resolution controller's call; see setSize() and
+      // src/core/Viewport.js.
       samples: MULTISAMPLES,
     });
 
     this.composer = new EffectComposer(renderer, target);
     this.composer.addPass(new RenderPass(scene, camera));
 
-    // Threshold just above white, so only genuinely bright light blooms: the
-    // Sun, the lit limb of an atmosphere, the brightest stars.
+    // Threshold just above white, so only the Sun, lit atmosphere limbs and the
+    // brightest stars bloom.
     this.bloom = new Bloom(size.clone(), 0.5, 0.45, 0.9);
     this.composer.addPass(this.bloom);
 
     this.finish = new FinishPass(this.bloom);
-    // The composer keeps two targets and swaps them after any pass that asks,
-    // which by default this one does. The scene would then go to each target on
-    // alternate frames, and both would be allocated: two full-size HDR buffers,
-    // multisampled, where one does. This pass draws to the screen, so it
-    // leaves nothing behind that needs swapping in.
+    // This pass draws to the screen, so nothing needs swapping in. With the
+    // default swap the scene would alternate between the composer's two
+    // targets, keeping two multisampled HDR buffers allocated where one does.
     this.finish.needsSwap = false;
     this.composer.addPass(this.finish);
   }
@@ -91,9 +76,8 @@ export class Post {
   }
 
   render(deltaSeconds) {
-    // A headset draws both eyes into a framebuffer of its own, which the
-    // composer's offscreen passes cannot target. In VR the frame goes straight
-    // there, tone mapped per material as it is with effects off.
+    // The composer cannot target a headset's own framebuffer, so VR renders
+    // directly, tone mapped per material as with effects off.
     if (this.enabled && !this.renderer.xr.isPresenting) this.composer.render(deltaSeconds);
     else this.renderer.render(this.scene, this.camera);
   }
@@ -106,9 +90,8 @@ export class Post {
 }
 
 /**
- * three's bloom, stopping one step short: the blurred glow is left in
- * {@link Bloom#texture} for FinishPass to add, instead of being blended back
- * into the scene target. Otherwise the same passes, in the same order, as
+ * three's bloom without the final blend: the glow is left in
+ * {@link Bloom#texture} for FinishPass to add. Otherwise mirrors
  * UnrealBloomPass.render in the vendored three.js - keep the two in step when
  * three is upgraded.
  */
@@ -168,10 +151,7 @@ class Bloom extends UnrealBloomPass {
   }
 }
 
-/**
- * Tone mapping and colour-space conversion, as three's OutputPass does, plus
- * the two things that make a render look photographed rather than drawn.
- */
+/** Tone mapping and colour-space conversion as in three's OutputPass, plus bloom, vignette and dither. */
 class FinishPass extends Pass {
   /** @param {Bloom} bloom Whose glow to add; see the note at the top of this file. */
   constructor(bloom) {
@@ -230,15 +210,14 @@ class FinishPass extends Pass {
             color.rgb = LinearToneMapping( color.rgb );
           #endif
 
-          // A lens darkens toward its corners. Barely: enough to hold the eye
-          // in the middle of the frame, not enough to notice as an effect.
+          // A barely noticeable vignette.
           vec2 centred = ( vUv - 0.5 ) * vec2( uResolution.x / uResolution.y, 1.0 );
           color.rgb *= 1.0 - 0.22 * smoothstep( 0.45, 1.15, length( centred ) );
 
           color = sRGBTransferOETF( color );
 
-          // Triangular dither of about one 8-bit step. The glows and the Milky
-          // Way are long, faint gradients, which is exactly where banding shows.
+          // Triangular dither of about one 8-bit step, against banding in the
+          // glows and the Milky Way.
           vec2 pixel = gl_FragCoord.xy;
           float noise = hash( pixel ) + hash( pixel + 71.3 ) - 1.0;
           color.rgb += noise / 255.0;

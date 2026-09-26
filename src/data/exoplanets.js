@@ -371,40 +371,38 @@ export function makeSystem(entry, data, supplement = null) {
   // Use one planet's stellar solution, rather than silently mixing stellar properties.
   const host = [...entry.planets].sort((a, b) => stellarScore(b) - stellarScore(a))[0];
   const starId = `star:${entry.name}`;
-  const hostStar = nasaStar(entry, host, data, starId);
   const stellarNodes = layout?.nodes ?? [];
   const nodesById = new Map(stellarNodes.map((n) => [n.id, n]));
-  const starCount = stellarNodes.filter((n) => n.kind === 'star').length;
+  const companions = companionSummary(entry, layout);
+  const hostStar = nasaStar(entry, host, data, starId, companions);
   const stars = layout ? stellarNodes.filter((n) => n.kind === 'star').map((node) => {
     const orbit = node.orbit ? { ...node.orbit, fraction: node.fraction } : undefined;
     const hierarchy = [...node.notes,
       `Stellar hierarchy and companion properties: Open Exoplanet Catalogue, retrieved ${layout.fetchedAt.slice(0, 10)}.`,
       'Stellar phases and mutual orbital orientations are illustrative. Hierarchical two-body orbits omit gravitational perturbations.'];
-    const blurb = `${entry.stars}-star system. ${layout.missing.length ? `Companions without complete orbits: ${layout.missing.join(', ')}.` : ''}`.trim();
-    const shown = { 'Stars shown': `${starCount} of ${entry.stars}` };
     // The planets' own host keeps NASA's measurements and citations.
     if (node.id === starId && layout.hostIsStar) {
-      return { ...hostStar, name: node.name, parent: node.parent, orbit, blurb: `${planetCount(entry)} ${blurb}`,
-        facts: { ...hostStar.facts, ...shown }, modelNotes: [...hostStar.modelNotes, ...hierarchy],
-        companionSource: layout.source };
+      return { ...hostStar, name: node.name, parent: node.parent, orbit,
+        modelNotes: [...hostStar.modelNotes, ...hierarchy], companionSource: layout.source };
     }
     const radius = stellarRadiusEstimate({ ...node.values, hostname: node.name });
     const temperature = usable(node.values, 'st_teff');
     return { ...hostStar, id: node.id, name: node.name, parent: node.parent, orbit,
       radiusKm: radius.radius * SOLAR_RADIUS_KM, temperature, color: stellarColor(temperature),
       source: layout.source, sourceName: 'Open Exoplanet Catalogue', sourceDate: layout.fetchedAt,
-      reference: null, blurb: node.id === starId ? `${planetCount(entry)} ${blurb}` : blurb,
+      reference: null, blurb: node.id === starId ? hostStar.blurb : companions.text,
       facts: { 'Distance from Earth': hostStar.facts['Distance from Earth'],
         'Spectral type': node.values.st_spectype ?? 'Not reported',
-        'Stellar radius': measuredText(node.values, 'st_rad', 'R☉'), 'Stellar mass': measuredText(node.values, 'st_mass', 'M☉'),
-        Temperature: measuredText(node.values, 'st_teff', 'K'), ...shown },
-      modelNotes: [radius.note, ...hierarchy, 'Stellar colour is the colour of a blackbody at the star’s temperature; surface detail is illustrative.'].filter(Boolean),
+        'Stellar radius': measuredText(node.values, 'st_rad', 'R☉'),
+        'Stellar mass': Number.isFinite(node.values.st_mass) ? measuredText(node.values, 'st_mass', 'M☉') : node.mass ? `About ${Number(node.mass.toPrecision(2))} M☉ (estimated)` : 'Not reported',
+        Temperature: measuredText(node.values, 'st_teff', 'K'), 'Stars shown': hostStar.facts['Stars shown'] },
+      modelNotes: [radius.note, node.massNote, ...hierarchy, 'Stellar colour is the colour of a blackbody at the star’s temperature; surface detail is illustrative.'].filter(Boolean),
     };
   }) : [hostStar];
   // The planets' host leads the lists; the rest keep their place in the hierarchy.
   stars.sort((a, b) => (b.id === starId) - (a.id === starId));
 
-  const planets =(layout?.rows ?? entry.planets).map((row) => {
+  const planets = (layout?.rows ?? entry.planets).map((row) => {
     const parentId = layout?.parents.get(row.pl_name) ?? starId;
     const parentNode = nodesById.get(parentId);
     const orbit = orbitModel(row, { binaryMass: parentNode?.kind === 'binary' ? parentNode.mass : null });
@@ -462,28 +460,46 @@ export function makeSystem(entry, data, supplement = null) {
     ? { centreId: starId, radiusAU: hostAU } : null;
 
   return { id: entry.name, name: entry.name, starId, bodies, allBodies: [...stars, ...planets], omitted, stellarNodes,
-    byId: new Map(bodies.map((b) => [b.id, b])), overviewAU, edgeAU: overviewAU * 2, home,
+    byId: new Map(bodies.map((b) => [b.id, b])), overviewAU, edgeAU: overviewAU * 2, home, companions,
     fetchedAt: data.fetchedAt, isExoplanet: true, entry };
 }
 
+/**
+ * How many stars NASA lists, how many are drawn, and a sentence saying which
+ * are not and why. Named where the supplement knows them; otherwise counted.
+ */
+export function companionSummary(entry, layout) {
+  const listed = entry.stars;
+  const shown = layout ? layout.nodes.filter((n) => n.kind === 'star').length : 1;
+  const hidden = Math.max(0, listed - shown);
+  const names = (layout?.missing ?? []).slice(0, hidden);
+  let text = listed > 1 ? `${listed}-star system.` : '';
+  if (hidden) {
+    const unnamed = hidden - names.length;
+    const who = [...names, ...(unnamed ? [`${names.length ? `${unnamed} more` : unnamed} companion ${unnamed === 1 ? 'star' : 'stars'}`] : [])];
+    const list = who.length > 1 ? `${who.slice(0, -1).join(', ')} and ${who.at(-1)}` : who[0];
+    text += ` ${list} ${hidden === 1 ? 'isn’t' : 'aren’t'} shown because ${hidden === 1 ? 'its orbit isn’t' : 'their orbits aren’t'} known.`;
+  }
+  return { listed, shown, hidden, names, text };
+}
+
 /** The NASA host star, from one planet row's stellar solution. */
-function nasaStar(entry, host, data, starId) {
+function nasaStar(entry, host, data, starId, companions) {
   const radius = stellarRadiusEstimate(host);
   const temperature = sourced(host, 'st_teff').value;
-  const multiple = entry.stars > 1;
   return {
     id: starId, name: entry.name, kind: 'star', parent: null, exoplanet: true,
     radiusKm: radius.radius * SOLAR_RADIUS_KM, temperature, color: stellarColor(temperature),
     source: archiveLink(entry.name), reference: reference(data, host.st_ref),
     distanceReference: reference(data, entry.planets.find((r) => positive(r.sy_dist))?.dist_ref),
-    blurb: planetCount(entry) +
-      (multiple ? ` ${entry.stars}-star system. Companion orbital data is incomplete; this view shows the host only.` : ''),
+    blurb: `${planetCount(entry)} ${companions.text}`.trim(),
     facts: {
       'Distance from Earth': entry.distance ? `${number(entry.distance * PARSEC_LY)} light-years` : 'Not reported',
       'Spectral type': host.st_spectype ?? (host.c_st_spectype ? `${host.c_st_spectype} (composite table)` : 'Not reported'),
       'Stellar radius': factText(host, 'st_rad', 'R☉'),
       'Stellar mass': factText(host, 'st_mass', 'M☉'),
       'Temperature': factText(host, 'st_teff', 'K'),
+      ...(companions.listed > 1 ? { 'Stars shown': `${companions.shown} of ${companions.listed}` } : {}),
     },
     modelNotes: [radius.note,
       'Distance is from the NASA composite table; stellar properties use one published default solution, with labelled composite values only where it has none.',

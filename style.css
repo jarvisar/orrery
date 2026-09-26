@@ -1,18 +1,13 @@
 /* ==========================================================================
    Orrery — interface styles
 
-   Styled as an instrument rather than an app. The scene is the subject, and
-   everything laid over it borrows from the brass-and-paper world an orrery
-   comes from: hairline rules, graduated scales, dotted leaders in the tables,
-   near-square plates rather than floating capsules. There is one accent, the
-   warm white-gold of sunlight, and it marks only what is live or chosen.
-   Every hit target stays touch-sized even where the drawn shape is smaller,
-   because this gets opened on phones more than anything else.
+   Styled as an instrument: hairline rules, graduated scales, dotted leaders,
+   near-square plates. The one accent marks only what is live or chosen.
+   Hit targets stay touch-sized even where the drawn shape is smaller.
    ========================================================================== */
 
-/* Both faces are self-hosted: the page loads nothing from a third party.
-   Inter carries the interface; Jost, a geometric face in the Futura tradition,
-   sets names, titles and the figures you read at a glance - the signage. */
+/* Self-hosted, so the page loads nothing from a third party. Inter for the
+   interface; Jost for names, titles and headline figures. */
 @font-face {
   font-family: "Inter";
   src: url("public/fonts/inter.woff2") format("woff2");
@@ -36,7 +31,6 @@
   --line: rgba(255, 255, 255, 0.08);
   --line-strong: rgba(255, 255, 255, 0.16);
 
-  /* A faintly warm white, as if lit by the Sun rather than a screen. */
   --text: #eeece6;
   --text-dim: rgba(238, 236, 230, 0.62);
   --text-faint: rgba(238, 236, 230, 0.5);
@@ -139,7 +133,6 @@ button {
   padding: 0;
 }
 
-/* Every inline icon is a stroked outline. */
 svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; flex: none; }
 
 .btn {
@@ -160,8 +153,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 .btn:hover { color: var(--text); }
 .btn:disabled { opacity: 0.3; pointer-events: none; }
 .btn[hidden] { display: none; }
-/* On, marked the way an instrument marks it: the control lights, and a small
-   index sits under it. */
+/* On: the control lights, with a small index under it. */
 .btn[aria-pressed="true"],
 .btn.is-active { color: var(--accent); }
 .btn[aria-pressed="true"]::after,
@@ -201,7 +193,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
   background: var(--hover);
   color: var(--text);
 }
-/* Nothing is being pointed at. */
+/* No pointer while a controller is in use. */
 .is-gamepad #viewport { cursor: none !important; }
 
 .sr-only {
@@ -216,8 +208,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
   border: 0;
 }
 
-/* The small label used for every section: set in the display face, spaced
-   like the engraving on a dial. */
+/* The small label used for every section. */
 .section-title,
 .picker__group,
 .tours__heading,
@@ -340,7 +331,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 }
 .topbar__divider { width: 1px; height: 16px; margin: 0 6px; background: var(--line-strong); }
 
-/* Star-system atlas: the same instrument plates, with room to browse. */
+/* Star-system atlas. */
 .systems-button { gap: 8px; white-space: nowrap; }
 .systems {
   color: var(--text); background: var(--plate-solid);
@@ -392,6 +383,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 .info__provenance { font-size: 11px; color: var(--text-dim); border-top: 1px solid var(--line); margin-top: 16px; padding-top: 12px; overflow-wrap: anywhere; }
 .info__provenance p { margin: 8px 0; }
 .info__unmodeled { margin-top: 12px; font-size: 11px; color: var(--text-dim); }
+.info__hidden-stars { margin: 10px 0 0; font-size: 11px; color: var(--text-dim); }
 .info__unmodeled summary { cursor: pointer; min-height: 36px; color: var(--text); }
 .is-exoplanet .info__title { overflow-wrap: anywhere; }
 @media (max-width: 1000px) { .systems-button > span { display: none; } }
@@ -441,7 +433,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 
 .picker { position: relative; }
 
-/* Reads as a title with a caret, not a button: the name of where you are. */
+/* Reads as a title with a caret, not a button. */
 .picker__button {
   display: flex;
   align-items: center;
@@ -668,10 +660,10 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
   display: grid;
 }
 .info__live:empty { display: none; }
-/* The live figures change as you watch; they carry the accent. */
+/* Live figures carry the accent. */
 .info__live-row span:last-child { color: var(--accent); }
 
-/* The orbit, face-on and to scale: a plate within the plate. */
+/* The orbit, face-on and to scale. */
 .info__diagram {
   margin: 0 0 14px;
   border: 1px solid var(--line);

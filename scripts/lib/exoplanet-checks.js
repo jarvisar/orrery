@@ -1,10 +1,8 @@
 /**
- * Invariants every catalogue must satisfy before it replaces the shipped copy:
- * whatever NASA or the Open Exoplanet Catalogue publish next, each system still
- * builds into a finite, drawable model that keeps every planet. These hold for
- * any data, so a weekly refresh can be checked by them without depending on
- * which systems happen to be in it (the named-system tests are for the
- * committed copy; see scripts/exoplanets.test.js).
+ * Invariants any catalogue must satisfy before it replaces the shipped copy:
+ * each system builds into a finite, drawable model that keeps every planet.
+ * They hold for any data, so the weekly refresh can use them; the named-system
+ * tests for the committed copy are in scripts/exoplanets.test.js.
  */
 import { groupSystems, makeSystem } from '../../src/data/exoplanets.js';
 import { orbitalPosition } from '../../src/sim/kepler.js';
@@ -27,6 +25,11 @@ export function verifyModels(data, supplement) {
     if (!(system.overviewAU > 0 && Number.isFinite(system.overviewAU))) fail('no finite overview');
     if (system.home && !(system.byId.has(system.home.centreId) && system.home.radiusAU > 0 && system.home.radiusAU < system.overviewAU)) {
       fail('invalid home view');
+    }
+    // The "Stars shown" line has to match what is drawn, and never exceed NASA's count.
+    const { listed, shown } = system.companions;
+    if (shown !== system.bodies.filter((b) => b.kind === 'star').length || shown < 1 || shown > listed) {
+      fail(`shows ${shown} of ${listed} stars but draws ${system.bodies.filter((b) => b.kind === 'star').length}`);
     }
     const anchors = new Set([...system.byId.keys(), ...system.stellarNodes.map((n) => n.id)]);
     for (const body of system.bodies) {

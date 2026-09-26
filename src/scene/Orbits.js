@@ -1,15 +1,7 @@
 /**
- * Orbit paths drawn as screen-space lines.
- *
- * The old implementation faked line width with a `RingGeometry` whose inner and
- * outer radii were recomputed from the camera height - which meant tearing down
- * and rebuilding twenty-odd 1024-segment ring meshes mid-frame, every time the
- * camera moved far enough, without ever disposing the old ones. That is what
- * produced the stutter on approach and the steadily climbing GPU memory.
- *
- * `Line2` solves the actual problem properly: it expands each segment into a
- * quad in the vertex shader, so a path is a fixed number of pixels wide at any
- * zoom, and the geometry is built once and never touched again.
+ * Orbit paths drawn as `Line2` screen-space lines: each segment is expanded to
+ * a quad in the vertex shader, so a path is a fixed pixel width at any zoom
+ * and its geometry never needs rebuilding as the camera moves.
  */
 
 import * as THREE from 'three';
@@ -20,11 +12,9 @@ import { heliocentricDistance, satelliteDistance } from './scaling.js';
 import { sampleOrbitPath, perifocalToWorld, eccentricAnomaly } from '../sim/kepler.js';
 
 /**
- * Samples per revolution. Enough that the chords never show: at 256, the
- * largest orbit on screen - Pluto's, up to 2,500 pixels in radius - strays
- * from the true curve by a fifth of a pixel between samples. Every
- * sample is a quad the line shader expands, every frame, so twice that buys
- * nothing but vertex work.
+ * Samples per revolution. At 256 the largest orbit on screen (Pluto's, up to
+ * 2,500px in radius) strays from the true curve by a fifth of a pixel; more
+ * only adds vertex work.
  */
 const HELIOCENTRIC_SEGMENTS = 256;
 const SATELLITE_SEGMENTS = 192;
@@ -36,25 +26,20 @@ const FOCUS_OPACITY = 0.85;
 
 /**
  * Each path is brightest just behind its body and fades back round the orbit
- * to this fraction, like a long exposure of something moving. It says which way
- * everything is going without an arrow in sight, and keeps a busy system from
- * reading as a tangle of identical rings.
+ * to TRAIL_FLOOR, showing direction of travel without arrows.
  */
 const TRAIL_FLOOR = 0.14;
 const TRAIL_FALLOFF = 1.6;
 
 /**
- * Two reasons to fade a path out, both of which a close-up of Earth used to hit
- * at once - the first build's screenshots are sliced apart by every orbit in
- * the system at once.
+ * Two reasons to fade a path out:
  *
  * Span: the orbit's radius over the camera's distance to its centre, roughly
- * how many screens wide the path is. Past SPAN_OUT it is bigger than anything
- * you can take in and reads as a stray line.
+ * how many screens wide the path is. Past SPAN_OUT it reads as a stray line.
  *
- * Proximity: how far the camera sits from the path itself, as a fraction of the
- * orbit's radius. Sitting *on* an orbit - which is exactly where you are
- * whenever a planet is focused - projects it straight through the viewport.
+ * Proximity: the camera's distance from the path, as a fraction of the orbit's
+ * radius. Sitting on an orbit (as whenever a planet is focused) projects it
+ * straight through the viewport.
  */
 const SPAN_IN = 1.0;
 const SPAN_OUT = 3.2;
@@ -103,8 +88,7 @@ export class Orbits {
 
     const width = heliocentric ? BASE_WIDTH : BASE_WIDTH * 0.75;
     const material = new LineMaterial({
-      // Tinted towards the body's own colour, so a dense system reads as
-      // separate orbits rather than a ball of white wire.
+      // Tinted towards the body's colour so a dense system reads as separate orbits.
       color: new THREE.Color(view.body.color ?? '#ffffff').lerp(new THREE.Color(0xffffff), 0.2),
       linewidth: width + this._smooth.value,
       worldUnits: false,
@@ -143,9 +127,8 @@ export class Orbits {
   }
 
   /**
-   * Samples one revolution and pushes each point through the same distance
-   * compression the body itself uses, so the path and the planet on it can
-   * never disagree.
+   * Samples one revolution through the same distance compression the body
+   * uses, so the path and the planet on it can never disagree.
    */
   _pathPositions(view, segments) {
     const el = view.elements;
@@ -172,8 +155,7 @@ export class Orbits {
 
   /**
    * Keeps satellite paths pinned to their primary, and fades each path by how
-   * much of the view it spans. Twenty-odd opacity assignments a frame costs
-   * nothing; the draw calls it skips do not.
+   * much of the view it spans (hiding it entirely when faded out).
    *
    * @param {THREE.Vector3} cameraPosition
    * @param {number} tDays Simulated time, for where each trail's head is.
@@ -233,8 +215,7 @@ export class Orbits {
 
   /**
    * Whether the lines antialias their own edges, for a frame drawn without
-   * multisampling. A path a pixel or so wide otherwise comes out as a
-   * staircase. Each line is drawn one pixel wider, and its shader fades the
+   * multisampling. Each line is drawn one pixel wider and its shader fades the
    * margin by how much of each pixel the true line covers.
    */
   setSmoothing(enabled) {
@@ -249,7 +230,6 @@ export class Orbits {
   }
 
 
-  /** Rebuilds paths after the Scale setting changes. */
   rescale() {
     for (const entry of this.lines.values()) {
       const segments = entry.view.elements.heliocentric ? HELIOCENTRIC_SEGMENTS : SATELLITE_SEGMENTS;
@@ -297,7 +277,7 @@ function pathPhases(segments) {
   return phases;
 }
 
-/** How far round its orbit a body is at `tDays`, in the same 0..1 measure. */
+/** Eccentric anomaly at `tDays` as a 0..1 fraction, matching pathPhases. */
 function orbitPhase(el, tDays) {
   const meanAnomaly = (el.meanLong - el.periLong + (360 / el.periodDays) * tDays) * (Math.PI / 180);
   const E = eccentricAnomaly(meanAnomaly, el.e) / (Math.PI * 2);

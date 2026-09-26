@@ -1,10 +1,7 @@
 /**
- * Two-body orbital mechanics.
- *
- * Replaces the old "add a small number to an angle each frame" approach. Every
- * body's position is a pure function of the simulated date, which means time can
- * be paused, reversed or scrubbed without the system drifting out of alignment,
- * and eccentric or inclined orbits (Pluto, Eris, Triton) come out right for free.
+ * Two-body orbital mechanics. Every position is a pure function of the
+ * simulated date, so time can be paused, reversed or scrubbed without drift,
+ * and eccentric or inclined orbits (Pluto, Eris, Triton) come out right.
  */
 
 const DEG = Math.PI / 180;
@@ -13,12 +10,10 @@ const TAU = Math.PI * 2;
 /** Milliseconds at the J2000.0 epoch: 2000-01-01 12:00 TT. */
 export const J2000_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
 
-/** Days elapsed since J2000 for a wall-clock date. */
 export function daysSinceJ2000(date = new Date()) {
   return (date.getTime() - J2000_MS) / 86_400_000;
 }
 
-/** Wall-clock date for a simulated day offset from J2000. */
 export function dateFromDays(days) {
   return new Date(J2000_MS + days * 86_400_000);
 }

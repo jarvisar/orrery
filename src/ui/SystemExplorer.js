@@ -1,6 +1,7 @@
 import { el, icon } from './dom.js';
 import { ARCHIVE, PARSEC_LY, number, stellarColor } from '../data/exoplanets.js';
 import { searchKey } from '../data/starNames.js';
+import { loadStellarCatalogue, starsShown } from '../data/stellarSystems.js';
 
 const FEATURED = ['TRAPPIST-1', 'Proxima Cen', 'Kepler-16', 'Kepler-47', 'TOI-700', 'Kepler-186', '55 Cnc', 'HD 219134', 'HR 8799', 'Kepler-90'];
 /** Catalogue order a person expects: Kepler-2 before Kepler-10. */
@@ -9,14 +10,13 @@ const byName = (a, b) => collator.compare(a.name, b.name);
 const ORDER = {
   featured: (a, b) => rank(a) - rank(b) || (a.distance ?? Infinity) - (b.distance ?? Infinity) || byName(a, b),
   nearest: (a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity) || byName(a, b),
-  stars: (a, b) => b.stars - a.stars || byName(a, b),
   multiple: (a, b) => b.planets.length - a.planets.length || byName(a, b),
   recent: (a, b) => b.latest - a.latest || byName(a, b),
   name: byName,
 };
 function rank(system) { const i = FEATURED.indexOf(system.name); return i < 0 ? 1000 : i; }
 
-/** A searchable catalogue rather than a second set of scene controls. */
+/** Searchable catalogue of exoplanet systems. */
 export class SystemExplorer {
   constructor(catalogue, current, { onOpen = () => {} } = {}) {
     this.catalogue = catalogue;
@@ -61,6 +61,9 @@ export class SystemExplorer {
       ]),
     ]);
     this.onOpen = onOpen;
+    /** The companion supplement, once loaded: says how many of each system's stars can be drawn. */
+    this.supplement = null;
+    this._shown = new WeakMap();
     catalogue.subscribe(() => { this.render(); this.renderStatus(); });
   }
   get isOpen() { return this.panel.open; }
@@ -69,6 +72,11 @@ export class SystemExplorer {
     this.panel.showModal();
     // On a touch screen, focusing the field would throw up the keyboard over the list.
     if (!window.matchMedia('(pointer: coarse)').matches) this.search.focus();
+    loadStellarCatalogue().then((supplement) => {
+      this.supplement = supplement;
+      this._sorted = null;
+      this.render();
+    }).catch(() => { /* cards keep NASA's star count alone */ });
     try {
       await this.catalogue.load();
       this.render(); this.renderStatus();
@@ -95,14 +103,18 @@ export class SystemExplorer {
     // A search is read in name order, even from Featured.
     const sort = query && this.sort.value === 'featured' ? 'name' : this.sort.value;
     // Progress updates during a refresh re-render; the list only changes with these.
-    const key = JSON.stringify([data.fetchedAt, query, sort, this.limit]);
+    const key = JSON.stringify([data.fetchedAt, query, sort, this.limit, Boolean(this.supplement)]);
     if (key === this._rendered) return;
     this._rendered = key;
 
     this.count.textContent = `${data.rows.length.toLocaleString()} planets · ${systems.length.toLocaleString()} hosts`;
     // Sorted once per catalogue and order; filtering keeps the order.
     if (this._sorted?.systems !== systems || this._sorted.sort !== sort) {
-      this._sorted = { systems, sort, list: systems.filter((s) => sort !== 'stars' || s.stars > 1).sort(ORDER[sort]) };
+      // Multiple stars: the systems that can show them all come first.
+      const order = sort === 'stars'
+        ? (a, b) => (this.shown(b) ?? b.stars) - (this.shown(a) ?? a.stars) || b.stars - a.stars || byName(a, b)
+        : ORDER[sort];
+      this._sorted = { systems, sort, list: systems.filter((s) => sort !== 'stars' || s.stars > 1).sort(order) };
     }
     const matches = query ? this._sorted.list.filter((s) => s.searchable.includes(query)) : this._sorted.list;
     this.results.textContent = matches.length ? `${matches.length.toLocaleString()} systems${query ? ` matching “${this.search.value.trim()}”` : ''}` : 'No matching systems. Try a name such as TRAPPIST-1, Proxima Centauri or 51 Pegasi.';
@@ -116,10 +128,25 @@ export class SystemExplorer {
       'aria-current': this.current.id === system.name ? 'location' : null }, [diagram,
       el('div', {}, [el('h3', { text: system.name }),
         el('p', { text: `${system.planets.length} ${system.planets.length === 1 ? 'planet' : 'planets'} · ${system.distance ? `${number(system.distance * PARSEC_LY)} ly` : 'distance unknown'}` }),
-        el('small', { text: [system.stars > 1 ? `${system.stars}-star system` : '',
+        el('small', { text: [this.starLabel(system),
           this.sort.value === 'recent' ? `Latest discovery ${system.latest || 'unknown'}` : ''].filter(Boolean).join(' · ') || 'Explore system' }),
       ]), el('span', { class: 'systems__arrow', text: '↗', 'aria-hidden': 'true' }),
     ]);
+  }
+  /** How many of a system's stars can be drawn, or null until the supplement arrives. */
+  shown(system) {
+    if (system.stars < 2) return 1;
+    if (!this.supplement) return null;
+    if (!this._shown.has(system)) this._shown.set(system, starsShown(system, this.catalogue.data, this.supplement));
+    return this._shown.get(system);
+  }
+  /** NASA's count, and whether the view will show them all. */
+  starLabel(system) {
+    if (system.stars < 2) return '';
+    const shown = this.shown(system);
+    const label = `${system.stars}-star system`;
+    if (shown === null || shown >= system.stars) return label;
+    return shown === 1 ? `${label} · host star only` : `${label} · ${shown} shown`;
   }
 }
 

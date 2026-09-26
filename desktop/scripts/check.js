@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 /**
- * Checks that the desktop app is still in step with the web app.
- *
- * The desktop app serves the web app as it is, so most changes to the site
- * need nothing here. These are the few that do, each of which would otherwise
- * work in the browser and fail only in the desktop app:
+ * Checks that the desktop app is still in step with the web app: the few
+ * site changes that would work in the browser but fail in the desktop app.
  *
  *   version   desktop/package.json matches the root package.json
  *   icons     desktop/build/ was drawn from the current public/icon/orrery.svg
@@ -105,10 +102,8 @@ for (const [origin, file] of origins) {
 console.log(`origins   ${REMOTE_ORIGINS.length} fetched from, ${LINK_ORIGINS.length} linked to`);
 
 // ----------------------------------------------------------------- 5. hooks
-// The places the web app has to behave differently inside the desktop app.
-// Each is a line or two (search src/ for orreryDesktop); this catches one
-// being lost in a refactor.
-// A file matching every pattern of a hook has to mention orreryDesktop.
+// Catches a window.orreryDesktop hook lost in a refactor: a file matching every
+// pattern of a hook has to mention orreryDesktop.
 const HOOKS = [
   {
     patterns: [/serviceWorker\.register\(/],

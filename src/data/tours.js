@@ -1,10 +1,9 @@
 /**
  * Guided tours: a sequence of stops, each a body and a caption.
  *
- * The captions are deliberately not the catalogue blurbs. A tour is a walk
- * through the system with an argument to it, so each stop says one thing and
- * leads to the next. Everything stated here is checkable; where a number is
- * rounded, it is rounded down.
+ * The captions are deliberately not the catalogue blurbs: each stop says one
+ * thing and leads to the next. Everything stated here is checkable; where a
+ * number is rounded, it is rounded down.
  */
 
 /**

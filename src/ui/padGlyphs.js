@@ -3,8 +3,7 @@
  *
  * Bindings are by position (src/core/Gamepads.js), and every make labels the
  * same positions differently: the bottom face button is A on an Xbox pad, a
- * cross on a PlayStation one and B on a Nintendo one. Telling someone holding
- * a DualSense to "press A" is the controller equivalent of a broken link.
+ * cross on a PlayStation one and B on a Nintendo one.
  */
 
 import { el } from './dom.js';
@@ -73,8 +72,6 @@ const DPAD_NAMES = {
 };
 
 /**
- * One button's glyph.
- *
  * @param {string} button A position: a b x y, lb rb lt rt, view menu, ls rs
  *   (moving a stick), l3 r3 (pressing one), or dpad, dpad-x, dpad-y, up, down, left, right.
  * @param {string} [family] From src/core/Gamepads.js.
@@ -98,8 +95,8 @@ export function padGlyph(button, family = 'generic') {
     ]);
   }
   if (DPAD[button]) {
-    // A solid cross, the arms that matter lit and the rest dimmed, so up and
-    // down read as different buttons at a glance.
+    // The arms that matter lit and the rest dimmed, so up and down read as
+    // different buttons at a glance.
     const lit = DPAD[button];
     const arms = Object.keys(DPAD_ARMS);
     const svg = shape([DPAD_CENTRE, ...arms.map((arm) => DPAD_ARMS[arm])]);
@@ -112,12 +109,10 @@ export function padGlyph(button, family = 'generic') {
   throw new Error(`unknown controller button "${button}"`);
 }
 
-/** Several glyphs in a row, for a binding that takes a pair of buttons. */
 export function padGlyphs(buttons, family) {
   return el('span', { class: 'pad-group' }, buttons.map((button) => padGlyph(button, family)));
 }
 
-/** What to call a make of controller in a sentence. */
 export function padName(family) {
   return {
     xbox: 'Xbox controller',

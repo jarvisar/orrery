@@ -25,6 +25,16 @@ const FIELDS = {
 };
 
 /**
+ * Known slips in the catalogue, each applied only while the published value is
+ * still the wrong one, so a fix upstream retires it. `components` names the
+ * pair by its two members.
+ */
+const CORRECTIONS = [
+  // A 42.15-year visual orbit (e = 0.58, i = 128°; Söderhjelm 1999) entered in days.
+  { components: ['Gliese 667 A', 'Gliese 667 B'], key: 'pl_orbper', was: 42.15, now: 42.15 * 365.25 },
+];
+
+/**
  * Just enough XML for the catalogue's machine-written files: elements,
  * attributes, text and the five predefined entities plus character references.
  * Anything else (a DTD, a stray '<') is an error rather than a guess.
@@ -80,8 +90,14 @@ function convert(element) {
     kind: element.tag, names: texts(element, 'name'), values: {},
     planets: element.children.filter((c) => c.tag === 'planet').map((p) => texts(p, 'name')),
   };
-  for (const [tag, key] of Object.entries(FIELDS)) {
-    const field = child(element, tag);
+  // A pair's separation on the sky, often all that is known of a wide one.
+  const separations = element.children.filter((c) => c.tag === 'separation');
+  const fields = [
+    ...Object.entries(FIELDS).map(([tag, key]) => [child(element, tag), key]),
+    [separations.find((c) => c.attrs.unit === 'AU'), 'sep_au'],
+    [separations.find((c) => c.attrs.unit === 'arcsec'), 'sep_arcsec'],
+  ];
+  for (const [field, key] of fields) {
     if (!field) continue;
     let value = decimal(field.text), limit = 0;
     // A bound in place of a value: kept, flagged, and never used as a measurement.
@@ -102,6 +118,10 @@ function convert(element) {
   if (spectralType) node.values.st_spectype = spectralType;
   node.children = element.children.filter((c) => c.tag === 'star' || c.tag === 'binary').map(convert);
   if (node.kind === 'binary' && node.children.length !== 2) throw new Error('A binary must have two components');
+  for (const fix of CORRECTIONS) {
+    const members = node.children.map((c) => c.names[0]);
+    if (fix.components.every((name) => members.includes(name)) && node.values[fix.key] === fix.was) node.values[fix.key] = fix.now;
+  }
   return node;
 }
 

@@ -16,7 +16,6 @@ import { SERVED } from './lib/served.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** Stages the site into `target`. Returns the number of entries copied. */
 export async function stage(target) {
   const out = resolve(target);
   // The target is deleted first, so it must not be (or contain) the repository,

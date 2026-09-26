@@ -1,10 +1,8 @@
 /**
- * Content types for the files the app serves itself, by extension.
- *
- * The same idea as the table in scripts/serve.js, but the desktop app is
- * packaged without scripts/, so it keeps its own. `npm run desktop:check`
- * fails if a served file has an extension missing from here: module scripts in
- * particular refuse to run without a JavaScript type.
+ * Content types for the files the app serves itself, by extension. Separate
+ * from scripts/serve.js because the app is packaged without scripts/.
+ * `npm run desktop:check` fails if a served file's extension is missing here:
+ * module scripts refuse to run without a JavaScript type.
  *
  * Kept free of Electron imports so the checks can read it from plain Node.
  */

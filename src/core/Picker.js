@@ -1,19 +1,11 @@
 /**
  * Mouse and touch picking.
  *
- * Three fixes over the previous implementation, which raycast the entire scene
- * graph on every click:
- *
- * - It only tests a curated list of body meshes, so the skybox, the orbit paths
- *   and the belts are not candidates. Previously a click on empty space struck
- *   the 300,000-unit sky sphere and resolved to nothing after walking a
- *   twenty-branch if/else chain.
- * - A drag no longer counts as a click, so releasing the mouse after rotating
- *   the camera does not snap focus to whatever happened to be under the cursor.
- * - Hover testing is throttled to animation frames rather than running on every
- *   pointermove event, and skipped altogether for touch and mid-drag: a finger
- *   has no hover, and during a drag the camera is moving under the pointer, so
- *   a raycast every frame would buy nothing.
+ * - Only body meshes are tested, never the sky sphere, orbit paths or belts.
+ * - A drag is not a click, so releasing after rotating the camera does not
+ *   change focus.
+ * - Hover is tested at most once per frame, and not at all for touch or
+ *   mid-drag.
  */
 
 import * as THREE from 'three';
@@ -83,7 +75,6 @@ export class Picker {
         if (!event.isPrimary) return;
         const wasClick = this._pressed && !this._moved;
         this._pressed = false;
-        // Whatever is under the pointer now that the drag is over.
         if (event.pointerType !== 'touch') this._hoverDirty = true;
         if (!wasClick || !this.enabled || event.button !== 0) return;
 
@@ -113,16 +104,12 @@ export class Picker {
     this.lastClientY = event.clientY;
   }
 
-  /** Returns the id of the frontmost visible body under the pointer, or null. */
   _pick() {
     this.raycaster.setFromCamera(this._pointer, this.camera);
     return this._firstHit()?.id ?? null;
   }
 
-  /**
-   * The frontmost visible body along a world-space ray, and how far along it,
-   * or null. For pointers that are not on the screen: VR controllers.
-   */
+  /** Frontmost visible body along a world-space ray (for VR controllers), as {id, distance} or null. */
   pickRay(origin, direction) {
     this.raycaster.set(origin, direction);
     return this._firstHit();
@@ -142,7 +129,7 @@ export class Picker {
     return null;
   }
 
-  /** Called once per frame; does nothing unless the pointer actually moved. */
+  /** Called once per frame; a no-op unless the pointer moved. */
   update() {
     if (!this._hoverDirty || !this.enabled) return;
     this._hoverDirty = false;
@@ -170,7 +157,6 @@ export class Picker {
 
 const TEMP = new THREE.Vector2();
 
-/** An object is only pickable if it and every ancestor is visible. */
 function isRenderable(object) {
   let node = object;
   while (node) {

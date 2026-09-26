@@ -1,15 +1,11 @@
 /**
- * What the site is made of: the one list of files that are actually served.
+ * The files that are actually served. The Pages deploy and the desktop app
+ * both stage exactly these (scripts/stage.js), and the desktop app in
+ * development refuses to serve anything else, so a file that was never shipped
+ * 404s locally rather than after a release.
  *
- * There is no bundler, so "the build" is just this list. The Pages deploy and
- * the desktop app both stage exactly these (scripts/stage.js), and the desktop
- * app in development refuses to serve anything else, so a file that works
- * locally but was never shipped shows up as a 404 straight away rather than
- * after a release.
- *
- * Every tracked top-level entry has to be in one list or the other;
- * `npm run check` fails on one that is in neither, so adding a new file at the
- * top level means deciding whether visitors get it.
+ * Every tracked top-level entry must be in one list or the other;
+ * `npm run check` fails on one that is in neither.
  */
 
 /** Served to visitors, and packaged into the desktop app. */

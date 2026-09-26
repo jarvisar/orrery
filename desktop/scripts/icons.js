@@ -9,8 +9,8 @@
  *                       since macOS draws icons as they are rather than masking them
  *
  * electron-builder turns these into .ico and .icns. build/icons.json records
- * which SVG they were drawn from; `npm run check` fails once the SVG changes
- * and they have not been redrawn.
+ * which SVG they were drawn from, so `npm run desktop:check` fails once the
+ * SVG changes and they have not been redrawn.
  */
 import { app, BrowserWindow } from 'electron';
 import { createHash } from 'node:crypto';

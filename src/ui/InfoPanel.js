@@ -1,16 +1,12 @@
 /**
  * Facts about whatever is currently in focus.
  *
- * Splits into two halves: a static block straight from the catalogue, and a
- * live block recomputed a few times a second from the simulation - where the
- * body is on its orbit, how far it is from the Sun and from Earth, how fast it
- * is moving. The live figures come from the same Keplerian state that
- * positions the body, so the panel and the scene can never disagree.
+ * A static block from the catalogue, and a live block recomputed a few times a
+ * second from the same Keplerian state that positions the body, so the panel
+ * and the scene cannot disagree.
  *
- * The orbit map is a live plan of the neighbourhood, seen from above: the
- * body's own orbit and its nearest neighbours', to scale and in their real
- * orientation, with everything where it is right now. The bright arc is the
- * ground covered since the last close approach.
+ * The orbit map is a top-down plan of the body's orbit and its nearest
+ * neighbours', to scale. The bright arc is the ground covered since periapsis.
  */
 
 import { el, icon, formatKm } from './dom.js';
@@ -26,7 +22,6 @@ export const KIND_LABEL = {
   visitor: 'Uncatalogued',
 };
 
-/** Speed of light, km/s. */
 const LIGHT_KM_S = 299_792.458;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -149,12 +144,17 @@ export class InfoPanel {
   }
 
   _buildExoplanetLinks(body) {
-    this.system.replaceChildren(
+    // Stars NASA lists that cannot be placed: named where the supplement knows them.
+    const { hidden = 0, names = [] } = this.catalogue.companions ?? {};
+    const others = hidden - names.length;
+    const missing = [...names, ...(others ? [`${others} ${names.length ? 'other ' : ''}companion ${others === 1 ? 'star' : 'stars'}`] : [])];
+    this.system.replaceChildren(...[
       el('h3', { class: 'section-title', text: `${this.catalogue.name} system` }),
       el('div', { class: 'chips' }, this.catalogue.bodies.map((member) => el('button', {
         class: 'chip', type: 'button', 'aria-current': member.id === body.id ? 'true' : null,
         text: member.name, onclick: () => this.onSelect(member.id),
       }))),
+      hidden && el('p', { class: 'info__hidden-stars', text: `Not shown: ${missing.join(', ')}, ${hidden === 1 ? 'orbit' : 'orbits'} unknown.` }),
       ...this.catalogue.omitted.map((member) => el('details', { class: 'info__unmodeled' }, [
         el('summary', { text: `${member.name} · orbit unavailable` }),
         el('p', { text: member.unmodeled }),
@@ -163,7 +163,7 @@ export class InfoPanel {
           el('div', { class: 'info__fact' }, [el('dt', { text: key }), el('dd', { text: value })]))),
         el('a', { href: member.source, target: '_blank', rel: 'noopener', text: 'Published measurements ↗' }),
       ])),
-    );
+    ].filter(Boolean));
   }
 
   /** Re-checks which links and neighbours to show, after a visibility setting changes. */
@@ -197,9 +197,8 @@ export class InfoPanel {
   }
 
   /**
-   * Links to the rest of the body's system: a planet's moons, or a moon's
-   * planet and siblings. The catalogue only carries the notable few, so this is
-   * titled by what it is rather than claiming to be a full list.
+   * Links to a planet's moons, or a moon's planet and siblings. The catalogue
+   * only carries the notable few, so the heading does not claim a full list.
    */
   _buildSystem(body) {
     if (body.exoplanet) return this._buildExoplanetLinks(body);
@@ -239,10 +238,7 @@ export class InfoPanel {
     );
   }
 
-  /**
-   * The bodies worth drawing alongside this one: its own orbit, and the next
-   * one in and out among its siblings - or two on one side, at either end.
-   */
+  /** The body and its nearest sibling in and out - or two on one side, at either end. */
   _neighbours(body) {
     const size = (b) => b.orbit.aAU ?? b.orbit.aKm;
     const siblings = this.catalogue.bodies
@@ -256,7 +252,6 @@ export class InfoPanel {
     return siblings.slice(Math.max(0, from), Math.min(siblings.length, to + 1));
   }
 
-  /** The static half of the map: every orbit in it, and the primary. */
   _buildDiagram(view) {
     const own = diagramElements(view.elements);
     if (!own) {
@@ -320,9 +315,8 @@ export class InfoPanel {
   }
 
   /**
-   * Refreshes the live readings. Called on a timer rather than every frame -
-   * these numbers change slowly and re-laying out text 60 times a second is
-   * pure waste.
+   * Called on a timer rather than every frame: these numbers change slowly and
+   * re-laying out text every frame is wasteful.
    *
    * @param {number} tDays
    */
@@ -352,7 +346,7 @@ export class InfoPanel {
         this._liveRows = null;
         return;
       }
-      // The Sun: nothing orbits-related to say, but the distance to us is live.
+      // The Sun: no orbit, but the distance to Earth is live.
       const au = Math.hypot(_earth.x, _earth.y, _earth.z);
       rows.push(['From Earth', `${au.toFixed(3)} AU`]);
       rows.push(['Light to Earth', formatDuration((au * AU_KM) / LIGHT_KM_S)]);
@@ -371,7 +365,7 @@ export class InfoPanel {
     const travelled = Math.hypot(_soon.x - _now.x, _soon.y - _now.y, _soon.z - _now.z);
     const speedKmS = (el_.heliocentric ? travelled * AU_KM : travelled) / (dt * 86_400);
 
-    // How far round the orbit it is since the last close approach, by time.
+    // Fraction of the period elapsed since periapsis.
     const turns = (el_.meanLong - el_.periLong) / 360 + tDays / el_.periodDays;
     const sincePeriapsis = turns - Math.floor(turns);
     const parent = body.parent ? this.catalogue.byId.get(body.parent) : null;
@@ -415,7 +409,6 @@ export class InfoPanel {
       node.setAttribute('cy', y.toFixed(2));
     }
 
-    // The ground covered since periapsis, traced along the orbit itself.
     const meanAnomaly = (own.meanLong - own.periLong + (360 / own.periodDays) * tDays) * (Math.PI / 180);
     let E = eccentricAnomaly(meanAnomaly, own.e);
     if (E < 0) E += Math.PI * 2;
@@ -460,8 +453,8 @@ export class InfoPanel {
 
 /**
  * Splits catalogue text like "5.972 × 10²⁴ kg" into text and <sup> nodes.
- * Unicode superscript digits come from whatever font has them, and three
- * different fonts' worth of them in one number looks like a ransom note.
+ * Unicode superscript digits fall back to whatever font has them, so one
+ * number can mix three fonts.
  */
 const SUPERSCRIPTS = '⁰¹²³⁴⁵⁶⁷⁸⁹⁻';
 const PLAIN = '0123456789−';
@@ -485,7 +478,6 @@ function withSuperscripts(text) {
   return parts;
 }
 
-/** Light-travel times read best in the largest unit that keeps them whole. */
 function formatDuration(seconds) {
   if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 2 : 1)} s`;
   if (seconds < 3600) {

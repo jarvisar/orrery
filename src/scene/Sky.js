@@ -1,15 +1,8 @@
 /**
- * The sky: the real stars, over a soft Milky Way.
- *
- * The old sky was one painted 4k panorama - galactic coordinates, unaligned,
- * with its stars baked in as blobs that smeared as soon as the camera zoomed.
- * Here the two jobs are split. The background is only the diffuse glow of the
- * galaxy, which has no fine detail to lose, reprojected into the scene's frame
- * (see scripts/build-sky.py). The stars are drawn on top as points, a fixed
- * number of pixels across whatever the zoom, so they stay pinpoint sharp.
- *
- * And they are the real ones: every star in the Yale Bright Star Catalogue, in
- * its true direction, brightness and colour. Orion is where Orion is.
+ * The sky: the Yale Bright Star Catalogue, in true direction, brightness and
+ * colour, over a diffuse Milky Way background reprojected into the scene's
+ * frame (see scripts/build-sky.py). Stars are drawn as fixed-pixel-size points
+ * so they stay sharp at any zoom.
  */
 
 import * as THREE from 'three';
@@ -33,11 +26,9 @@ const vertexShader = /* glsl */ `
     // and can sit well beyond one unit, which would clip every star.
     gl_Position.z = gl_Position.w * 0.99999;
 
-    // Relative flux, 1 at magnitude 1. Size and brightness both follow it, but
-    // compressed: a first-magnitude star is a hundred times a sixth, and drawn
-    // at a hundred times the brightness it would erase everything else. This
-    // halves the brightness every two magnitudes instead, the way a long
-    // exposure flattens the sky.
+    // Relative flux, 1 at magnitude 1. Size and brightness follow it but
+    // compressed (roughly halving every two magnitudes), or first-magnitude
+    // stars would erase everything else.
     float flux = pow( 10.0, -0.4 * ( aMagnitude - 1.0 ) );
     gl_PointSize = clamp( 2.3 + 2.4 * pow( flux, 0.42 ), 2.3, 10.0 ) * uPixelRatio;
     vColor = aColor * min( pow( flux, 0.38 ), 2.0 ) * uBrightness;
@@ -78,14 +69,12 @@ export class Sky {
       blending: THREE.AdditiveBlending,
       depthTest: false,
       depthWrite: false,
-      // Opaque, and drawn first: the planets then simply paint over it, which
-      // is cheaper and cleaner than depth-testing points at infinity against
-      // a logarithmic depth buffer.
+      // Opaque and drawn first so the planets paint over it, rather than
+      // depth-testing points at infinity against a logarithmic depth buffer.
       transparent: false,
     });
   }
 
-  /** Starts both downloads. Neither blocks the loading screen for long. */
   load() {
     this.assets.texture('stars_milkyway', 'map', -1).then((texture) => {
       texture.mapping = THREE.EquirectangularReflectionMapping;
@@ -146,9 +135,8 @@ export class Sky {
 
 /**
  * A star's colour from its B-V index: B-V to temperature (Ballesteros 2012),
- * then temperature to an approximate blackbody RGB. Pulled most of the way to
- * white, because that is how stars look to the eye and to a camera - a hint of
- * blue in Rigel and orange in Betelgeuse, not a bag of sweets.
+ * then temperature to an approximate blackbody RGB, pulled most of the way to
+ * white as stars look to the eye.
  */
 function starColor(bv, out) {
   const kelvin = 4600 * (1 / (0.92 * bv + 1.7) + 1 / (0.92 * bv + 0.62));

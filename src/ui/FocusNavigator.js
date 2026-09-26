@@ -2,17 +2,13 @@
  * Moving round the interface with a controller's D-pad.
  *
  * Spatial rather than in Tab order: pressing right goes to whatever is to the
- * right on screen, as it does on a television. Tab order runs across the top
- * bar, down through the info panel and along the time bar, which is sensible
- * with a keyboard and baffling with four arrows.
+ * right on screen, as on a television.
  *
- * Movement stays inside a scope: the whole page, or whichever menu, drawer or
- * dialog is open on top of it, so the D-pad cannot wander out of a menu into
- * the controls underneath. The scope is asked for on every call, so opening
- * or closing something is picked up without being told.
+ * Movement stays inside a scope - the whole page, or whichever menu, drawer or
+ * dialog is open - so the D-pad cannot wander into the controls underneath.
+ * The scope is re-read on every call.
  *
- * Nothing here listens to the controller itself; src/main.js decides when the
- * interface has the controller and calls in.
+ * Nothing here listens to the controller; src/main.js calls in.
  */
 
 const FOCUSABLE = [
@@ -22,7 +18,7 @@ const FOCUSABLE = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ');
 
-/** How far one D-pad press scrolls a scrolling region with nothing further to move to, in pixels. */
+/** Pixels one D-pad press scrolls a region with nothing further to move to. */
 const SCROLL_STEP = 120;
 
 export class FocusNavigator {
@@ -49,9 +45,9 @@ export class FocusNavigator {
   }
 
   /**
-   * Makes sure focus is somewhere in the current scope, moving it in if not:
-   * to what is chosen in a list, to where it last was on the page, or to the
-   * first control. Returns the focused control.
+   * Moves focus into the scope if it is not there already: to the selected
+   * item in a list, where it last was on the page, or the first control.
+   * Returns the focused control.
    */
   ensure() {
     const current = this.current;
@@ -69,15 +65,11 @@ export class FocusNavigator {
     return target ?? null;
   }
 
-  /** Every control in the scope that can take focus right now. */
   candidates(scope = this.scope) {
     return [...scope.querySelectorAll(FOCUSABLE)].filter(isNavigable);
   }
 
-  /**
-   * Moves focus to the nearest control in a direction: 'up', 'down', 'left' or
-   * 'right'. A scrolling region with nowhere further to go scrolls instead.
-   */
+  /** @param {'up'|'down'|'left'|'right'} direction */
   move(direction) {
     const from = this.ensure();
     if (!from) return false;
@@ -85,8 +77,7 @@ export class FocusNavigator {
     const vertical = direction === 'up' || direction === 'down';
     const sign = direction === 'down' || direction === 'right' ? 1 : -1;
 
-    // A scrolling region that has focus (the controls list, say) scrolls until
-    // it reaches its end before focus leaves it.
+    // A focused scrolling region scrolls to its end before focus leaves it.
     if (vertical && isScrollable(from) && canScroll(from, sign)) {
       from.scrollBy({ top: sign * SCROLL_STEP, behavior: 'smooth' });
       return true;
@@ -115,7 +106,6 @@ export class FocusNavigator {
     return true;
   }
 
-  /** Presses the focused control. */
   activate() {
     const node = this.ensure();
     if (!node || isRange(node)) return;
@@ -132,9 +122,8 @@ export class FocusNavigator {
   }
 
   /**
-   * Steps the focused slider by one notch. A slider can take this over by
-   * cancelling the `gamepadadjust` event it is sent, as the time-rate dial
-   * does to step between its named rates.
+   * Steps the focused slider by one notch. A slider can override this by
+   * cancelling the `gamepadadjust` event, as the time-rate slider does.
    */
   adjust(delta) {
     const input = this.current;
@@ -166,7 +155,7 @@ export class FocusNavigator {
     if (node && node !== document.body) node.blur();
   }
 
-  /** Found once per scope and focus rather than every frame the stick is held. */
+  /** Cached per scope and focus, not looked up every frame the stick is held. */
   _scrollerFor(from) {
     const scope = this.scope;
     const cache = this._scroller;
@@ -184,9 +173,8 @@ export class FocusNavigator {
 
 /**
  * How far `to` is from `from` in a direction, or Infinity if it is not that
- * way at all. The gap between facing edges counts, but being out of line
- * counts three times over, so right means across to the same row before it
- * means diagonally to a nearer one.
+ * way. Being out of line weighs three times the gap, so right prefers the
+ * same row over a nearer diagonal.
  */
 function distance(from, to, direction) {
   const horizontal = direction === 'left' || direction === 'right';

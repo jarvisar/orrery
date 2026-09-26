@@ -1,20 +1,15 @@
 /**
- * Small, composable edits to three's built-in materials.
+ * Composable edits to three's built-in materials.
  *
- * three.js gives a material a single `onBeforeCompile` hook, and several things
- * here want one: Earth's night lights, Saturn's ring shadow, the soft
- * terminator on anything with an atmosphere, the Sun's limb darkening. Each
- * registers a named patch; the material runs them in order, and its program
- * cache key names them all, so every material with the same set of patches
- * still shares one compiled program. Anything that differs between bodies is
- * a uniform, never a constant baked into the source.
+ * A material has a single `onBeforeCompile` hook, so each edit registers a
+ * named patch; they run in order and the program cache key names them all, so
+ * materials with the same set of patches share one compiled program. Anything
+ * that differs between bodies must be a uniform, never a baked-in constant.
  */
 
 import * as THREE from 'three';
 
 /**
- * Registers a shader edit on a material.
- *
  * @param {THREE.Material} material
  * @param {string} key  Names the patch in the program cache key.
  * @param {(shader: THREE.WebGLProgramParametersWithUniforms) => void} patch
@@ -31,11 +26,8 @@ export function addPatch(material, key, patch) {
 }
 
 /**
- * Softens the day/night line on bodies with thick atmospheres.
- *
- * Lambert shading ends light abruptly at 90 degrees from the Sun, which is right
- * for the Moon and wrong for Jupiter: a deep atmosphere scatters light round
- * the terminator into a long twilight. Wrapping the cosine by `wrap` moves the
+ * Softens the day/night line on bodies with thick atmospheres, which scatter
+ * light round the terminator. Wrapping the Lambert cosine by `wrap` moves the
  * edge a few degrees past the geometric one and lets it fade instead of cut.
  */
 export function softTerminator(material, wrap) {
@@ -56,13 +48,9 @@ export function softTerminator(material, wrap) {
 }
 
 /**
- * Restricts an emissive map to the night side.
- *
- * Earth's city lights are an emissive texture, and emissive ignores lighting by
- * definition, so out of the box the lights glow straight through local noon.
- * This gates them on the angle between the surface and the Sun, both of which
- * Phong already has in view space at this point in the shader. The fade starts
- * just before sunset, the way lights come on at dusk.
+ * Restricts an emissive map (Earth's city lights) to the night side, since
+ * emissive otherwise ignores lighting. Assumes the Sun is point light 0; the
+ * fade starts just before sunset.
  */
 export function nightSideEmissive(material) {
   addPatch(material, 'night-side-emissive', (shader) => {
@@ -81,15 +69,10 @@ export function nightSideEmissive(material) {
 }
 
 /**
- * The visible surface of the Sun.
- *
- * A texture on an unlit sphere reads as an orange ball. Two things make it read
- * as a star instead. Limb darkening: looking at the edge of the disc you see
- * cooler, shallower gas, so it is dimmer and redder than the centre - the
- * visible-light law is roughly I = 0.4 + 0.6 cos(theta). And real brightness:
- * the surface is written in HDR, several times brighter than white, so tone
- * mapping rolls the centre off toward white and the bloom pass has something
- * to bloom.
+ * The Sun's visible surface: limb darkening (the edge shows cooler, shallower
+ * gas, roughly I = 0.4 + 0.6 cos(theta)) written in HDR, several times brighter
+ * than white, so tone mapping rolls the centre off and the bloom pass has
+ * something to bloom.
  *
  * @returns {{uniforms: {uIntensity: {value: number}}}}
  */
@@ -114,11 +97,9 @@ export function sunSurface(material, intensity = 1.4, tint = null) {
         /* glsl */ `
         #include <map_fragment>
         float mu = saturate( dot( normalize( vSunNormal ), normalize( vSunView ) ) );
-        // Colour and brightness come from depth - the centre of the disc shows
-        // deeper, hotter gas than the limb. The texture only supplies grain,
-        // and only its fine grain: the source art has broad bright blotches
-        // the real, remarkably even photosphere does not, so a heavily blurred
-        // sample of the same map is subtracted out.
+        // Colour and brightness come from mu; the texture supplies only fine
+        // grain. The source art has broad bright blotches the real photosphere
+        // lacks, so a heavily blurred sample of the same map is subtracted out.
         vec3 luma = vec3( 0.2126, 0.7152, 0.0722 );
         float granule = dot( diffuseColor.rgb, luma );
         float broad = dot( texture2D( map, vMapUv, 6.0 ).rgb * diffuse, luma );

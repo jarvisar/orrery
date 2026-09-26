@@ -1,21 +1,15 @@
 /**
- * Application entry point.
- *
- * Startup order matters here, and is the main reason the first few seconds feel
- * different from the previous build:
+ * Application entry point. Startup order matters:
  *
  *   1. Build the scene graph with placeholder textures in every map slot.
  *   2. Stream in the Sun, planets and sky - and only those - behind the loading
  *      screen.
- *   3. Compile every shader program with `compileAsync` before the first frame
- *      is ever drawn.
- *   4. Start rendering, then keep loading moons, dwarf planets and detail maps
- *      in the background while the user is already flying around.
+ *   3. Compile every shader program with `compileAsync` before the first frame.
+ *   4. Start rendering, then load moons, dwarf planets and detail maps in the
+ *      background.
  *
- * Step 3 is what removes the multi-second lock-up that used to happen the first
- * time a given planet came into view. Shader compilation is synchronous and
- * blocking wherever it happens; doing it up front, off the critical frame, is
- * the only place it does not hurt.
+ * Shader compilation blocks wherever it happens, so step 3 does it up front
+ * rather than the first time each planet comes into view.
  */
 
 import * as THREE from 'three';
@@ -23,7 +17,7 @@ import * as THREE from 'three';
 import { BODY_BY_ID, EARTH_RADIUS_KM } from './data/bodies.js';
 import { SOLAR_SYSTEM } from './data/systems.js';
 import { makeSystem } from './data/exoplanets.js';
-import { STELLAR_PATH, validateStellarCatalogue } from './data/stellarSystems.js';
+import { loadStellarCatalogue } from './data/stellarSystems.js';
 import { ExoplanetCatalogue } from './core/ExoplanetCatalogue.js';
 import { SystemExplorer } from './ui/SystemExplorer.js';
 import { Viewport } from './core/Viewport.js';
@@ -65,7 +59,7 @@ const KM_PER_UNIT = EARTH_RADIUS_KM / EARTH_RADIUS_UNITS;
 /** The one thing in the scene that is not in the catalogue. */
 const VISITOR_ID = 'visitor';
 
-/** Keys flight mode takes over from the rest of the interface while it is active. */
+/** Keys flight mode takes over from the rest of the interface. */
 const FLIGHT_KEYS = [
   'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'Space', 'ShiftLeft', 'ShiftRight',
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
@@ -103,13 +97,8 @@ async function boot() {
         entry = exoplanets.systems.find((s) => s.name === requestedSystem);
       }
       if (!entry) throw new Error(`“${requestedSystem}” is not in the available catalogue. Choose a system from the atlas.`);
-      let companions = null;
-      if (entry.stars > 1) {
-        try {
-          const response = await fetch(STELLAR_PATH, { signal: AbortSignal.timeout(10000) });
-          if (response.ok) companions = validateStellarCatalogue(await response.json());
-        } catch { /* Host-only view still works when the supplement is unavailable. */ }
-      }
+      // Host-only view still works when the supplement is unavailable.
+      const companions = entry.stars > 1 ? await loadStellarCatalogue().catch(() => null) : null;
       catalogue = makeSystem(entry, exoplanets.data, companions);
     } catch (error) { catalogueError = error.message; }
   }
@@ -135,13 +124,11 @@ async function boot() {
 
   system.scaleExponent = settings.get('scale');
   viewport.setAdaptiveResolution(settings.get('adaptiveResolution'));
-  // If even the lowest render scale cannot hold the frame rate, the frosted
-  // glass goes too: blurring whatever is behind a panel means re-reading and
-  // re-blurring that part of the canvas every single frame. See style.css.
+  // If even the lowest render scale cannot hold the frame rate, drop the frosted
+  // glass too: backdrop blur re-reads the canvas every frame. See style.css.
   viewport.onConstrained(() => document.documentElement.classList.add('is-constrained'));
   renderer.toneMappingExposure = settings.get('exposure');
 
-  // --- scene ---------------------------------------------------------------
   loading.begin('catalogue', 'Reading the catalogue…');
   await system.build();
   system.setShadowQuality(settings.get('shadowQuality'));
@@ -161,7 +148,6 @@ async function boot() {
   loading.begin('models', 'Loading models…');
   if (!catalogue.isExoplanet) await Promise.allSettled([assets.model('phobos'), assets.model('deimos'), assets.model('ufo')]);
 
-  // --- everything that depends on a finished body list ---------------------
   loading.begin('scene', 'Plotting orbits…');
   const orbits = new Orbits(scene, system);
   orbits.build();
@@ -196,14 +182,12 @@ async function boot() {
     sky.setPixelRatio(view.pixelRatio);
   });
 
-  // --- warm the pipeline ---------------------------------------------------
   loading.begin('shaders', 'Compiling shaders…');
   director.focusOn(system.bodies.get(initialBodyId(catalogue)), { instant: true });
   await starsLoaded;
   await renderer.compileAsync(scene, camera);
   assets.pumpUploads(999);
 
-  // --- interface -----------------------------------------------------------
   const ui = buildInterface({
     settings, clock, scene, assets, system, orbits, belts, sky,
     director, flight, picker, viewport, visitor, post,
@@ -222,7 +206,6 @@ async function boot() {
     viewport, system, orbits, belts, director, flight, picker, clock, assets, ui, visitor, post,
   });
 
-  // For poking at the scene from the console: ?debug exposes the internals.
   if (new URLSearchParams(window.location.search).has('debug')) {
     window.orrery = { THREE, scene, camera, renderer, viewport, assets, system, orbits, belts, sky, post, director, clock, settings, ui };
   }
@@ -233,8 +216,7 @@ async function boot() {
   if (catalogue.isExoplanet) exoplanets.refreshIfStale();
   if (catalogueError) { await ui.explorer.open(); ui.explorer.status.textContent = catalogueError; }
 
-  // Everything still queued is a moon or a dwarf planet; it streams in while
-  // the user is already looking around.
+  // Everything still queued (moons, dwarf planets) streams in after first paint.
   await assets.drain({ concurrency: 4 });
   // One more compile pass, in case a streamed model brought its own materials.
   await renderer.compileAsync(scene, camera).catch(() => {});
@@ -255,10 +237,6 @@ function registerServiceWorker() {
   });
 }
 
-/* ========================================================================== */
-/*  Interface wiring                                                           */
-/* ========================================================================== */
-
 function buildInterface(ctx) {
   const { settings, clock, scene, assets, system, orbits, belts, sky,
           director, flight, picker, viewport, visitor, post } = ctx;
@@ -276,7 +254,6 @@ function buildInterface(ctx) {
     padActive: false, padMenus: false,
   };
 
-  /** A catalogue body's view, or the one visitor that is not in the catalogue. */
   const lookup = (id) => (id === VISITOR_ID ? visitor.view : system.bodies.get(id));
 
   const bodyPicker = new BodyPicker({
@@ -374,15 +351,13 @@ function buildInterface(ctx) {
       orbits.setResolution(size.x, size.y);
       orbits.setSmoothing(post.enabled && !viewport.multisample);
       sky.setPixelRatio(viewport.pixelRatio);
-      // Back on the page, looking at whatever was last looked at in the headset.
       if (state.focusedId) director.focusOn(lookup(state.focusedId), { instant: true });
       else director.overview(state.overview.radiusAU, { instant: true, centre: state.overview.centre });
     },
     onResolution: (width, height) => orbits.setResolution(width, height),
   });
 
-  // Only offered where a headset (or a runtime for one) is actually there,
-  // and rechecked whenever one is plugged in or taken away.
+  // Shown only when a headset (or a runtime for one) is present; rechecked on devicechange.
   const vrButton = el(
     'button',
     {
@@ -500,11 +475,10 @@ function buildInterface(ctx) {
     system.focusShadows(view);
     dismissHint();
 
-    // Anything still queued for this body jumps the line, so focusing a moon
-    // that has not streamed in yet fetches it next rather than in catalogue order.
+    // Fetch this body's still-queued textures next rather than in catalogue order.
     if (view) assets.promote(collectTextureNames(view.body));
 
-    // The visitor is not something to link to. It has to be found.
+    // The visitor is never linked to; it is meant to be found.
     if (id !== VISITOR_ID) setUrlBody(id);
   }
 
@@ -669,7 +643,6 @@ function buildInterface(ctx) {
     hint.hidden = false;
     requestAnimationFrame(() => hint.classList.add('is-visible'));
     hintTimer = setTimeout(dismissHint, 9000);
-    // Anything at all - a drag, a click on a panel, a key - means it has been read.
     window.addEventListener('pointerdown', dismissHint, { once: true, capture: true });
     window.addEventListener('keydown', dismissHint, { once: true, capture: true });
   }
@@ -737,8 +710,8 @@ function buildInterface(ctx) {
   settings.on('shadowQuality', (value) => {
     system.setShadowQuality(value);
     viewport.setShadowsEnabled(system.sunLight.castShadow);
-    // Turning shadows on or off changes every material's program. Recompiling
-    // here, off the critical frame, keeps it from surfacing as a stall later.
+    // Toggling shadows changes every material's program; recompile now rather
+    // than stall on the next frame.
     viewport.renderer.compileAsync(scene, camera).catch(() => {});
   });
 
@@ -772,11 +745,8 @@ function buildInterface(ctx) {
   // Bound by position, so the same thumb does the same thing on any make; the
   // glyphs show each make's own labels. Keep in step with the legend in
   // src/ui/GamepadHud.js and the list in src/ui/HelpOverlay.js.
-  //
-  // The controller has three jobs: flying the camera round a body, flying the
-  // ship in flight mode, and - after Menu, or whenever a menu or panel is
-  // open - moving round the interface itself, where the D-pad moves focus, A
-  // presses and B goes back.
+  // Three modes: orbiting a body, flight, and menus (after Menu, or whenever a
+  // panel is open: D-pad moves focus, A presses, B goes back).
 
   const focusNav = new FocusNavigator({
     scope: () => openSurface(),
@@ -893,7 +863,7 @@ function buildInterface(ctx) {
     if (gamepad.pressed('right')) stepBody(1);
     padTimeInput();
 
-    // A scrape along the ground, felt as well as seen.
+    // Rumble while scraping along the surface.
     sinceRumble += dt;
     if (flight.grazing && flight.throttle > 0.05 && sinceRumble > 0.12) {
       rumble(0.15, 0.35, 110);
@@ -930,18 +900,13 @@ function buildInterface(ctx) {
     focusNav.ensure();
   }
 
-  /** Back to flying the camera: everything closed, and focus let go. */
   function leavePadMenus() {
     state.padMenus = false;
     while (closeSurface());
     focusNav.release();
   }
 
-  /**
-   * Which is in use, the controller or the mouse, keyboard and touch. The
-   * controller brings its legend and a heavier focus ring (style.css); any
-   * other input puts them away again.
-   */
+  /** Controller vs mouse/keyboard/touch; the controller adds its legend and a heavier focus ring (style.css). */
   function setPadActive(active) {
     if (active === state.padActive) return;
     state.padActive = active;
@@ -996,7 +961,6 @@ function buildInterface(ctx) {
     // The controls dialog is modal: while it is up, only the keys that close it count.
     if (helpOverlay.isOpen && event.code !== 'Escape' && event.code !== 'Slash') return;
 
-    // Flight mode owns WASD, QE, the arrows, Shift and Space while it is active.
     const flightOwns = state.flying && FLIGHT_KEYS.includes(event.code);
     if (flightOwns) return;
 
@@ -1044,10 +1008,6 @@ function buildInterface(ctx) {
     selectBody, showOverview, explorer, setFlight, hideTooltip, welcome, updateGamepad,
   };
 }
-
-/* ========================================================================== */
-/*  Frame loop                                                                 */
-/* ========================================================================== */
 
 function startLoop(ctx) {
   const { viewport, system, orbits, belts, director, flight, picker, clock, assets, ui, visitor, post } = ctx;
@@ -1097,9 +1057,8 @@ function startLoop(ctx) {
     if (assets.pumpUploads()) viewport.discardNextSample();
     post.render(dt);
 
-    // Interface readouts change slowly; four times a second is plenty and keeps
-    // text layout off the critical path. A jump through time is the exception:
-    // the date should visibly spin.
+    // Readouts update four times a second to keep text layout off the critical
+    // path, except during a jump through time, when the date should visibly spin.
     frames++;
     sinceUiUpdate += dt;
     sinceStats += dt;
@@ -1127,15 +1086,9 @@ function startLoop(ctx) {
   });
 }
 
-/* ========================================================================== */
-/*  Odds and ends                                                              */
-/* ========================================================================== */
-
 /**
- * The UFO from the original build. It used to hover over whichever planet you
- * were looking at, which on a first visit read as a rendering bug. Now it keeps
- * to itself: a small, slow orbit around the Moon, there for anyone who looks
- * closely enough - and clickable, for anyone who wants to know what it is.
+ * The UFO: a small, slow, clickable orbit round the Moon. It keeps away from the
+ * focused planet, where on a first visit it would read as a rendering bug.
  */
 async function buildVisitor(assets, scene, system) {
   const group = new THREE.Group();
@@ -1315,7 +1268,7 @@ function debounce(fn, ms) {
   };
 }
 
-/** Inherited from the original. Still here, still undocumented. */
+/** Undocumented easter egg. */
 function installKonamiCode() {
   const sequence = [
     'ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown',

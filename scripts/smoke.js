@@ -1,12 +1,8 @@
 #!/usr/bin/env node
 /**
- * Loads the real page in headless Chrome and fails on anything that would
- * greet a visitor as a broken site.
- *
- * A syntax check cannot tell you the app throws on startup, and with no bundler
- * there is nothing else that would. This is the backstop: it waits for the
- * loading screen to finish, then asserts that the interface is actually there
- * and that nothing logged an error or 404ed along the way.
+ * Loads the real page in headless Chrome, waits for the loading screen to
+ * finish, then asserts that the interface is there and that nothing logged an
+ * error or 404ed along the way.
  *
  *   npm run smoke            # skips cleanly if no Chrome is installed
  *   npm run smoke -- --strict  # missing Chrome is a failure (used by CI)
