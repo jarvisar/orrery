@@ -10,8 +10,10 @@
 import * as THREE from 'three';
 
 /** Ring diameter in CSS pixels, and how long a fade takes, in seconds. */
-const SIZE = 17;
-const FADE = 0.35;
+const SIZE = 14;
+const FADE = 0.8;
+/** How bright a ring is: enough to find, not enough to pull the eye from the planets. */
+const BRIGHTNESS = 0.3;
 
 const vertexShader = /* glsl */ `
   uniform float uSize;
@@ -46,7 +48,7 @@ export class HostRings {
     this.material = new THREE.ShaderMaterial({
       uniforms: {
         uSize: { value: SIZE },
-        uColor: { value: new THREE.Color('#f3bd6e').multiplyScalar(0.55) },
+        uColor: { value: new THREE.Color('#f3bd6e').multiplyScalar(BRIGHTNESS) },
         uOpacity: { value: 0 },
       },
       vertexShader,

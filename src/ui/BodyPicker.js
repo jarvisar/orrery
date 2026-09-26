@@ -19,11 +19,13 @@ export class BodyPicker {
    * @param {object} handlers
    * @param {(id: string) => void} handlers.onSelect
    * @param {() => void} handlers.onOverview
+   * @param {() => void} [handlers.onHome] The host's own planets, where the catalogue has that view.
    */
-  constructor({ onSelect, onOverview, catalogue = SOLAR_SYSTEM }) {
+  constructor({ onSelect, onOverview, onHome, catalogue = SOLAR_SYSTEM }) {
     this.catalogue = catalogue;
     this.onSelect = onSelect;
     this.onOverview = onOverview;
+    this.onHome = onHome;
     this.selectedId = null;
     this._typed = '';
     this._typedAt = 0;
@@ -80,6 +82,27 @@ export class BodyPicker {
     this.menu.append(overview);
     this._options.set('@overview', overview);
 
+    // A host whose planets are lost in a wide stellar orbit (catalogue.home).
+    const centre = this.catalogue.home && this.catalogue.byId.get(this.catalogue.home.centreId);
+    if (centre && this.onHome) {
+      const home = el(
+        'button',
+        {
+          class: 'picker__option picker__option--overview',
+          type: 'button',
+          role: 'option',
+          'aria-selected': 'false',
+          onclick: () => { this.onHome(); this.close(); },
+        },
+        [
+          el('span', { class: 'picker__ring', 'aria-hidden': 'true' }),
+          el('span', { text: `Planets of ${centre.name}` }),
+        ]
+      );
+      this.menu.append(home);
+      this._options.set('@home', home);
+    }
+
     for (const group of GROUP_ORDER) {
       const members = this.catalogue.bodies.filter((b) => b.kind === group.kind);
       if (members.length === 0) continue;
@@ -132,10 +155,11 @@ export class BodyPicker {
   /**
    * Shows `id` as the current body. `display` names things the catalogue does
    * not - the whole-system view, or something that is not a body at all.
+   * `display.option` picks which overview option is marked; '@overview' if not given.
    */
   select(id, display = id ? this.catalogue.byId.get(id) : null) {
     this._options.get(this.selectedId)?.setAttribute('aria-selected', 'false');
-    this.selectedId = id ?? (display ? '@overview' : null);
+    this.selectedId = id ?? (display ? display.option ?? '@overview' : null);
 
     this.label.textContent = display?.name ?? 'Free view';
     this.swatch.style.background = display?.color ?? '#8892a8';

@@ -112,7 +112,7 @@ The app checks GitHub Releases 15 seconds after starting and every six hours aft
 
 Only published releases count, not drafts. The app doesn't check for updates in development, in the self-test, or with `--no-updates`. If a check fails, it's logged and ignored.
 
-Updates need the `latest.yml`, `latest-linux.yml` and `.blockmap` files that the release workflow uploads with the installers. The workflow won't draft a release without the `.yml` files, and the packaged app's self-test fails if the updater is missing.
+Updates need the `latest.yml`, `latest-linux.yml` and `.blockmap` files that the release workflow uploads with the installers. The workflow won't publish a release without the `.yml` files, and the packaged app's self-test fails if the updater is missing.
 
 To test an update without releasing one, build the current version, then build a newer one with `--version`, serve it locally and point the older copy at it with `ORRERY_UPDATE_FEED`:
 
@@ -135,10 +135,10 @@ Update the exoplanet data first, since the app includes the committed files:
 ```sh
 npm run exoplanets:update && npm run stars:update
 npm version minor            # or patch / major, updates both package.json files, commits and tags
-git push --follow-tags       # the tag builds everything and drafts a GitHub release
+git push --follow-tags       # the tag builds everything and publishes a GitHub release
 ```
 
-Check the installers in the draft release, then publish it. Installed copies only update once it's published. The workflow won't build a tag that doesn't match `package.json`.
+The release is published once every platform's build has passed its launch test, and installed copies start updating to it. The workflow won't build a tag that doesn't match `package.json`.
 
 ## Installing
 

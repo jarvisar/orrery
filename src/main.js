@@ -208,7 +208,9 @@ async function boot() {
   // Another star opens on the planets: its own, where they would be lost in a
   // wide stellar orbit (catalogue.home), else the whole system.
   if (catalogue.isExoplanet && !new URLSearchParams(location.search).get('body')) {
-    ui.showOverview(catalogue.home?.radiusAU, { instant: true, centreId: catalogue.home?.centreId });
+    // The stars with planets stay unringed until the user comes back to it,
+    // so the new system gets a clear view first.
+    ui.showOverview(catalogue.home?.radiusAU, { instant: true, centreId: catalogue.home?.centreId, quietSky: true });
   } else ui.selectBody(initialBodyId(catalogue), { instant: true });
   ui.markers.update(viewport.width, viewport.height);
 
@@ -265,6 +267,8 @@ function buildInterface(ctx) {
     flying: false, focusedId: null, showStats: false, touring: false,
     // In the whole-system view, where the stars with planets are ringed.
     inOverview: false,
+    // The overview a system opens on, which leaves them unringed.
+    quietSky: false,
     // The overview last shown, so a headset opens on the same one.
     overview: { radiusAU: catalogue.overviewAU, centre: null },
     // The controller is the input in use, and whether it is driving the menus.
@@ -277,6 +281,7 @@ function buildInterface(ctx) {
     catalogue,
     onSelect: (id) => selectBody(id),
     onOverview: () => showOverview(),
+    onHome: () => showHome(),
   });
   // On a phone the panel would cover the body it describes; start it folded.
   const infoPanel = new InfoPanel({
@@ -505,21 +510,27 @@ function buildInterface(ctx) {
   }
 
   /** The whole system; or, with `centreId`, one body and what orbits it, followed as it moves. */
-  function showOverview(radiusAU = catalogue.overviewAU, { instant = false, centreId = null } = {}) {
+  function showOverview(radiusAU = catalogue.overviewAU, { instant = false, centreId = null, quietSky = false } = {}) {
     if (state.flying) setFlight(false, { refocus: false });
     tours.stop();
     state.focusedId = null;
     state.inOverview = true;
+    state.quietSky = quietSky;
     picker.refreshHover();
     const centre = centreId ? lookup(centreId) ?? null : null;
     state.overview = { radiusAU, centre };
     if (vr.active) vr.overview(radiusAU, { instant, centre });
     else director.overview(radiusAU, { instant: instant || reduceMotion(), centre });
-    bodyPicker.select(null, { name: centre ? `Planets of ${centre.name}` : 'Whole system' });
+    bodyPicker.select(null, centre ? { name: `Planets of ${centre.name}`, option: '@home' } : { name: 'Whole system' });
     infoPanel.show(catalogue.isExoplanet ? centre ?? system.bodies.get(catalogue.starId) : null);
     orbits.setFocus(null);
     markers.setFocus(null);
     setUrlBody(null);
+  }
+
+  /** The host's own planets, for a system that has that view (catalogue.home). */
+  function showHome() {
+    if (catalogue.home) showOverview(catalogue.home.radiusAU, { centreId: catalogue.home.centreId });
   }
 
   function stepBody(delta) {
@@ -628,9 +639,9 @@ function buildInterface(ctx) {
     return state.inOverview && !state.flying && !state.touring && !vr.presenting;
   }
 
-  /** Whether they are ringed there: with labels on. */
+  /** Whether they are ringed there: with labels on, and not on arrival at a system. */
   function showsHostRings() {
-    return inWholeSystemView() && settings.get('showLabels');
+    return inWholeSystemView() && !state.quietSky && settings.get('showLabels');
   }
 
   picker.setFallback((direction, tolerance) =>

@@ -2,7 +2,7 @@ name: Desktop
 
 # Builds the desktop app (desktop/) for Windows, Linux and macOS, launches
 # each packaged build to check that it starts, and keeps the installers as
-# artifacts. A version tag (v2.2.0) also drafts a GitHub release with them.
+# artifacts. A version tag (v2.2.0) also publishes a GitHub release with them.
 #
 # Every change to the site changes the app too, so this runs on all of them,
 # not only on changes under desktop/.
@@ -121,7 +121,7 @@ jobs:
           retention-days: 30
 
   release:
-    name: Draft a release
+    name: Publish the release
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
@@ -144,9 +144,12 @@ jobs:
           path: release
           merge-multiple: true
 
-      - name: Draft the release
-        # A draft, so nothing is public until it has been looked over and
-        # published from the Releases page.
+      - name: Publish the release
+        # Published straight away: every platform's packaged build has already
+        # launched and passed its self-test (needs: build), and installed
+        # copies auto-update to it. A bad release is fixed by the next patch.
+        # gh uploads the files before publishing, so auto-update never sees a
+        # release without its feeds.
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -157,7 +160,6 @@ jobs:
             test -f "release/$feed" || { echo "::error::release/$feed is missing"; exit 1; }
           done
           gh release create "$GITHUB_REF_NAME" release/* \
-            --draft \
             --verify-tag \
             --title "Orrery ${GITHUB_REF_NAME#v}" \
             --generate-notes
