@@ -9,7 +9,7 @@
  * copying a link to the current one.
  */
 
-import { el, icon } from './dom.js';
+import { el, icon, announce } from './dom.js';
 import { RATE_PRESETS, MIN_RATE, MAX_RATE } from '../sim/Clock.js';
 import { daysSinceJ2000 } from '../sim/kepler.js';
 import { MOMENTS } from '../data/moments.js';
@@ -271,20 +271,25 @@ export class TimeBar {
     if (restoreFocus) this.dateButton.focus();
   }
 
+  // Each says what it did, since from a key or a controller nothing that has
+  // focus changes to say it.
   jumpToNow() {
     if (this.hooks.onNow) this.hooks.onNow();
     else this.clock.jumpToNow();
     this.refresh();
+    announce('Back to the present');
   }
 
   togglePause() {
     this.clock.paused = !this.clock.paused;
     this.refresh();
+    announce(this.clock.paused ? 'Paused' : `Playing, ${spoken(this.clock.describeRate())}`);
   }
 
   toggleDirection() {
     this.clock.direction *= -1;
     this.refresh();
+    announce(this.clock.direction < 0 ? 'Time runs backwards' : 'Time runs forwards');
   }
 
   /** Moves to the next preset faster (+1) or slower (-1) than the current rate. */
@@ -299,6 +304,7 @@ export class TimeBar {
     this.clock.setRate(next.daysPerSecond);
     this.refresh();
     this._showBubble();
+    announce(spoken(this.clock.describeRate()));
   }
 
   _onSlide(position) {
@@ -331,7 +337,7 @@ export class TimeBar {
     const description = this.clock.describeRate();
     this.rateLabel.textContent = description;
     this.rateBubble.textContent = description;
-    this.rateSlider.setAttribute('aria-valuetext', description);
+    this.rateSlider.setAttribute('aria-valuetext', spoken(description));
     // Leave the thumb where the pointer is mid-drag; only snap it for detents
     // and keyboard steps, where there is no pointer to fight.
     const position = toSlider(this.clock.daysPerSecond);
@@ -348,4 +354,13 @@ export class TimeBar {
     const time = `${this.clock.formatTime()} UTC`;
     if (this.dateSub.textContent !== time) this.dateSub.textContent = time;
   }
+}
+
+/** A rate as it should be read aloud: "1 hour/s" is "1 hour a second", "−1 min/s" "1 minute a second, backwards". */
+function spoken(rate) {
+  const units = { min: ['minute', 'minutes'], sec: ['second', 'seconds'] };
+  return rate
+    .replace(/^−(.*)$/, '$1, backwards')
+    .replace(/([\d.]+) (min|sec)\//, (_, amount, unit) => `${amount} ${units[unit][amount === '1' ? 0 : 1]}/`)
+    .replace('/s', ' a second');
 }

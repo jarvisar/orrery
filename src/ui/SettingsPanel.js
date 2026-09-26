@@ -109,9 +109,30 @@ export class SettingsPanel {
         'Reduce motion',
         'Skips camera fly-throughs and transitions.'
       ),
+      this._toggle(
+        'keyShortcuts',
+        'Keyboard shortcuts',
+        'Single keys such as H and Space. Turn off if speech input sets them off. Esc always works.'
+      ),
+
+      // Shown only where a headset could be used.
+      (this.vr = el('div', { class: 'drawer__section drawer__section--vr', hidden: true }, [
+        el('h3', { class: 'section-title', text: 'Virtual reality' }),
+        this._segmented(
+          'vrHand',
+          'Point with',
+          [
+            { value: 'right', label: 'Right' },
+            { value: 'left', label: 'Left' },
+          ],
+          'The other hand holds the panel and flies.'
+        ),
+        this._toggle('vrVignette', 'Comfort vignette', 'Darkens the edges of the view while a stick moves you.'),
+        this._toggle('vrSounds', 'Interface sounds', 'A click for every press, since a bare hand feels nothing.'),
+      ])),
 
       // Shown only while a controller is connected.
-      (this.controller = el('div', { class: 'drawer__section', hidden: true }, [
+      (this.controller = el('div', { class: 'drawer__section drawer__section--controller', hidden: true }, [
         el('h3', { class: 'section-title', text: 'Controller' }),
         this._toggle('padInvertY', 'Invert up and down', 'Push up to look down, as a flight stick does.'),
         this._slider(
@@ -260,6 +281,10 @@ export class SettingsPanel {
 
   setControllerConnected(connected) {
     this.controller.hidden = !connected;
+  }
+
+  setVRAvailable(available) {
+    this.vr.hidden = !available;
   }
 
   toggle() { this.isOpen ? this.close() : this.open(); }

@@ -217,12 +217,6 @@ export class CameraDirector {
     if (zoom) controls._dollyIn(Math.exp(-zoom * STICK_ZOOM_RATE * dt));
   }
 
-  /** A slow drift round whatever is in view, for tours and idle moments. */
-  setAutoRotate(enabled, speed = 0.35) {
-    this.controls.autoRotate = enabled;
-    this.controls.autoRotateSpeed = speed;
-  }
-
   get isTransitioning() {
     return this._transition !== null;
   }

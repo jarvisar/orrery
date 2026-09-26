@@ -24,12 +24,20 @@ export const DEFAULTS = {
   beltDensity: 1,
   exposure: 1,
 
-  reduceMotion: false,
+  // Whatever the system asks for, until changed here.
+  reduceMotion: globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
+  // Single-key shortcuts, which speech input can set off by accident (WCAG 2.1.4).
+  keyShortcuts: true,
 
   // Pushing up looks up, as in most games; inverted is the flight-sim way.
   padInvertY: false,
   padSensitivity: 1,
   padRumble: true,
+
+  // The hand that points in a headset; the other holds the panel and flies.
+  vrHand: 'right',
+  vrVignette: true,
+  vrSounds: true,
 };
 
 export class Settings {
@@ -76,9 +84,11 @@ function load() {
   }
 }
 
+/** Only what differs from the defaults, so a default that follows the system keeps following it. */
 function save(values) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(values));
+    const changed = Object.entries(values).filter(([key, value]) => value !== DEFAULTS[key]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.fromEntries(changed)));
   } catch {
     // Private browsing, full quota or storage disabled; persistence is optional.
   }

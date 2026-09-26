@@ -87,7 +87,7 @@ try {
       padbarTitle: padbar.querySelector('.padbar__title').textContent,
       padbarRows: [...padbar.querySelectorAll('.padbar__text')].map((n) => n.textContent),
       padbarFlight: padbar.classList.contains('is-flight'),
-      settingsSection: !document.querySelector('.drawer__section').hidden,
+      settingsSection: !document.querySelector('.drawer__section--controller').hidden,
       active: active === document.body ? null : {
         cls: active.className,
         id: active.dataset?.id ?? null,
@@ -528,7 +528,7 @@ function overlaps(context) {
     return r.width > 0 && r.height > 0;
   };
   const selectors = [
-    '.brand', '.picker', '.topbar__end', '.info', '.tour', '.timebar',
+    '.brand', '.picker', '.topbar__end', '.info', '.timebar',
     '.hud__controls', '.hud__dest', '.hud__near', '.hud__reticle',
   ];
   // Only the legend's own text and glyphs count, not the box round them.

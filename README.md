@@ -1,6 +1,6 @@
 # Orrery
 
-An interactive 3D model of the solar system built with [three.js](https://threejs.org/). Explore planets and moons, change the date, take a guided tour, or fly around in flight mode. You can also explore other star systems using data from the [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu/).
+An interactive 3D model of the solar system built with [three.js](https://threejs.org/). Explore planets and moons, change the date, or fly around in flight mode. You can also explore other star systems using data from the [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu/).
 
 Visit the [GitHub Pages site](https://jarvisar.github.io/orrery/) to access the latest deployment. The site can be installed from your browser and works offline. There is also a desktop app for Windows, macOS and Linux.
 
@@ -10,7 +10,6 @@ Visit the [GitHub Pages site](https://jarvisar.github.io/orrery/) to access the 
 
 Click on a planet or moon to focus on it. Drag to rotate the camera and scroll to zoom. Click on the date to change it, or press Space to pause.
 
-- **Tours** takes you through a few groups of planets and moons.
 - **Star systems** lets you search for and explore exoplanet systems. In the whole-system view (**H**), stars with planets are ringed, and you can click one to travel there.
 - **G** switches to flight mode. Click to capture the mouse, use W/S for the throttle, A/D to roll and Shift to boost. Press Esc to exit.
 - **H** returns to the overview.

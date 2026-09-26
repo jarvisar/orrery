@@ -112,6 +112,24 @@ export function formatKm(km) {
   return `${km.toFixed(1)} km`;
 }
 
+/**
+ * Says something to a screen reader without showing it: what a shortcut, a
+ * controller or the scene just did, which otherwise happens silently.
+ */
+export function announce(text) {
+  if (!announcer) {
+    announcer = el('div', { class: 'sr-only', role: 'status', 'aria-live': 'polite' });
+    document.body.append(announcer);
+  }
+  // Cleared first, so the same words twice in a row are read twice.
+  announcer.textContent = '';
+  clearTimeout(announceTimer);
+  announceTimer = setTimeout(() => { announcer.textContent = text; }, 60);
+}
+
+let announcer = null;
+let announceTimer = 0;
+
 /** Traps Tab within `container` while it is open, and restores focus on close. */
 export function trapFocus(container) {
   const previous = document.activeElement;

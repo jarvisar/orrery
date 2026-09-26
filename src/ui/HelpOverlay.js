@@ -35,14 +35,6 @@ export const SHORTCUTS = [
     ],
   },
   {
-    group: 'Tours',
-    items: [
-      { keys: ['T'], desc: 'Choose a tour' },
-      { keys: ['←', '→'], desc: 'Previous or next stop' },
-      { keys: ['Esc'], desc: 'End the tour' },
-    ],
-  },
-  {
     group: 'Flight mode',
     items: [
       { keys: ['G'], desc: 'Enter or leave flight' },
@@ -77,7 +69,7 @@ export const SHORTCUTS = [
       { keys: ['Pinch and drag'], desc: 'Grab and move the system' },
       { keys: ['Both hands'], desc: 'Pinch and pull to scale and turn it' },
       { keys: ['Fingertip'], desc: 'Touch a panel button' },
-      { keys: ['Left palm'], desc: 'Turn it to you to bring the panel' },
+      { keys: ['Palm'], desc: 'Turn one to you to bring the panel' },
     ],
   },
   {
@@ -106,11 +98,11 @@ export const CONTROLLER = [
       { pad: ['ls'], desc: 'Orbit the camera' },
       { pad: ['rs'], desc: 'Pan' },
       { pad: ['lt', 'rt'], desc: 'Zoom out and in' },
-      { pad: ['dpad-x'], desc: 'Previous or next body, or tour stop' },
+      { pad: ['dpad-x'], desc: 'Previous or next body' },
       { pad: ['y'], desc: 'The whole system' },
       { pad: ['r3'], desc: 'Re-frame current body' },
       { pad: ['l3'], desc: 'Toggle the info panel' },
-      { pad: ['b'], desc: 'Free view, or end the tour' },
+      { pad: ['b'], desc: 'Free view' },
       { pad: ['view'], desc: 'Full screen' },
     ],
   },
@@ -149,7 +141,7 @@ export const CONTROLLER = [
 ];
 
 export class HelpOverlay {
-  /** @param {{exoplanet?: boolean}} [options] Around another star: no tours, and its own sources. */
+  /** @param {{exoplanet?: boolean}} [options] Around another star: its own sources. */
   constructor({ exoplanet = false } = {}) {
     this.exoplanet = exoplanet;
     this.isOpen = false;
@@ -225,8 +217,7 @@ export class HelpOverlay {
 
   _render() {
     const family = this._family ?? 'generic';
-    const shortcuts = this.exoplanet ? SHORTCUTS.filter((section) => section.group !== 'Tours') : SHORTCUTS;
-    const sections = this._family ? [...CONTROLLER, ...shortcuts] : [...shortcuts, ...CONTROLLER];
+    const sections = this._family ? [...CONTROLLER, ...SHORTCUTS] : [...SHORTCUTS, ...CONTROLLER];
     const touch = coarse.matches;
     this.body.replaceChildren(
       ...sections.map((section) =>

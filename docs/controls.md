@@ -4,8 +4,6 @@
 
 Click on any planet or moon to focus on it, or pick one from the menu at the top. When something is too small to see, click its label instead. The info panel shows facts about the selected body, a live map of its orbit and links to its moons.
 
-**Tours** move the camera through the solar system one stop at a time: *The Grand Tour* (Sun to Pluto), *Ocean Worlds* and *Odd Ones Out*.
-
 **Click on the date** to jump to any date, or to one of a few notable moments like the 2020 great conjunction or Saturn's 2025 equinox. The date is saved in the URL, so a link opens the same moment.
 
 ## Keyboard and mouse
@@ -16,14 +14,15 @@ Click on any planet or moon to focus on it, or pick one from the menu at the top
 | **Click** | Focus on a body |
 | **Click a ringed star** | Travel there (whole system view, **H**) |
 | **H** | Show the whole system (or click the logo) |
-| **T** | Choose a tour, then **←** / **→** to move between stops |
-| **Esc** | Free camera, or leave a tour or flight mode |
+| **Esc** | Free camera, or leave flight mode |
 | **`[`** / **`]`** | Previous / next body |
 | **Space** | Play or pause |
 | **`,`** / **`.`** | Slow down / speed up time |
 | **R** / **N** | Reverse time / jump to now |
 | **G** | Flight mode |
 | **?** | Full list of controls |
+
+Single-key shortcuts can be switched off in **Settings**, under Accessibility, if speech input sets them off by accident. **Esc** always works. **Reduce motion** there follows your system's setting until you change it.
 
 ## Flight mode
 
@@ -50,11 +49,11 @@ Most controllers work, including Xbox, PlayStation, Switch Pro and 8BitDo. Press
 | **Left stick** | Rotate (in flight mode: steer) |
 | **Right stick** | Pan (in flight mode: roll) |
 | **LT** / **RT** | Zoom out / in (in flight mode: throttle) |
-| **D-pad ←** / **→** | Previous / next body, tour stop or destination |
+| **D-pad ←** / **→** | Previous / next body or destination |
 | **D-pad ↑** / **↓** | Jump to now / reverse time |
 | **LB** / **RB** | Slow down / speed up time |
 | **A** | Play or pause (in flight mode: hold to boost) |
-| **B** | Free camera, end the tour, or leave flight mode |
+| **B** | Free camera, or leave flight mode |
 | **X** | Flight mode |
 | **Y** | Show the whole system (in flight mode: autopilot) |
 | **Right stick click** | Re-frame the current body |
@@ -80,7 +79,9 @@ If a VR headset is available (the Quest browser, or Chrome or Edge with a PC hea
 | **A** / **B** | Play or pause / show the whole system |
 | **X** / **Y** | Previous / next body |
 
-A panel above the left controller shows the date and has buttons for everything else, including leaving VR.
+A panel above the left controller shows the date, what you are looking at and a few lines about it, and has buttons for everything else, including running time backwards. **Controls** shows these controls on the panel. **Exit VR** needs a second press, so it can't be hit by accident. With only one controller the panel floats in front of you instead.
+
+Settings has a Virtual reality section while a headset is available. It can swap the hands (point with your left, and hold the panel and fly with your right), turn off the comfort vignette that darkens the edges of the view while a stick moves you, and turn off the interface sounds.
 
 Hand tracking also works:
 
@@ -90,7 +91,9 @@ Hand tracking also works:
 | **Pinch and drag** | Grab and move the system |
 | **Pinch with both hands** | Scale and rotate the system |
 | **Fingertip** | Press a panel button |
-| **Left palm toward you** | Bring the panel to your hand |
+| **Palm toward you** | Bring the panel to that hand |
+
+A ring on the panel shows where your fingertip will land, and closes up as it gets there. Every press makes a short click, since a bare hand can't feel one. The panel holds still once it reaches your hand, so the other hand can press it.
 
 Hold the Meta button to recenter the view.
 

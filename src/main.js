@@ -39,13 +39,12 @@ import { Clock } from './sim/Clock.js';
 import { daysSinceJ2000, dateFromDays } from './sim/kepler.js';
 import { LoadingScreen } from './ui/LoadingScreen.js';
 import { BodyPicker } from './ui/BodyPicker.js';
-import { InfoPanel } from './ui/InfoPanel.js';
+import { InfoPanel, KIND_LABEL } from './ui/InfoPanel.js';
 import { TimeBar } from './ui/TimeBar.js';
 import { FlightHud } from './ui/FlightHud.js';
 import { SettingsPanel } from './ui/SettingsPanel.js';
 import { HelpOverlay } from './ui/HelpOverlay.js';
 import { Markers } from './ui/Markers.js';
-import { TourGuide } from './ui/TourGuide.js';
 import { InstallToast } from './ui/InstallToast.js';
 import { UpdateToast } from './ui/UpdateToast.js';
 import { GamepadHud } from './ui/GamepadHud.js';
@@ -53,7 +52,7 @@ import { FocusNavigator } from './ui/FocusNavigator.js';
 import { padName } from './ui/padGlyphs.js';
 import { toggleFullscreen } from './ui/fullscreen.js';
 import { VRMode } from './xr/VRMode.js';
-import { el, icon } from './ui/dom.js';
+import { el, icon, announce } from './ui/dom.js';
 
 /** Scene units to kilometres, using the body-size scale rather than the orbit scale. */
 const KM_PER_UNIT = EARTH_RADIUS_KM / EARTH_RADIUS_UNITS;
@@ -264,7 +263,7 @@ function buildInterface(ctx) {
   const reduceMotion = () => settings.get('reduceMotion');
 
   const state = {
-    flying: false, focusedId: null, showStats: false, touring: false,
+    flying: false, focusedId: null, showStats: false,
     // In the whole-system view, where the stars with planets are ringed.
     inOverview: false,
     // The overview a system opens on, which leaves them unringed.
@@ -323,21 +322,11 @@ function buildInterface(ctx) {
   const padHud = new GamepadHud();
   markers.setEnabled(settings.get('showLabels'));
 
-  const tours = new TourGuide({
-    visit: (id, { duration, instant }) => selectBody(id, { fromTour: true, duration, instant }),
-    onChange: (touring) => {
-      state.touring = touring;
-      root.classList.toggle('is-touring', touring);
-      director.setAutoRotate(touring && !reduceMotion());
-      if (!touring) infoPanel.show(lookup(state.focusedId) ?? null);
-    },
-    reduceMotion,
-    canVisit: (id) => system.isVisible(id),
-  });
-
   const tooltip = el('div', { class: 'tooltip panel' });
   const stats = el('div', { class: 'stats panel', hidden: true });
   const hint = el('div', { class: 'hint panel', hidden: true });
+  // A line of news in the hint's place, for things that went wrong.
+  const notice = el('div', { class: 'hint hint--notice panel', role: 'status', hidden: true });
 
   const vr = new VRMode({
     renderer: viewport.renderer, camera, scene, system, clock, picker, settings,
@@ -346,11 +335,11 @@ function buildInterface(ctx) {
       overview: () => showOverview(),
       step: (delta) => stepBody(delta),
       togglePause: () => timeBar.togglePause(),
+      toggleDirection: () => timeBar.toggleDirection(),
       stepRate: (delta) => timeBar.stepRate(delta),
       now: () => timeBar.jumpToNow(),
     },
     onStart: () => {
-      tours.stop();
       setFlight(false, { refocus: false });
       helpOverlay.close();
       settingsPanel.close();
@@ -381,14 +370,16 @@ function buildInterface(ctx) {
       if (state.focusedId) director.focusOn(lookup(state.focusedId), { instant: true });
       else director.overview(state.overview.radiusAU, { instant: true, centre: state.overview.centre });
     },
+    onError: (error) => notify(vrFailure(error)),
     onResolution: (width, height) => orbits.setResolution(width, height),
   });
 
-  // Shown only when a headset (or a runtime for one) is present; rechecked on devicechange.
+  // Shown only when a headset (or a runtime for one) is present; rechecked on
+  // devicechange. Named, not just drawn: in a headset's browser it is the way in.
   const vrButton = el(
     'button',
     {
-      class: 'btn btn--icon topbar__vr',
+      class: 'btn topbar__vr',
       type: 'button',
       title: 'View in VR',
       'aria-label': 'View in VR',
@@ -396,11 +387,12 @@ function buildInterface(ctx) {
       hidden: true,
       onclick: () => vr.toggle(),
     },
-    [icon('vr')]
+    [icon('vr'), el('span', { class: 'topbar__vr-label', text: 'VR' })]
   );
   const detectVR = async () => {
     const supported = await VRMode.isSupported();
     vrButton.hidden = !supported;
+    settingsPanel.setVRAvailable(supported);
     if (supported) VRMode.preload();
   };
   detectVR();
@@ -432,7 +424,7 @@ function buildInterface(ctx) {
   );
 
   const explorer = new SystemExplorer(exoplanets, catalogue, { onOpen: () => {
-    tours.stop(); bodyPicker.close(); timeBar.close(); settingsPanel.close();
+    bodyPicker.close(); timeBar.close(); settingsPanel.close();
     if (state.flying) setFlight(false);
     dismissHint();
   } });
@@ -442,10 +434,9 @@ function buildInterface(ctx) {
     el('div', { class: 'topbar__end' }, [
       el('div', { class: 'topbar__group topbar__actions panel' }, [
         explorer.button,
-        catalogue.isExoplanet ? null : tours.root,
+        vrButton,
         el('span', { class: 'topbar__divider', 'aria-hidden': 'true' }),
         flightButton,
-        vrButton,
         el(
           'button',
           {
@@ -472,22 +463,21 @@ function buildInterface(ctx) {
     ]),
   ]);
 
-  root.append(topbar, infoPanel.root, tours.caption, timeBar.root);
+  root.append(topbar, infoPanel.root, timeBar.root);
   document.body.append(
-    markers.root, flightHud.root, tooltip, stats, hint, installToast.root, updateToast.root,
+    markers.root, flightHud.root, tooltip, stats, hint, notice, installToast.root, updateToast.root,
     padHud.root, settingsPanel.root, helpOverlay.root, explorer.panel
   );
 
   /* --- focus ------------------------------------------------------------- */
 
-  function selectBody(id, { instant = false, fromTour = false, duration } = {}) {
+  function selectBody(id, { instant = false } = {}) {
     // Choosing a body mid-flight means "fly me there", not "stop flying".
-    if (state.flying && id && !fromTour) {
+    if (state.flying && id) {
       setDestination(id, { engage: true });
       return;
     }
     if (state.flying) setFlight(false, { refocus: false });
-    if (!fromTour) tours.stop();
     state.inOverview = false;
     picker.refreshHover();
 
@@ -496,9 +486,10 @@ function buildInterface(ctx) {
 
     state.focusedId = id;
     if (vr.active) vr.focusOn(view, { instant });
-    else director.focusOn(view, { instant: instant || reduceMotion(), duration });
+    else director.focusOn(view, { instant: instant || reduceMotion() });
     bodyPicker.select(id, view?.body);
-    if (!state.touring) infoPanel.show(view);
+    infoPanel.show(view);
+    if (!instant) announce(view ? spokenName(view.body) : 'Free view');
     orbits.setFocus(id);
     markers.setFocus(id);
     system.focusShadows(view);
@@ -514,7 +505,6 @@ function buildInterface(ctx) {
   /** The whole system; or, with `centreId`, one body and what orbits it, followed as it moves. */
   function showOverview(radiusAU = catalogue.overviewAU, { instant = false, centreId = null, quietSky = false } = {}) {
     if (state.flying) setFlight(false, { refocus: false });
-    tours.stop();
     state.focusedId = null;
     state.inOverview = true;
     state.quietSky = quietSky;
@@ -524,6 +514,7 @@ function buildInterface(ctx) {
     if (vr.active) vr.overview(radiusAU, { instant, centre });
     else director.overview(radiusAU, { instant: instant || reduceMotion(), centre });
     bodyPicker.select(null, centre ? { name: `Planets of ${centre.name}`, option: '@home' } : { name: 'Whole system' });
+    if (!instant) announce(centre ? `Planets of ${centre.name}` : 'Whole system');
     infoPanel.show(catalogue.isExoplanet ? centre ?? system.bodies.get(catalogue.starId) : null);
     orbits.setFocus(null);
     markers.setFocus(null);
@@ -577,7 +568,6 @@ function buildInterface(ctx) {
     // A headset has its own way of flying.
     if (enabled === state.flying || (enabled && vr.active)) return;
     state.flying = enabled;
-    if (enabled) tours.stop();
 
     flight.setEnabled(enabled);
     flight.reset();
@@ -586,6 +576,7 @@ function buildInterface(ctx) {
     flightHud.setActive(enabled);
     markers.setFocus(null);
     setPressed(flightButton, enabled);
+    announce(enabled ? 'Flight mode on. Escape to leave.' : 'Flight mode off');
 
     if (!enabled) {
       const nearest = director.nearestBody(camera.position);
@@ -614,6 +605,13 @@ function buildInterface(ctx) {
     }
   }
 
+  /** "Titan, moon of Saturn": what was chosen, for a screen reader. */
+  function spokenName(body) {
+    const parent = body.parent ? catalogue.byId.get(body.parent) : null;
+    if (body.kind === 'moon' && parent) return `${body.name}, moon of ${parent.name}`;
+    return `${body.name}, ${(KIND_LABEL[body.kind] ?? body.kind).toLowerCase()}`;
+  }
+
   /** Sets where flight is headed; `engage` also hands the controls to the autopilot. */
   function setDestination(id, { engage = false } = {}) {
     const view = lookup(id);
@@ -638,7 +636,7 @@ function buildInterface(ctx) {
 
   /** The whole-system view, the one place stars with planets can be chosen. */
   function inWholeSystemView() {
-    return state.inOverview && !state.flying && !state.touring && !vr.presenting;
+    return state.inOverview && !state.flying && !vr.presenting;
   }
 
   /** Whether they are ringed there: with labels on, and not on arrival at a system. */
@@ -687,7 +685,7 @@ function buildInterface(ctx) {
   // phone the two would share the same spot.
   let hintTimer = 0;
   function welcome() {
-    if (readFlag('orrery:welcomed') || state.touring) return installToast.offer();
+    if (readFlag('orrery:welcomed')) return installToast.offer();
     writeFlag('orrery:welcomed');
     const touch = window.matchMedia('(pointer: coarse)').matches;
     hint.replaceChildren(
@@ -714,6 +712,28 @@ function buildInterface(ctx) {
     }, 400);
   }
 
+  /** Says something went wrong, in the hint's place, for a few seconds. */
+  let noticeTimer = 0;
+  function notify(text) {
+    dismissHint();
+    notice.textContent = text;
+    notice.hidden = false;
+    requestAnimationFrame(() => notice.classList.add('is-visible'));
+    clearTimeout(noticeTimer);
+    noticeTimer = setTimeout(() => {
+      notice.classList.remove('is-visible');
+      noticeTimer = setTimeout(() => { notice.hidden = true; }, 500);
+    }, 7000);
+  }
+
+  /** Why a headset session did not start, in terms of what to do about it. */
+  function vrFailure(error) {
+    if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError') {
+      return 'VR was not allowed. Accept the browser’s prompt, then try again.';
+    }
+    return 'VR could not start. Check the headset is connected and awake, then try again.';
+  }
+
   /* --- settings ---------------------------------------------------------- */
 
   settings.on('showOrbits', (value) => orbits.setVisible(value));
@@ -734,7 +754,6 @@ function buildInterface(ctx) {
   });
   settings.on('reduceMotion', (value) => {
     document.body.classList.toggle('reduce-motion', value);
-    director.setAutoRotate(state.touring && !value);
   });
   document.body.classList.toggle('reduce-motion', settings.get('reduceMotion'));
 
@@ -782,7 +801,6 @@ function buildInterface(ctx) {
     if (explorer.isOpen) return explorer.panel;
     if (helpOverlay.isOpen) return helpOverlay.card;
     if (bodyPicker.isOpen) return bodyPicker.menu;
-    if (tours.isOpen) return tours.menu;
     if (timeBar.isOpen) return timeBar.panel;
     if (settingsPanel.isOpen) return settingsPanel.root;
     return null;
@@ -793,7 +811,6 @@ function buildInterface(ctx) {
     if (explorer.isOpen) explorer.close();
     else if (helpOverlay.isOpen) helpOverlay.close();
     else if (bodyPicker.isOpen) bodyPicker.close({ restoreFocus: true });
-    else if (tours.isOpen) tours.closeMenu({ restoreFocus: true });
     else if (timeBar.isOpen) timeBar.close({ restoreFocus: true });
     else if (settingsPanel.isOpen) settingsPanel.close();
     else return false;
@@ -886,19 +903,13 @@ function buildInterface(ctx) {
 
     if (gamepad.pressed('menu')) return enterPadMenus();
     if (gamepad.pressed('a')) timeBar.togglePause();
-    if (gamepad.pressed('b')) {
-      if (state.touring) tours.stop();
-      else if (state.focusedId) selectBody(null);
-    }
+    if (gamepad.pressed('b') && state.focusedId) selectBody(null);
     if (gamepad.pressed('x')) setFlight(true);
     if (gamepad.pressed('y')) showOverview();
     if (gamepad.pressed('rs')) reframe();
     if (gamepad.pressed('ls')) infoPanel.setCollapsed(!infoPanel.collapsed);
-    for (const [button, delta] of [['left', -1], ['right', 1]]) {
-      if (!gamepad.pressed(button)) continue;
-      if (state.touring) tours.step(delta);
-      else stepBody(delta);
-    }
+    if (gamepad.pressed('left')) stepBody(-1);
+    if (gamepad.pressed('right')) stepBody(1);
     padTimeInput();
   }
 
@@ -990,7 +1001,7 @@ function buildInterface(ctx) {
 
   /** The legend for what the controller is doing now; it only changes when that does. */
   function showPadLegend() {
-    let context = state.flying ? 'flight' : state.touring ? 'tour' : 'orbit';
+    let context = state.flying ? 'flight' : 'orbit';
     // An open menu or panel explains itself.
     if (state.padMenus) context = openSurface() ? null : 'interface';
     if (context === legendContext) return;
@@ -1021,13 +1032,14 @@ function buildInterface(ctx) {
 
     const flightOwns = state.flying && FLIGHT_KEYS.includes(event.code);
     if (flightOwns) return;
+    // Switched off in Settings, since speech input can set single keys off by accident.
+    if (!settings.get('keyShortcuts') && event.code !== 'Escape') return;
 
     switch (event.code) {
       // The one place Escape is handled, so closing a panel never also drops focus.
       case 'Escape':
         if (closeSurface()) break;
-        if (state.touring) tours.stop();
-        else if (state.flying) setFlight(false);
+        if (state.flying) setFlight(false);
         else selectBody(null);
         break;
       case 'Space': event.preventDefault(); timeBar.togglePause(); break;
@@ -1037,9 +1049,6 @@ function buildInterface(ctx) {
       case 'KeyN': timeBar.jumpToNow(); break;
       case 'KeyG': setFlight(!state.flying); break;
       case 'KeyH': showOverview(); break;
-      case 'KeyT': if (!catalogue.isExoplanet) tours.toggleMenu(); break;
-      case 'ArrowLeft': if (state.touring) tours.step(-1); break;
-      case 'ArrowRight': if (state.touring) tours.step(1); break;
       case 'BracketLeft': stepBody(-1); break;
       case 'BracketRight': stepBody(1); break;
       case 'KeyF':
@@ -1062,7 +1071,7 @@ function buildInterface(ctx) {
   installKonamiCode();
 
   return {
-    state, stats, tooltip, timeBar, infoPanel, flightHud, bodyPicker, markers, tours, vr, gamepad,
+    state, stats, tooltip, timeBar, infoPanel, flightHud, bodyPicker, markers, vr, gamepad,
     selectBody, showOverview, explorer, setFlight, hideTooltip, welcome, updateGamepad, showsHostRings,
     reduceMotion,
   };
@@ -1093,7 +1102,6 @@ function startLoop(ctx) {
     system.update(clock.days);
     belts.update(clock.days);
     visitor.update(dt);
-    ui.tours.update(dt);
     ui.updateGamepad(dt);
 
     // In a headset the viewer's head is the camera, and it sits inside a rig

@@ -1,8 +1,8 @@
 /**
  * The controller legend: which buttons do what in the current context.
  *
- * It comes up when a controller connects or the bindings change (taking off,
- * starting a tour), then fades. While the controller is moving round the
+ * It comes up when a controller connects or the bindings change (taking off
+ * or landing), then fades. While the controller is moving round the
  * interface it stays up, since that is when the way back out is easy to forget.
  *
  * A line above it carries news: a controller connecting or going, or a
@@ -28,13 +28,6 @@ const LEGENDS = {
     { buttons: ['x'], text: 'Fly' },
     { buttons: ['menu'], text: 'Menus' },
     { buttons: ['view'], text: 'Full screen', extra: true },
-  ],
-  tour: [
-    { buttons: ['dpad-x'], text: 'Previous or next stop' },
-    { buttons: ['ls'], text: 'Look around' },
-    { buttons: ['b'], text: 'End the tour' },
-    { buttons: ['menu'], text: 'Menus' },
-    { buttons: ['view'], text: 'Full screen' },
   ],
   flight: [
     { buttons: ['ls'], text: 'Steer' },
@@ -73,7 +66,7 @@ export class GamepadHud {
   }
 
   /**
-   * @param {'orbit'|'tour'|'flight'|'interface'|null} context Null puts it away.
+   * @param {'orbit'|'flight'|'interface'|null} context Null puts it away.
    * @param {{sticky?: boolean}} [options] Sticky holds it up until the next call.
    */
   show(context, { sticky = false } = {}) {

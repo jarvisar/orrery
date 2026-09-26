@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Orrery — An Interactive Solar System",
   "short_name": "Orrery",
-  "description": "An interactive 3D model of the solar system: real orbits, the real sky, guided tours.",
+  "description": "An interactive 3D model of the solar system: real orbits, the real sky, exoplanet systems.",
   "lang": "en",
   "dir": "ltr",
   "categories": ["education", "science"],

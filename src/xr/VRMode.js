@@ -16,7 +16,8 @@
  * viewer's hands, and a thumbstick narrows the view a little while it moves
  * them.
  *
- * Controls, on any controller with the xr-standard mapping:
+ * Controls, on any controller with the xr-standard mapping, for the default
+ * right hand pointing (the vrHand setting swaps the two sides):
  *
  *   Trigger      point and select: a body, or a button on the panel
  *   Grip         grab the system and move it; both grips to scale and turn it
@@ -25,13 +26,20 @@
  *   A / B        play or pause / the whole system
  *   X / Y        previous / next body
  *
+ * The panel rides on the off-hand controller, unless that is the only one,
+ * when it floats where the one controller can point at it.
+ *
  * With bare hands, the gestures follow Quest's own interface:
  *
  *   Pinch             point and select, as the trigger does
  *   Pinch and drag    grab the system and move it, as the grip does; both
  *                     hands to scale and turn it
  *   Fingertip         press the panel's buttons by touching them
- *   Left palm up      bring the panel to hand; it stays put when the hand drops
+ *   Palm up           bring the panel to that hand; it stays put when the hand drops
+ *
+ * A hand has no buzz to confirm a press, so every press and selection also
+ * makes a short sound (VRSounds.js), and a fingertip nearing the panel gets a
+ * ring that closes up as it arrives.
  *
  * A pinch has to do the grip's job too: Quest reserves the palm-up pinch for
  * its own menu and sends no squeeze for a hand. So a pinch that stays put is a
@@ -45,6 +53,7 @@ import { heliocentricDistance } from '../scene/scaling.js';
 import { daylightDirection } from '../camera/CameraDirector.js';
 import { VRPanel } from './VRPanel.js';
 import { VRLabels } from './VRLabels.js';
+import { VRSounds } from './VRSounds.js';
 
 /** A focused body is framed with this radius, in metres, its centre this far from the eyes. */
 const FOCUS_RADIUS_M = 0.85;
@@ -101,11 +110,12 @@ const RAY_LENGTH_M = 6;
 const DRAG_START_M = 0.03;
 /**
  * Pressing the panel with a fingertip, in metres from its face: close enough
- * to hide that hand's ray, close enough to light a button up, touching it
- * (the tip joint sits about this far inside the pad of the finger), and far
- * enough back out to let go.
+ * to hide that hand's ray, close enough to show the cursor and light a button
+ * up, touching it (the tip joint sits about this far inside the pad of the
+ * finger), and far enough back out to let go.
  */
 const POKE_NEAR_M = 0.08;
+const POKE_CURSOR_M = 0.06;
 const POKE_HOVER_M = 0.04;
 const POKE_PRESS_M = 0.008;
 const POKE_RELEASE_M = 0.025;
@@ -193,9 +203,13 @@ export class VRMode {
    * @param {object} options.actions What the controllers and the panel can ask for.
    * @param {() => void} [options.onStart]
    * @param {() => void} [options.onEnd]
+   * @param {(error: Error) => void} [options.onError] A session could not be started.
    * @param {(width: number, height: number) => void} [options.onResolution] One eye's size, in pixels.
    */
-  constructor({ renderer, camera, scene, system, clock, picker, settings, actions, onStart, onEnd, onResolution }) {
+  constructor({
+    renderer, camera, scene, system, clock, picker, settings, actions,
+    onStart, onEnd, onError, onResolution,
+  }) {
     this.renderer = renderer;
     this.camera = camera;
     this.scene = scene;
@@ -206,6 +220,7 @@ export class VRMode {
     this.actions = actions;
     this.onStart = onStart;
     this.onEnd = onEnd;
+    this.onError = onError;
     this.onResolution = onResolution;
 
     /** Set from the moment a session is granted until it has ended. */
@@ -231,6 +246,13 @@ export class VRMode {
     });
 
     this.panel = new VRPanel(this.system.catalogue.name);
+    this.sounds = new VRSounds();
+    this.sounds.enabled = settings.get('vrSounds');
+    settings.on('vrSounds', (value) => { this.sounds.enabled = value; });
+    settings.on('vrHand', () => {
+      this._placePanel();
+      this.panel.invalidate();
+    });
     this._fade = buildFade();
     this._vignette = buildVignette();
     this._motion = 0;
@@ -239,6 +261,8 @@ export class VRMode {
     this._summoner = null;
     this._palm = new THREE.Vector3();
     this._recentred = false;
+    /** Whether the panel's text shows the controls: from the start until something is chosen. */
+    this._help = true;
 
     this.hands = [];
     this._hovered = new Set();
@@ -267,6 +291,8 @@ export class VRMode {
   async start() {
     if (this.active || this._starting) return;
     this._starting = true;
+    // Sound needs the same click; see VRSounds.
+    this.sounds.unlock();
     try {
       // Asked for first, while the click that started it still counts as one.
       const session = await navigator.xr.requestSession('immersive-vr', {
@@ -302,6 +328,7 @@ export class VRMode {
       }
     } catch (error) {
       console.warn('[vr] could not start a session', error);
+      this.onError?.(error);
     } finally {
       this._starting = false;
     }
@@ -342,6 +369,8 @@ export class VRMode {
     this._anchor = null;
     if (view) this._lastFocus.copy(view.group.position);
     this.labels.setFocus(view?.id ?? null);
+    // The controls have been learnt; the panel talks about what was chosen instead.
+    if (this._ready) this._help = false;
     this.panel.invalidate();
   }
 
@@ -432,6 +461,7 @@ export class VRMode {
     this.active = true;
     this._ready = false;
     this._transition = null;
+    this._help = true;
     this.renderer.xr.enabled = true;
     this.renderer.xr.cameraAutoUpdate = false;
 
@@ -503,13 +533,16 @@ export class VRMode {
     this._follow();
     if (this._recentred) this._recentre();
     this._advanceTransition(dt);
+    this._dropLost();
     this._updatePinches();
     this._readInput(dt);
     this._syncHead();
 
     this._updatePalm();
-    if (this._summoner) this.panel.besidePalm(this.rig, this._palm, 'left', this.camera);
-    else this.panel.follow(this.camera);
+    if (this._summoner) {
+      this.panel.besidePalm(this.rig, this._palm, this._summoner.side, this.camera, dt,
+        { instant: this.settings.get('reduceMotion') });
+    } else this.panel.follow(this.camera);
     this._updatePoke();
     this._updatePointers();
     this._headUp.setFromMatrixColumn(this.camera.matrixWorld, 1).normalize();
@@ -661,7 +694,7 @@ export class VRMode {
    * motion itself.
    */
   _updateVignette(dt) {
-    const target = this._motion;
+    const target = this.settings.get('vrVignette') ? this._motion : 0;
     this._motion = 0;
     const current = this._vignette.material.uniforms.strength.value;
     this._setVignette(current + (target - current) * Math.min(1, dt * VIGNETTE_RATE));
@@ -759,9 +792,15 @@ export class VRMode {
     }
   }
 
+  /** The side that holds the panel and flies: left, unless the viewer points with their left. */
+  get offHand() {
+    return this.settings.get('vrHand') === 'left' ? 'right' : 'left';
+  }
+
   /** Thumbsticks and face buttons, polled; the trigger and grip arrive as events. */
   _readInput(dt) {
     const fading = this._transition?.phase === 'out';
+    const offHand = this.offHand;
 
     for (const hand of this.hands) {
       const pad = hand.source?.gamepad;
@@ -775,7 +814,7 @@ export class VRMode {
       const pressed = (i) => Boolean(pad.buttons[i]?.pressed);
       const tapped = (i) => pressed(i) && !hand.was[i];
 
-      if (hand.side === 'left') {
+      if (hand.side === offHand) {
         if (!fading && Math.hypot(x, y) > DEAD_ZONE) {
           const step = FLY_SPEED_M * this.scale * (pressed(STICK_BUTTON) ? BOOST : 1) *
             this._easeNearSurface() * dt;
@@ -880,6 +919,25 @@ export class VRMode {
     return held >= count;
   }
 
+  /**
+   * Lets go of whatever a hand or controller was holding once the headset
+   * loses sight of it. Holding on would drag the world along with a stale
+   * pose, then jerk it when tracking comes back; and a pinch that ends out
+   * of sight is not a click.
+   */
+  _dropLost() {
+    let dropped = false;
+    for (const hand of this.hands) {
+      if (!hand.source || hand.ray.visible) continue;
+      if (hand.pinch) hand.pinch.blocked = true;
+      if (hand.squeezing) {
+        hand.squeezing = false;
+        dropped = true;
+      }
+    }
+    if (dropped) this._regrab();
+  }
+
   /** Re-takes hold wherever each gripping hand is now. */
   _regrab() {
     this.rig.updateMatrixWorld(true);
@@ -912,6 +970,7 @@ export class VRMode {
     hand.pokeHover = null;
     hand.poked = false;
     hand.pokeZ = NaN;
+    this.panel.setCursor(hand.index, null);
     if (this._summoner === hand) {
       this._summoner = null;
       this.panel.holder = null;
@@ -1101,7 +1160,10 @@ export class VRMode {
       return;
     }
     pulse(hand.source, 0.6, 35);
-    this.actions.select(hit.id);
+    this.sounds.play('select');
+    // What is already in focus is framed again, as the panel says it will be.
+    if (hit.id === this.focus?.id) this.reframe();
+    else this.actions.select(hit.id);
   }
 
   /* --- hands ------------------------------------------------------------- */
@@ -1171,6 +1233,7 @@ export class VRMode {
       if (!local) {
         hand.poked = false;
         hand.pokeZ = NaN;
+        this.panel.setCursor(hand.index, null);
         continue;
       }
 
@@ -1186,31 +1249,41 @@ export class VRMode {
         this._onPanel(button);
       }
       hand.pokeZ = z;
+
+      // Where the finger will land, shrinking to a point as it arrives.
+      const cursor = hand.pokeNear && z < POKE_CURSOR_M && this.panel.covers(local);
+      this.panel.setCursor(hand.index, cursor ? local : null,
+        (z - POKE_PRESS_M) / (POKE_CURSOR_M - POKE_PRESS_M), z < POKE_PRESS_M);
     }
   }
 
   /**
-   * Turn the left palm to the eyes and the panel comes to it, beside the
-   * hand, where the other hand can reach it; lower the hand and the panel
-   * stays where it was left. The same gesture as Quest's own menus, but with
-   * no pinch, since that one belongs to the system.
+   * Turn a palm to the eyes and the panel comes to it, beside the hand, where
+   * the other hand can reach it; lower the hand and the panel stays where it
+   * was left. The same gesture as Quest's own menus, but with no pinch, since
+   * that one belongs to the system. Either hand will do, so it works one-handed
+   * and for whichever hand the viewer would rather press with.
    */
   _updatePalm() {
     if (this.panel.holder && this.panel.holder !== this._summoner) return; // on a controller
-    const hand = this.hands.find((h) => h.source?.hand && h.source.handedness === 'left');
-    if (!hand) {
-      if (this._summoner) this._release(this._summoner);
-      return;
-    }
-    const facing = this._palmFacing(hand, this._palm);
-    if (this._summoner === hand) {
-      if (facing < PALM_HIDE) {
+    const summoner = this._summoner;
+    if (summoner) {
+      if (!summoner.source?.hand) this._release(summoner);
+      else if (this._palmFacing(summoner, this._palm) < PALM_HIDE) {
         this._summoner = null;
         this.panel.holder = null;
       }
-    } else if (facing > PALM_SHOW && !hand.pinch && !hand.squeezing) {
+      return;
+    }
+    for (const hand of this.hands) {
+      // Not a hand busy pinching, holding on, or with a fingertip on a button.
+      if (!hand.source?.hand || hand.pinch || hand.squeezing || hand.pokeHover || hand.poked) continue;
+      if (this._palmFacing(hand, this._palm) <= PALM_SHOW) continue;
       this._summoner = hand;
       this.panel.holder = hand;
+      this.panel.summon();
+      this.sounds.play('summon');
+      return;
     }
   }
 
@@ -1233,7 +1306,7 @@ export class VRMode {
     // Out of the palm, not the back of the hand: the knuckles run the other
     // way round on a left hand.
     const normal = _dir.crossVectors(_v, _w).normalize();
-    if (hand.source.handedness === 'left') normal.negate();
+    if (hand.side === 'left') normal.negate();
 
     centre.copy(middle.position);
     const toEyes = _v.copy(this.camera.position).sub(centre).normalize();
@@ -1245,21 +1318,24 @@ export class VRMode {
   /* --- panel -------------------------------------------------------------- */
 
   /**
-   * On the left controller, like a palette, when there is one. With bare
-   * hands or a single controller it floats in front of the viewer instead,
-   * low enough to look over.
+   * On the off-hand controller, like a palette, when there is one and
+   * something else to point at it with. With bare hands or a single
+   * controller it floats in front of the viewer instead, low enough to look
+   * over and near enough to touch.
    */
   _placePanel() {
     // Controllers announce themselves before the first head pose arrives, and
     // a panel floated then would be placed from where the page's camera was.
     // The first frame places it instead.
     if (!this.active || !this._ready) return;
-    const left = this.hands.find((hand) =>
-      hand.source?.handedness === 'left' && hand.source.gamepad && !hand.source.hand);
+    const offHand = this.offHand;
+    const palette = this.hands.find((hand) =>
+      hand.source?.handedness === offHand && hand.source.gamepad && !hand.source.hand);
+    const pointer = this.hands.some((hand) => hand !== palette && hand.source?.targetRayMode === 'tracked-pointer');
     const onController = this.panel.holder && this.panel.holder !== this._summoner;
-    if (left) {
+    if (palette && pointer) {
       this._summoner = null;
-      this.panel.attach(this.rig, left);
+      this.panel.attach(this.rig, palette);
     } else if (!this.panel.mesh.parent || onController) {
       // Put down in front, unless it is already floating somewhere.
       this._summoner = null;
@@ -1268,7 +1344,15 @@ export class VRMode {
   }
 
   _onPanel(id) {
-    const { actions } = this;
+    const { actions, panel } = this;
+    // Leaving is one press from anywhere on the panel, and easy to brush with
+    // a fingertip on the way to something else; it takes a second press.
+    if (id === 'exit' && !panel.isArmed('exit')) {
+      panel.arm('exit');
+      this.sounds.play('arm');
+      return;
+    }
+    this.sounds.play('press');
     switch (id) {
       case 'prev': actions.step(-1); break;
       case 'next': actions.step(1); break;
@@ -1278,13 +1362,16 @@ export class VRMode {
       case 'pause': actions.togglePause(); break;
       case 'faster': actions.stepRate(1); break;
       case 'now': actions.now(); break;
+      case 'reverse': actions.toggleDirection(); break;
       case 'zoom-in': this._zoom(1 / ZOOM_STEP); break;
       case 'zoom-out': this._zoom(ZOOM_STEP); break;
       case 'labels': this.settings.set('showLabels', !this.settings.get('showLabels')); break;
+      case 'controls': this._help = !this._help; break;
       case 'exit': this.end(); break;
       default: break;
     }
-    this.panel.flash(id);
+    panel.arm(null);
+    panel.flash(id);
   }
 
   _pointedId() {
@@ -1301,14 +1388,17 @@ export class VRMode {
       hand.source && !hand.source.hand && hand.source.targetRayMode === 'tracked-pointer');
     return {
       hands: !controllers && this.hands.some((hand) => hand.source?.hand),
+      offHand: this.offHand,
       body: this.focus?.body ?? null,
       date: this.clock.formatDate(),
       time: this.clock.formatTime(),
       rate: this.clock.describeRate(),
       paused: this.clock.paused,
+      reversed: this.clock.direction < 0,
       pointing,
       pointingAtFocus: Boolean(pointing) && this._pointedId() === this.focus?.id,
       labels: this.settings.get('showLabels'),
+      help: this._help,
     };
   }
 }

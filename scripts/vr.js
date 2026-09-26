@@ -2,7 +2,8 @@
 /**
  * Drives VR through IWER, Meta's WebXR emulator, standing in for a Quest 3:
  * pointing and selecting, grabbing, two-handed scaling, the sticks and face
- * buttons, the panel by ray and by fingertip, the palm gesture, and recentring.
+ * buttons, the panel by ray and by fingertip, the palm gesture with either
+ * hand, recentring, swapped hands, one controller, and leaving.
  *
  * Requests to the CDN the controller and hand models come from are refused,
  * which keeps the run hermetic and exercises the offline stand-ins.
@@ -83,6 +84,7 @@ try {
   assert(s.panelHolder === 'left', 'the panel is not on the left controller');
   assert(s.standIns === 2, `expected two stand-in controllers offline, saw ${s.standIns}`);
   assert(s.fade < 0.05, `still faded in after entering (${s.fade})`);
+  assert(s.help, 'the panel does not show the controls on entering');
   await shot('entered');
 
   /* --- controllers --------------------------------------------------------- */
@@ -98,6 +100,55 @@ try {
   s = await state();
   assert(s.paused !== pausedBefore, 'pulling the trigger on Pause did not pause');
   await shot('panel-by-ray');
+
+  const pressButton = async (id) => {
+    await page.evaluate((b) => T.aimAtButton('right', b), id);
+    await frames();
+    await press((v) => T.button('right', 'trigger', v));
+    await frames(8);
+    return state();
+  };
+
+  // Next moves on, and once something has been chosen the panel talks about it instead of the controls.
+  s = await pressButton('next');
+  assert(s.focus && s.focus !== 'saturn', `Next on the panel left the focus on ${s.focus}`);
+  assert(!s.help, 'the controls stayed up once something was chosen');
+  await shot('next');
+
+  // Reverse runs time backwards, and a second press forwards again.
+  s = await pressButton('reverse');
+  assert(s.reversed, 'Reverse on the panel did not run time backwards');
+  s = await pressButton('reverse');
+  assert(!s.reversed, 'a second Reverse did not run time forwards again');
+
+  // Exit VR wants a second press; anything else in between calls it off.
+  s = await pressButton('exit');
+  assert(s.active && s.armed === 'exit', `one press of Exit VR left active ${s.active}, armed ${s.armed}`);
+  await shot('exit-armed');
+  s = await pressButton('controls');
+  assert(s.active && !s.armed && s.help, `Controls after Exit left armed ${s.armed}, help ${s.help}`);
+
+  // Pointing with the left hand moves the panel to the right controller, and back.
+  await page.evaluate(() => orrery.settings.set('vrHand', 'left'));
+  await frames(3);
+  s = await state();
+  assert(s.panelHolder === 'right', `pointing with the left left the panel on ${s.panelHolder}`);
+  await page.evaluate(() => orrery.settings.set('vrHand', 'right'));
+  await frames(3);
+
+  // With one controller, it has nothing to point at the panel with if it holds it.
+  await page.evaluate(() => { __device.controllers.left.connected = false; });
+  await frames(5);
+  s = await state();
+  assert(s.panelHolder === null && s.panelShown, `with only the right controller the panel is on ${s.panelHolder}`);
+  await page.evaluate(() => { __device.controllers.right.connected = false; __device.controllers.left.connected = true; });
+  await frames(5);
+  s = await state();
+  assert(s.panelHolder === null && s.panelShown, `with only the left controller the panel is on ${s.panelHolder}`);
+  await page.evaluate(() => { __device.controllers.right.connected = true; });
+  await frames(5);
+  s = await state();
+  assert(s.panelHolder === 'left', `with both controllers back the panel is on ${s.panelHolder}`);
 
   // Grip and drag: the world moves with the hand.
   const before = s.rig;
@@ -252,12 +303,31 @@ try {
   const summoned = await page.evaluate(() => T.showPalm('left'));
   await frames(3);
   s = await state();
-  assert(summoned > 0.7 && s.panelHolder === 'left', `turning the left palm to the eyes (${summoned.toFixed(2)}) did not bring the panel`);
+  assert(summoned > 0.7 && s.panelHolder === 'left', `turning the left palm to the eyes (${summoned.toFixed(2)}) did not bring the panel (${JSON.stringify(await page.evaluate(() => orrery.ui.vr.hands.filter((h) => h.source).map((h) => ({ side: h.side, pinch: Boolean(h.pinch), squeezing: h.squeezing, near: h.pokeNear, summoner: h === orrery.ui.vr._summoner, holder: h === orrery.ui.vr.panel.holder })))) })`);
   await shot('palm');
+  // It holds still under a small movement of the hand, and follows a large one.
+  await frames(5);
+  const held = (await state()).panelAt;
+  await page.evaluate(() => T.move('left', 0.03, 0.02, 0));
+  await frames(3);
+  s = await state();
+  assert(distance(held, s.panelAt) < 0.005, `the panel shook with the hand (${distance(held, s.panelAt).toFixed(3)} m)`);
+  await page.evaluate(() => T.move('left', 0, 0.2, 0));
+  await frames(8);
+  s = await state();
+  assert(distance(held, s.panelAt) > 0.1, 'the panel did not follow the hand a long way');
   await page.evaluate(() => T.resetHands());
   await frames(3);
   s = await state();
   assert(s.panelHolder === null && s.panelShown, 'the panel did not stay put when the palm turned away');
+
+  // The right palm does it too, for pressing with the left.
+  const right = await page.evaluate(() => T.showPalm('right'));
+  await frames(3);
+  s = await state();
+  assert(right > 0.7 && s.panelHolder === 'right', `turning the right palm to the eyes (${right.toFixed(2)}) did not bring the panel`);
+  await page.evaluate(() => T.resetHands());
+  await frames(3);
 
   // A fingertip pressed into a button presses it, once.
   const pausedHands = s.paused;
@@ -266,8 +336,11 @@ try {
   s = await state();
   assert(s.panelHover === 'pause', `a fingertip over Pause hovered ${s.panelHover}`);
   assert(!s.lasers.right, 'the ray stayed on with a fingertip at the panel');
+  assert(s.cursor.shown && !s.cursor.touching, 'no ring on the panel under a fingertip coming in');
   await page.evaluate(() => T.pokeButton('right', 'pause', -0.01));
   await frames();
+  s = await state();
+  assert(s.cursor.shown && s.cursor.touching, 'the ring under a fingertip did not fill on touching');
   await shot('poke');
   await page.evaluate(() => T.pokeButton('right', 'pause', -0.015));
   await frames();
@@ -280,6 +353,12 @@ try {
 
   /* --- leaving ------------------------------------------------------------- */
 
+  // Twice: the first press only asks. After the second the headset's frames stop.
+  await page.evaluate(() => T.pokeButton('right', 'exit', 0.05));
+  await frames();
+  await page.evaluate(() => T.pokeButton('right', 'exit', -0.01));
+  await frames(2);
+  assert((await state()).active, 'one fingertip press of Exit VR left VR');
   await page.evaluate(() => T.pokeButton('right', 'exit', 0.05));
   await frames();
   await page.evaluate(() => T.pokeButton('right', 'exit', -0.01));
@@ -332,7 +411,7 @@ try {
   assert(label === 'Whole system', `back on the page showing ${label}, not the whole system`);
 
   if (problems.length === 0) {
-    console.log('vr: ok — controllers, hands, panel, palm, poke, recentre, exit and another star all behaved');
+    console.log('vr: ok — controllers, hands, panel, palm, poke, one controller, swapped hands, recentre, exit and another star all behaved');
   } else {
     exitCode = 1;
     console.error(`vr: ${problems.length} problem(s)`);
@@ -411,6 +490,15 @@ function installHelpers(page) {
           handsMode: vr._describe().hands,
           standIns: vr.hands.filter((h) => h.grip.getObjectByName('vr-controller-stand-in')?.visible).length,
           focusAhead: toFocus ? ahead.dot(toFocus) : null,
+          active: vr.active,
+          help: vr._help,
+          armed: vr.panel._armed,
+          reversed: orrery.clock.direction < 0,
+          panelAt: vr.panel.mesh.position.toArray(),
+          cursor: (() => {
+            const cursor = vr.panel._cursors[slot('right')?.index];
+            return { shown: Boolean(cursor?.visible), touching: Boolean(cursor?.visible && cursor.userData.dot.visible) };
+          })(),
         };
       },
       button: (side, id, value) => device.controllers[side].updateButtonValue(id, value),
@@ -439,7 +527,7 @@ function installHelpers(page) {
       /** Tries a handful of wrist turns and keeps whichever faces the palm most squarely at the eyes. */
       async showPalm(side) {
         const target = device.hands[side];
-        target.position.set(-0.12, 1.4, -0.3);
+        target.position.set(side === 'left' ? -0.12 : 0.12, 1.4, -0.3);
         let best = { facing: -2, q: null };
         for (const [x, y, z] of [[0, 0, -90], [0, 0, 90], [90, 0, 0], [-90, 0, 0], [0, 90, -90], [0, -90, 90], [60, 0, -90], [-60, 0, 90]]) {
           const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(

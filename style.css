@@ -190,7 +190,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
   box-shadow: 0 0 0 6px rgba(243, 189, 110, 0.16);
 }
 /* Rows that fill a list, and regions that fill a panel, keep the ring inside. */
-.is-gamepad :where(.picker__option, .tours__item, .moment, .info__header, .help__body):focus {
+.is-gamepad :where(.picker__option, .moment, .info__header, .help__body):focus {
   outline-offset: -2px;
   box-shadow: none;
   background: var(--hover);
@@ -214,8 +214,6 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 /* The small label used for every section. */
 .section-title,
 .picker__group,
-.tours__heading,
-.tour__eyebrow,
 .info__kind {
   font-family: var(--display);
   font-size: 11px;
@@ -339,6 +337,8 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 
 /* Star-system atlas. */
 .systems-button { gap: 8px; white-space: nowrap; }
+/* Only there when a headset is, and then named: in a headset's browser it is the way in. */
+.topbar__vr { padding: 0 10px 0 8px; gap: 8px; }
 .systems {
   color: var(--text); background: var(--plate-solid);
   width: min(880px, calc(100vw - 32px)); max-width: none;
@@ -476,7 +476,6 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 .picker.is-open .picker__chevron { transform: rotate(180deg); }
 
 .picker__menu,
-.tours__menu,
 .when {
   background: var(--plate-solid);
   border: 1px solid var(--line);
@@ -572,7 +571,6 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 }
 .info[hidden] { display: none; }
 .info.is-collapsed .info__body { display: none; }
-.ui.is-touring .info { display: none; }
 
 .info__header {
   display: flex;
@@ -1438,118 +1436,6 @@ kbd {
 }
 .stats[hidden] { display: none; }
 
-/* --- tours --------------------------------------------------------------- */
-
-/* The menu hangs off the whole action group, so it lines up with its edge
-   rather than with the Tours button inside it. */
-.topbar__actions { position: relative; }
-.tours__button { padding: 0 10px 0 8px; gap: 8px; }
-.tours__button svg { width: 16px; height: 16px; }
-.tours__button[aria-expanded="true"] { color: var(--text); }
-
-.tours__menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 8px;
-  z-index: 5;
-  width: min(310px, calc(100vw - 2 * var(--edge)));
-  padding: 4px 0 6px;
-}
-.tours__menu[hidden] { display: none; }
-.tours__heading { padding: 12px 18px 6px; font-size: 10.5px; }
-.tours__item {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  column-gap: 12px;
-  width: 100%;
-  padding: 10px 18px;
-  text-align: left;
-  transition: background 0.12s var(--ease);
-}
-.tours__item + .tours__item::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 18px;
-  right: 18px;
-  border-top: 1px solid var(--line);
-}
-.tours__item:hover,
-.tours__item:focus-visible { background: var(--hover); outline: none; }
-.tours__item-title { font-family: var(--display); font-size: 16px; font-weight: 450; color: var(--text); }
-.tours__item-meta {
-  align-self: center;
-  font-size: 11px;
-  color: var(--text-faint);
-  font-variant-numeric: tabular-nums;
-}
-.tours__item-summary { grid-column: 1 / -1; font-size: 12.5px; color: var(--text-dim); line-height: 1.45; }
-
-/* The caption takes the info panel's place while a tour runs. */
-.tour {
-  grid-row: 2;
-  align-self: end;
-  justify-self: center;
-  width: min(560px, 100%);
-  padding: 16px 16px 10px 22px;
-}
-.tour[hidden] { display: none; }
-.tour__top { display: flex; align-items: center; gap: 12px; }
-.tour__eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 10.5px;
-}
-.tour__eyebrow::before {
-  content: "";
-  width: 16px;
-  height: 1px;
-  background: var(--body-color, #fff);
-  box-shadow: 0 0 6px var(--body-color, #fff);
-}
-.tour__count { color: var(--text-dim); font-variant-numeric: tabular-nums; letter-spacing: 0.08em; }
-.tour__close { margin-left: auto; margin-right: -6px; width: 30px; min-height: 30px; min-width: 30px; }
-.tour__close svg { width: 16px; height: 16px; }
-.tour__title {
-  margin: 4px 0 6px;
-  font-family: var(--display);
-  font-size: 34px;
-  font-weight: 350;
-  line-height: 1.1;
-  letter-spacing: 0.01em;
-}
-.tour__text {
-  margin: 0 0 10px;
-  max-width: 60ch;
-  font-size: 14px;
-  line-height: 1.62;
-  color: var(--text-dim);
-  text-wrap: pretty;
-}
-.tour__controls { display: flex; align-items: center; gap: 0; margin-left: -10px; }
-.tour__track {
-  flex: 1;
-  height: 1px;
-  margin: 0 4px 0 12px;
-  background: rgba(255, 255, 255, 0.12);
-  overflow: hidden;
-}
-.tour__progress {
-  height: 100%;
-  background: var(--accent);
-  transform-origin: left center;
-  transform: scaleX(0);
-}
-.tour.is-paused .tour__progress { opacity: 0.4; }
-.tour.is-entering .tour__title,
-.tour.is-entering .tour__text { animation: rise 0.7s var(--ease) both; }
-.tour.is-entering .tour__text { animation-delay: 0.08s; }
-@keyframes rise {
-  from { opacity: 0; transform: translateY(6px); }
-}
-
 /* --- going somewhere in time --------------------------------------------- */
 
 .when {
@@ -1658,6 +1544,8 @@ kbd {
 .hint[hidden] { display: none; }
 .hint.is-visible { opacity: 1; transform: translate(-50%, 0); }
 .hint__dot { width: 3px; height: 3px; border-radius: 50%; background: var(--accent); opacity: 0.7; }
+/* The same place, for a sentence about something that went wrong. */
+.hint--notice { width: max-content; max-width: min(520px, calc(100vw - 2 * var(--edge))); white-space: normal; text-align: center; color: var(--text); }
 
 /* --- install suggestion -------------------------------------------------- */
 
@@ -1687,7 +1575,7 @@ kbd {
 .toast__close svg { width: 16px; height: 16px; }
 /* On a phone both share the top of the screen with the menus; a menu, once
    opened, is what is being read, so they step aside until it closes. */
-body:has(.picker.is-open, .tours__menu:not([hidden]), .timebar.is-open) :is(.toast, .hint) {
+body:has(.picker.is-open, .timebar.is-open) :is(.toast, .hint) {
   opacity: 0;
   visibility: hidden;
 }
@@ -1810,12 +1698,9 @@ body:has(.picker.is-open, .tours__menu:not([hidden]), .timebar.is-open) :is(.toa
   .info__body { padding: 0 16px 14px; }
   /* Down here the panel opens upward, as a sheet: the chevron says which way. */
   .info.is-collapsed .info__toggle svg { transform: rotate(180deg); }
-  .tours__label { display: none; }
-  .tours__button { padding: 0; width: 36px; }
+  .topbar__vr-label { display: none; }
+  .topbar__vr { padding: 0; width: 36px; }
   .topbar__divider { display: none; }
-  .tour { padding: 12px 14px 8px 16px; }
-  .tour__title { font-size: 26px; }
-  .tour__text { font-size: 13px; line-height: 1.55; }
   /* The folded info panel owns the space above the time bar on a phone. */
   .hint {
     top: calc(max(var(--edge), env(safe-area-inset-top)) + 54px);
@@ -1887,7 +1772,6 @@ body:has(.picker.is-open, .tours__menu:not([hidden]), .timebar.is-open) :is(.toa
   .hud__throttle-track { height: 72px; }
   .btn--icon { width: 44px; }
   .btn--text { min-height: 44px; }
-  .tour__close { width: 44px; min-height: 44px; min-width: 44px; margin-right: -12px; }
   .picker__option { min-height: 44px; }
   .chip { min-height: 36px; }
   .segmented button { min-height: 40px; }
@@ -1927,7 +1811,7 @@ body:has(.picker.is-open, .tours__menu:not([hidden]), .timebar.is-open) :is(.toa
 /* Windows High Contrast and similar: the system picks the colours, so the
    shapes that were drawn only with fills get real borders. */
 @media (forced-colors: active) {
-  .panel, .picker__menu, .tours__menu, .when, .chip, kbd { border: 1px solid CanvasText; }
+  .panel, .picker__menu, .when, .chip, kbd { border: 1px solid CanvasText; }
   .switch { border-color: ButtonText; }
   .switch::after { background: ButtonText; forced-color-adjust: none; }
   .switch[aria-checked="true"]::after { background: Highlight; }

@@ -59,7 +59,6 @@ const STATES = [
   { name: 'rest' },
   { name: 'info', open: '.info__header', surface: '.info', when: (s) => s.isMobile },
   { name: 'picker', open: '.picker__button', surface: '.picker__menu' },
-  { name: 'tours', open: '.tours__button', surface: '.tours__menu' },
   { name: 'date', open: '.timebar__date', surface: '.when' },
   { name: 'settings', open: '[aria-label="Settings"]', surface: '.drawer' },
   { name: 'help', open: '[aria-label="Controls"]', surface: '.help__card' },
@@ -205,14 +204,14 @@ function inspect({ surface, coarse }) {
 
   // 1. Everything the interface draws stays on screen.
   const drawn = document.querySelectorAll(
-    '.ui button, .ui input, .info, .timebar, .topbar > *, .tour, .drawer, .help__card, ' +
-    '.picker__menu, .tours__menu, .when'
+    '.ui button, .ui input, .info, .timebar, .topbar > *, .drawer, .help__card, ' +
+    '.picker__menu, .when'
   );
   for (const node of drawn) {
     if (!visible(node)) continue;
     // Items inside a scrolling list may legitimately sit below the fold.
-    if (node.closest('.picker__menu, .when, .drawer__body, .help__body, .info__body, .tours__menu') &&
-        !node.matches('.picker__menu, .when, .tours__menu')) continue;
+    if (node.closest('.picker__menu, .when, .drawer__body, .help__body, .info__body') &&
+        !node.matches('.picker__menu, .when')) continue;
     const rect = node.getBoundingClientRect();
     if (offscreen(rect)) {
       problems.push(`${describe(node)} runs off screen at ` +
@@ -241,7 +240,7 @@ function inspect({ surface, coarse }) {
 
   // 2. The fixed regions never collide. Floating surfaces (menus, drawers) are
   //    meant to sit over things, so only the resting furniture is compared.
-  const regions = ['.brand', '.picker', '.topbar__end', '.info', '.tour', '.timebar']
+  const regions = ['.brand', '.picker', '.topbar__end', '.info', '.timebar']
     .map((selector) => document.querySelector(selector))
     .filter(visible);
   for (let i = 0; i < regions.length; i++) {
@@ -257,7 +256,7 @@ function inspect({ surface, coarse }) {
     problems.push(`the page is ${document.documentElement.scrollWidth}px wide in a ${vw}px viewport`);
   }
   for (const node of document.querySelectorAll(
-    '.info__body, .drawer__body, .help__body, .picker__menu, .tours__menu, .when, .timebar, .topbar'
+    '.info__body, .drawer__body, .help__body, .picker__menu, .when, .timebar, .topbar'
   )) {
     if (visible(node) && node.scrollWidth > node.clientWidth + SLACK) {
       problems.push(`${describe(node)} overflows sideways by ${node.scrollWidth - node.clientWidth}px`);
@@ -266,7 +265,7 @@ function inspect({ surface, coarse }) {
 
   // 4. Labels that are meant to be one line stay on one line.
   for (const node of document.querySelectorAll(
-    '.timebar__date-main, .timebar__rate, .picker__label, .brand__word, .tours__label, .info__title, .btn'
+    '.timebar__date-main, .timebar__rate, .picker__label, .brand__word, .topbar__vr-label, .info__title, .btn'
   )) {
     if (!visible(node)) continue;
     // A text node that wraps is laid out as more than one line box.
@@ -313,7 +312,7 @@ function inspect({ surface, coarse }) {
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
   const page = rgba(getComputedStyle(document.body).backgroundColor);
-  const plates = '.drawer, .help__card, .picker__menu, .when, .tours__menu';
+  const plates = '.drawer, .help__card, .picker__menu, .when';
   const faint = new Set();
   const texts = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   while (texts.nextNode()) {
@@ -347,7 +346,7 @@ function inspect({ surface, coarse }) {
     if (rect.width < 24 - SLACK || rect.height < 24 - SLACK) {
       problems.push(`${describe(node)} is only ${Math.round(rect.width)}×${Math.round(rect.height)}px`);
     }
-    if (coarse && node.matches('.btn--icon, .tours__button, .picker__button') &&
+    if (coarse && node.matches('.btn--icon, .topbar__vr, .picker__button') &&
         (rect.width < 44 - SLACK || rect.height < 44 - SLACK)) {
       problems.push(`${describe(node)} is ${Math.round(rect.width)}×${Math.round(rect.height)}px on a touch screen`);
     }

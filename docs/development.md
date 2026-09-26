@@ -63,7 +63,7 @@ The first time, go to *Settings → Pages* in the repository and set **Source** 
 
 ```
 src/
-  data/       solar system measurements, exoplanet data, tours and moments
+  data/       solar system measurements, exoplanet data and moments
   sim/        Kepler solver, reference frames and the clock
   scene/      planets, orbits, belts, the sky and shaders
   camera/     camera focus, the overview and flight mode
@@ -98,5 +98,3 @@ python scripts/build-sky.py 8k_stars_milky_way.jpg bsc5.dat
 - Stars are shown at their J2000 positions.
 - Light doesn't fade with distance, otherwise everything past Jupiter would be dark.
 - Saturn's ring shadows are calculated in the shader. The optional shadows in Settings let moons shadow their planets and are off by default.
-
-![The Ocean Worlds tour, at Europa](screenshot-tour.jpg)
