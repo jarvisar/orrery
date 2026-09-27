@@ -16,7 +16,7 @@ There is no build step. The dev server serves the repository as is, so what you 
 ```sh
 npm run check       # syntax, vendored three.js, textures, models, fonts and links
 npm run smoke       # loads the page in headless Chrome and fails on any error
-npm run responsive  # layout and accessibility at ten screen sizes
+npm run responsive  # layout and accessibility at thirteen screen sizes, short ones included
 npm run vr          # an emulated Quest 3: controllers, hands and the VR panel
 npm run gamepad     # an emulated game controller: bindings, menus and full screen
 ```

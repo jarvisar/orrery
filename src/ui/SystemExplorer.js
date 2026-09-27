@@ -47,10 +47,13 @@ export class SystemExplorer {
       onclick: (event) => { if (event.target === this.panel) { const r = this.panel.getBoundingClientRect();
         if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) this.close(); } },
     }, [
-      el('header', { class: 'systems__header' }, [el('div', {}, [
-        el('p', { class: 'section-title', text: 'Exoplanets' }), this.title, this.count,
-      ]), el('button', { class: 'btn btn--icon', type: 'button', 'aria-label': 'Close star systems', onclick: () => this.close() }, [icon('close')])]),
-      el('div', { class: 'systems__tools' }, [this.search, this.sort]),
+      // One block, so a short screen can pin the search and the way out together (style.css).
+      el('div', { class: 'systems__top' }, [
+        el('header', { class: 'systems__header' }, [el('div', {}, [
+          el('p', { class: 'section-title', text: 'Exoplanets' }), this.title, this.count,
+        ]), el('button', { class: 'btn btn--icon', type: 'button', 'aria-label': 'Close star systems', onclick: () => this.close() }, [icon('close')])]),
+        el('div', { class: 'systems__tools' }, [this.search, this.sort]),
+      ]),
       el('div', { class: 'systems__scroll' }, [
         el('a', { class: 'systems__home', href: systemUrl(null) }, [el('span', { text: '☉', 'aria-hidden': 'true' }),
           el('span', {}, [el('strong', { text: 'Solar System' }), el('small', { text: 'Sun, planets and moons' })]),

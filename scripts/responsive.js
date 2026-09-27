@@ -7,12 +7,15 @@
  *   - nothing the interface draws runs off the screen;
  *   - the top bar, info panel and time bar never overlap one another;
  *   - an open menu or panel is not covered by anything else;
+ *   - whatever scrolls inside an open panel gets at least 40% of it to be
+ *     read in, rather than a sliver between a pinned header and footer;
  *   - no panel scrolls sideways, no label wraps or is cut short, and no text is
  *     set below 10px;
  *   - text on the solid plates has at least 4.5:1 contrast (WCAG 1.4.3);
  *   - every control is at least 24px square (WCAG 2.5.8), and on touch
  *     screens the primary controls are the full 44px (WCAG 2.5.5);
- *   - Tab reaches the controls in order and every stop shows a focus ring.
+ *   - Tab reaches the controls in order and every stop shows a focus ring,
+ *     and inside a dialog no stop is hidden behind anything pinned (WCAG 2.4.11).
  * At one phone and one desktop size it also runs axe-core against WCAG 2.2 AA
  * with each panel open.
  *
@@ -32,20 +35,29 @@ const args = process.argv.slice(2);
 const STRICT = args.includes('--strict');
 const SHOTS = args.find((a) => a.startsWith('--shots='))?.slice(8);
 const ONLY = args.find((a) => a.startsWith('--only='))?.slice(7).split(',');
+/** The least share of an open panel that what scrolls inside it must get. */
+const ROOM = Number(process.env.RESPONSIVE_ROOM) || 0.4;
 /** SwiftShader is single-threaded per page; a few pages at once is the sweet spot. */
 const CONCURRENCY = Number(process.env.RESPONSIVE_CONCURRENCY) || 3;
 
 const touch = { isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
 
-/** Common viewports, smallest first. 320 is the WCAG 1.4.10 reflow width. */
+/**
+ * Common viewports, smallest first. 320 is the WCAG 1.4.10 reflow width. The
+ * short ones matter as much as the narrow ones: a phone on its side, or a
+ * laptop window, is where pinned headers and footers crowd a panel out.
+ */
 const SIZES = [
   { name: 'phone-small', width: 320, height: 568, ...touch },
   { name: 'phone', width: 375, height: 667, ...touch },
   { name: 'phone-large', width: 390, height: 844, ...touch, axe: true },
   { name: 'android', width: 412, height: 915, ...touch },
   { name: 'phone-landscape', width: 844, height: 390, ...touch },
+  { name: 'phone-landscape-small', width: 667, height: 375, ...touch },
+  { name: 'desktop-zoomed', width: 720, height: 450 }, // 1440×900 at 200% zoom (WCAG 1.4.4)
   { name: 'tablet', width: 768, height: 1024, ...touch },
   { name: 'tablet-landscape', width: 1024, height: 768, ...touch },
+  { name: 'laptop-short', width: 1366, height: 657 }, // a 1366×768 screen, less the browser's own bars
   { name: 'laptop', width: 1280, height: 800 },
   { name: 'desktop', width: 1440, height: 900, axe: true },
   { name: 'full-hd', width: 1920, height: 1080 },
@@ -54,6 +66,8 @@ const SIZES = [
 /**
  * The states worth checking. Each opens something from rest, names the
  * surface that should then be on screen, and is closed again with Escape.
+ * `ready` is what to wait for before looking; `keyboard` tabs through the
+ * surface as well.
  */
 const STATES = [
   { name: 'rest' },
@@ -61,7 +75,9 @@ const STATES = [
   { name: 'picker', open: '.picker__button', surface: '.picker__menu' },
   { name: 'date', open: '.timebar__date', surface: '.when' },
   { name: 'settings', open: '[aria-label="Settings"]', surface: '.drawer' },
-  { name: 'help', open: '[aria-label="Controls"]', surface: '.help__card' },
+  { name: 'help', open: '[aria-label="Controls"]', surface: '.help__card', keyboard: true },
+  // The list is filled once the catalogue has loaded.
+  { name: 'systems', open: '.systems-button', surface: '.systems', ready: '.systems__card', keyboard: true },
 ];
 
 const chrome = requireChrome('responsive', STRICT);
@@ -128,17 +144,22 @@ async function checkSize(browser, size) {
 
     if (state.open) {
       await page.$eval(state.open, (node) => node.click());
+      if (state.ready) await page.waitForSelector(state.ready, { timeout: 30_000 });
       await settle(page);
     }
 
     const found = await page.evaluate(inspect, {
       surface: state.surface ?? null,
       coarse: Boolean(size.hasTouch),
+      ROOM,
     });
     problems.push(...found.map((p) => `[${state.name}] ${p}`));
 
     if (state.name === 'rest') {
       problems.push(...(await checkKeyboard(page)).map((p) => `[keyboard] ${p}`));
+    }
+    if (state.keyboard) {
+      problems.push(...(await checkDialogKeyboard(page, state.surface)).map((p) => `[${state.name} keyboard] ${p}`));
     }
 
     if (size.axe) {
@@ -175,7 +196,7 @@ async function settle(page) {
 }
 
 /** Runs in the page: layout, overlap, overflow, type, contrast and target size. */
-function inspect({ surface, coarse }) {
+function inspect({ surface, coarse, ROOM }) {
   const problems = [];
   const vw = window.innerWidth;
   const vh = window.innerHeight;
@@ -205,13 +226,13 @@ function inspect({ surface, coarse }) {
   // 1. Everything the interface draws stays on screen.
   const drawn = document.querySelectorAll(
     '.ui button, .ui input, .info, .timebar, .topbar > *, .drawer, .help__card, ' +
-    '.picker__menu, .when'
+    '.picker__menu, .when, .systems'
   );
   for (const node of drawn) {
     if (!visible(node)) continue;
     // Items inside a scrolling list may legitimately sit below the fold.
-    if (node.closest('.picker__menu, .when, .drawer__body, .help__body, .info__body') &&
-        !node.matches('.picker__menu, .when')) continue;
+    if (node.closest('.picker__menu, .when, .drawer__body, .help__body, .info__body, .systems') &&
+        !node.matches('.picker__menu, .when, .systems')) continue;
     const rect = node.getBoundingClientRect();
     if (offscreen(rect)) {
       problems.push(`${describe(node)} runs off screen at ` +
@@ -256,7 +277,8 @@ function inspect({ surface, coarse }) {
     problems.push(`the page is ${document.documentElement.scrollWidth}px wide in a ${vw}px viewport`);
   }
   for (const node of document.querySelectorAll(
-    '.info__body, .drawer__body, .help__body, .picker__menu, .when, .timebar, .topbar'
+    '.info__body, .drawer__body, .help__body, .picker__menu, .when, .timebar, .topbar, ' +
+    '.systems, .systems__top, .systems__scroll'
   )) {
     if (visible(node) && node.scrollWidth > node.clientWidth + SLACK) {
       problems.push(`${describe(node)} overflows sideways by ${node.scrollWidth - node.clientWidth}px`);
@@ -312,7 +334,7 @@ function inspect({ surface, coarse }) {
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
   const page = rgba(getComputedStyle(document.body).backgroundColor);
-  const plates = '.drawer, .help__card, .picker__menu, .when';
+  const plates = '.drawer, .help__card, .picker__menu, .when, .systems';
   const faint = new Set();
   const texts = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   while (texts.nextNode()) {
@@ -336,7 +358,37 @@ function inspect({ surface, coarse }) {
   }
   problems.push(...faint);
 
-  // 7. Targets are big enough to hit. Inline text links are exempt under
+  // 7. What scrolls gets room to be read. A panel can fit the screen and pass
+  //    every check above, yet pin so much header and footer round its list
+  //    that the list is a sliver: the star-system atlas once showed 40px of a
+  //    350px dialog on a phone on its side.
+  if (surface) {
+    const node = document.querySelector(surface);
+    if (visible(node)) {
+      const box = node.getBoundingClientRect();
+      const height = Math.min(box.bottom, vh) - Math.max(box.top, 0);
+      const scrolls = (n) => /auto|scroll/.test(getComputedStyle(n).overflowY) && n.scrollHeight > n.clientHeight + SLACK;
+      for (const scroller of [node, ...node.querySelectorAll('*')].filter((n) => visible(n) && scrolls(n))) {
+        const r = scroller.getBoundingClientRect();
+        let top = Math.max(r.top + scroller.clientTop, box.top, 0);
+        let bottom = Math.min(r.top + scroller.clientTop + scroller.clientHeight, box.bottom, vh);
+        // Anything pinned inside it covers what scrolls beneath.
+        for (const pinned of scroller.querySelectorAll('*')) {
+          if (!/sticky|fixed/.test(getComputedStyle(pinned).position) || !visible(pinned)) continue;
+          const p = pinned.getBoundingClientRect();
+          if (p.top <= top + SLACK) top = Math.max(top, p.bottom);
+          else if (p.bottom >= bottom - SLACK) bottom = Math.min(bottom, p.top);
+        }
+        const room = bottom - top;
+        if (room < height * ROOM) {
+          problems.push(`${describe(scroller)} leaves ${Math.round(room)}px of a ${Math.round(height)}px ${surface} ` +
+            `to what it scrolls (${Math.round((100 * room) / height)}%)`);
+        }
+      }
+    }
+  }
+
+  // 8. Targets are big enough to hit. Inline text links are exempt under
   //    WCAG 2.5.8; the switch draws small but widens its hit area with ::before.
   const controls = document.querySelectorAll('button, input, select, a[href], [role="option"]');
   for (const node of controls) {
@@ -394,6 +446,55 @@ async function checkKeyboard(page) {
   if (seen.size < 6) problems.push(`Tab only reached ${seen.size} controls`);
   await page.evaluate(() => document.activeElement?.blur());
   return problems;
+}
+
+/**
+ * Tabs forward through an open dialog, then back again (which is when a pinned
+ * header can land over the stop just scrolled to): every stop inside it must
+ * show a ring, be on screen, and have nothing drawn over it (WCAG 2.4.11).
+ */
+async function checkDialogKeyboard(page, surface) {
+  const problems = new Set();
+  const look = () => page.evaluate((selector) => {
+    const node = document.activeElement;
+    const root = document.querySelector(selector);
+    if (!node || !root?.contains(node) || node === root) return null;
+    const style = getComputedStyle(node);
+    const rect = node.getBoundingClientRect();
+    const name = node.getAttribute('aria-label') || node.textContent.trim().slice(0, 24) || node.tagName;
+    // Inset a little, so a neighbour's border does not count as covering it.
+    const points = [[0.5, 0.5], [0.5, 0], [0.5, 1], [0, 0.5], [1, 0.5]].map(([fx, fy]) => [
+      Math.min(Math.max(rect.left + 2 + (rect.width - 4) * fx, 0), innerWidth - 1),
+      Math.min(Math.max(rect.top + 2 + (rect.height - 4) * fy, 0), innerHeight - 1),
+    ]);
+    const covered = points.some(([x, y]) => {
+      const hit = document.elementFromPoint(x, y);
+      return hit && !node.contains(hit) && !hit.contains(node);
+    });
+    return {
+      name,
+      ring: (style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0) || style.boxShadow !== 'none',
+      onScreen: rect.top >= -1 && rect.left >= -1 && rect.bottom <= innerHeight + 1 && rect.right <= innerWidth + 1,
+      covered,
+    };
+  }, surface);
+
+  let reached = 0;
+  for (const back of [...Array(14).fill(false), ...Array(14).fill(true)]) {
+    if (back) await page.keyboard.down('Shift');
+    await page.keyboard.press('Tab');
+    if (back) await page.keyboard.up('Shift');
+    // Focusing scrolls; let it land.
+    await sleep(60);
+    const stop = await look();
+    if (!stop) continue;
+    reached++;
+    if (!stop.ring) problems.add(`"${stop.name}" shows no focus ring`);
+    if (!stop.onScreen) problems.add(`"${stop.name}" takes focus while off screen`);
+    else if (stop.covered) problems.add(`"${stop.name}" takes focus hidden behind something drawn over it`);
+  }
+  if (reached < 4) problems.add(`Tab only reached ${reached} stops inside ${surface}`);
+  return [...problems];
 }
 
 /** Runs in the page: axe-core against WCAG 2.2 A and AA. */

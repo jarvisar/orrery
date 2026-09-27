@@ -341,14 +341,15 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 .topbar__vr { padding: 0 10px 0 8px; gap: 8px; }
 .systems {
   color: var(--text); background: var(--plate-solid);
-  width: min(880px, calc(100vw - 32px)); max-width: none;
+  /* Clear of a notch at either end of a phone on its side. */
+  width: min(880px, calc(100vw - 32px - env(safe-area-inset-left) - env(safe-area-inset-right))); max-width: none;
   height: min(790px, calc(100dvh - 40px)); max-height: none;
   margin: auto; padding: 0; border: 1px solid var(--line-strong);
   border-radius: var(--radius); box-shadow: 0 28px 100px #0009;
 }
 .systems[open] { display: flex; flex-direction: column; }
 .systems::backdrop { background: #020409b8; backdrop-filter: blur(9px); }
-.systems__header { display: flex; justify-content: space-between; gap: 12px; padding: 26px 28px 18px; }
+.systems__header { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 26px 28px 18px; }
 .systems__header .section-title { color: var(--accent); margin: 0 0 4px; }
 .systems h2 { font: 400 clamp(25px, 4vw, 36px)/1.2 var(--display); margin: 0; }
 .systems__count { color: var(--text-dim); margin: 10px 0 0; font-size: 12px; }
@@ -374,7 +375,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 .systems__card > div { min-width: 0; }
 .systems__card h3 { font: 500 20px/1.25 var(--display); margin: 0 0 5px; overflow-wrap: anywhere; }
 .systems__card p { font-size: 12px; color: var(--text-dim); margin: 0; }
-.systems__card small { font-size: 10px; color: var(--text-dim); }
+.systems__card small { font-size: 11px; color: var(--text-dim); }
 .systems__arrow { margin-left: auto; color: var(--accent); }
 .systems__card:hover .systems__arrow { transform: translateX(2px); }
 .systems__arrow { transition: transform .15s; }
@@ -385,6 +386,8 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 .systems__footer { padding: 14px 28px 18px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; font-size: 11px; }
 .systems__footer a, .info__provenance a, .info__unmodeled a { color: var(--accent); text-underline-offset: 3px; }
 .systems__footer > div { color: var(--text-dim); }
+/* Taller to tap than the line it sits on (WCAG 2.5.8). */
+.systems__footer > div > a { display: inline-block; padding: 5px 0; }
 .systems__footer .btn { font-size: 11px; }
 .systems__status, .systems__note { grid-column: 1 / -1; margin: 2px 0; color: var(--text-dim); }
 .systems__status { color: var(--text); }
@@ -400,7 +403,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
   .topbar { grid-template-columns: minmax(0, 1fr) auto; }
   .picker, .picker__button { min-width: 0; max-width: 100%; }
   .picker__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .systems { width: calc(100vw - 16px); height: calc(100dvh - 20px); }
+  .systems { width: calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)); height: calc(100dvh - 20px); }
   .systems__header { padding: 18px 16px 14px; }
   .systems__tools { padding: 0 16px 12px; flex-wrap: wrap; gap: 8px; }
   .systems__tools input { flex-basis: 100%; }
@@ -409,7 +412,42 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
   .systems__list { grid-template-columns: 1fr; }
   .systems__footer { padding: 10px 16px; grid-template-columns: 1fr; }
   .systems__home > span:last-child { display: none; }
-  .systems__note { font-size: 10px; }
+}
+/* A short screen (a phone on its side, a laptop window, a zoomed page) cannot
+   spare a fixed header and footer: pinned, they left the list a sliver. The
+   whole atlas scrolls instead, and only the title, the search and the way out
+   stay put, in one compact bar. */
+@media (max-height: 700px) {
+  .systems { height: calc(100dvh - 16px); scroll-padding-top: 84px; }
+  .systems[open] { display: block; overflow-y: auto; overscroll-behavior: contain; }
+  .systems__top {
+    position: sticky; top: 0; z-index: 1;
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "title tools close";
+    align-items: center; gap: 10px 16px; padding: 10px 16px;
+    background: var(--plate-solid); border-bottom: 1px solid var(--line);
+  }
+  .systems__header { display: contents; }
+  .systems__header > div { grid-area: title; min-width: 0; }
+  .systems__header > .btn { grid-area: close; }
+  .systems__header .section-title { display: none; }
+  .systems h2 { font-size: 22px; line-height: 1.15; white-space: nowrap; }
+  .systems__count { margin: 2px 0 0; white-space: nowrap; }
+  .systems__tools { grid-area: tools; padding: 0; border: 0; flex-wrap: wrap; gap: 8px; }
+  /* The search takes the spare width; the menu fills a line only when it wraps onto its own. */
+  .systems__tools input { flex: 1000 1 150px; }
+  .systems__tools select { flex: 1 0 auto; width: auto; }
+  .systems__scroll { overflow: visible; padding: 14px 16px; }
+  .systems__results { margin-top: 14px; }
+  .systems__footer { padding: 12px 16px 14px; }
+}
+/* A phone on its side is wide enough for two columns, even under 720px. */
+@media (max-height: 700px) and (min-width: 560px) {
+  .systems__list { grid-template-columns: 1fr 1fr; }
+}
+/* Too narrow for all of it on one line: the title and the way out, then the tools. */
+@media (max-height: 700px) and (max-width: 639px) {
+  .systems { scroll-padding-top: 180px; }
+  .systems__top { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title close" "tools tools"; }
 }
 
 .brand {
