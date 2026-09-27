@@ -20,6 +20,9 @@ export const AU_KM = 149_597_870.7;
 /** Earth's volumetric mean radius - the yardstick for relative sizes. */
 export const EARTH_RADIUS_KM = 6371;
 
+/** The IAU's nominal solar radius: the unit other stars' radii (R☉) are given in. */
+export const SOLAR_RADIUS_KM = 695_700;
+
 /** Days in a sidereal year, used to derive heliocentric periods via Kepler III. */
 export const SIDEREAL_YEAR_DAYS = 365.256363;
 
@@ -735,11 +738,6 @@ export const BODIES = [
 ];
 
 export const BODY_BY_ID = new Map(BODIES.map((b) => [b.id, b]));
-
-/** Children of a given body, in catalogue order. */
-export function childrenOf(id) {
-  return BODIES.filter((b) => b.parent === id);
-}
 
 /**
  * Orbital period in days. Heliocentric orbits get it from Kepler's third law

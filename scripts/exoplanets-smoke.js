@@ -5,8 +5,10 @@ import { requireChrome, ensureServer, launch, waitForApp, sleep } from './lib/br
 import { groupSystems, makeSystem } from '../src/data/exoplanets.js';
 
 const require = createRequire(import.meta.url);
+// Chrome first: without it the check exits, and must not leave a server running.
+const chrome = requireChrome('exoplanets', process.argv.includes('--strict'));
 const { origin, server } = await ensureServer();
-const browser = await launch(requireChrome('exoplanets', process.argv.includes('--strict')));
+const browser = await launch(chrome);
 const errors = [];
 const LIVE = process.argv.includes('--live');
 const snapshot = JSON.parse(await readFile(new URL('../public/data/exoplanets.json', import.meta.url)));
@@ -153,4 +155,8 @@ try {
   assert.equal(await page.$eval('.picker__label', (el) => el.textContent), 'Earth');
   assert.deepEqual(errors, []);
   console.log('Exoplanets: binary/triple/partial quadruple systems, compact hosts, incomplete orbits, scale, search, navigation, offline reload, accessibility and mobile atlas passed.');
+} catch (error) {
+  // An assertion part way through would otherwise hide what the page reported first.
+  for (const message of errors) console.error(`page error: ${message}`);
+  throw error;
 } finally { await browser.close(); server?.kill(); }

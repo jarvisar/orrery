@@ -400,7 +400,6 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 .is-exoplanet .info__title { overflow-wrap: anywhere; }
 @media (max-width: 1000px) { .systems-button > span { display: none; } }
 @media (max-width: 720px) {
-  .topbar { grid-template-columns: minmax(0, 1fr) auto; }
   .picker, .picker__button { min-width: 0; max-width: 100%; }
   .picker__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .systems { width: calc(100vw - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)); height: calc(100dvh - 20px); }

@@ -1,5 +1,5 @@
 /** NASA default published solutions; shared by the importer and browser. */
-import { AU_KM, EARTH_RADIUS_KM } from './bodies.js';
+import { AU_KM, EARTH_RADIUS_KM, SOLAR_RADIUS_KM } from './bodies.js';
 import { stellarLayout } from './stellarSystems.js';
 import { searchKey } from './starNames.js';
 import { SCALE_EXPONENT_RANGE } from '../scene/scaling.js';
@@ -13,7 +13,6 @@ export const CATALOGUE_PATH = 'public/data/exoplanets.json';
 /** 2: compact rows, one shared citation table, and composite-table gap fillers. */
 export const SCHEMA_VERSION = 2;
 export const PARSEC_LY = 3.261563777;
-const SOLAR_RADIUS_KM = 695700;
 /** The Sun's surface gravity in cm/s², as log g is quoted (log g☉ = 4.438). */
 const SOLAR_GRAVITY_CGS = 27420;
 const PROJECTED = /Imaging|Microlensing/;

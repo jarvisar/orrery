@@ -1,14 +1,15 @@
-import * as THREE from 'three';
-import { addPatch } from './shading.js';
-import { blackbodyLinear, glowIntensity } from '../data/blackbody.js';
-import { heatRadiance } from '../data/worlds.js';
-
 /**
  * Materials for other stars' worlds, painted by worldTextures.js from the
  * descriptions in src/data/worlds.js. Planets use the same Phong material as
  * the Solar System's, reading bump, shine and heat from one packed data map
  * (see worldTextures.js for the channels); stars get their own photosphere.
  */
+
+import * as THREE from 'three';
+import { addPatch } from './shading.js';
+import { blackbodyLinear, glowIntensity } from '../data/blackbody.js';
+import { heatRadiance } from '../data/worlds.js';
+import { smoothstep } from '../core/math.js';
 
 /**
  * @param {THREE.MeshPhongMaterial} material
@@ -156,9 +157,4 @@ export function stellarSurface(material, look, data, banded = null) {
       `);
   });
   return { uniforms };
-}
-
-function smoothstep(a, b, x) {
-  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
-  return t * t * (3 - 2 * t);
 }

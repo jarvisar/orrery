@@ -17,6 +17,7 @@
 
 import { blackbodyLinear, glowIntensity, stellarColor } from './blackbody.js';
 import { dwarfTemperature } from './stellarSystems.js';
+import { smoothstep } from '../core/math.js';
 
 const SOLAR_TEFF = 5772;
 /** Earth's equilibrium temperature with no reflection, K: 278.6 × S^¼ × (1 − A)^¼ for any other. */
@@ -172,7 +173,7 @@ export function planetLook({ name, radius, mass = null, massLimit = null, radius
     // A pulsar, or a host with no usable size, temperature or mass: drawn
     // cold, with no temperature claimed.
     const pulsar = star?.type === 'neutron';
-    look = size === 'rock' ? rockyLook({ kind: 'barren', temperature: null, random, notes: [], pulsar })
+    look = size === 'rock' ? rockyLook({ kind: 'barren', temperature: null, random, pulsar })
       : gasLook({ size, temperature: 100, random, puffy, notes: [] });
     look.temperature = null;
     notes.push(pulsar && size === 'rock'
@@ -239,16 +240,16 @@ function rockyWorld({ light, radius, massEstimate, teff, locked, random, notes }
   const substellar = light.teq(0.1) * Math.SQRT2;
   if (substellar > 1500) {
     notes.push(`Drawn as a lava world: the point facing its star is estimated at about ${round(substellar, 2)} K, hot enough to melt rock.`);
-    return rockyLook({ kind: 'lava', temperature: light.teq(0.1), substellar, random, notes });
+    return rockyLook({ kind: 'lava', temperature: light.teq(0.1), substellar, random });
   }
   const zone = habitableZone(teff);
   if (!keepsAtmosphere(light.flux, massEstimate, radius, teff)) {
     notes.push(`Drawn without an atmosphere: it gets ${fluxText(light.flux)} Earth’s sunlight, and bodies this small in that much light have lost theirs (Zahnle & Catling’s 2017 “cosmic shoreline”${teff < 5300 ? ', lowered for its active star' : ''}). Whether it has one is not known.`);
-    return rockyLook({ kind: 'barren', temperature: light.teq(0.1), random, notes });
+    return rockyLook({ kind: 'barren', temperature: light.teq(0.1), random });
   }
   if (light.flux > zone.inner) {
     notes.push(`Drawn under thick cloud, like Venus: it gets ${fluxText(light.flux)} Earth’s sunlight, past the point where oceans would boil away in a runaway greenhouse (Kopparapu et al. 2014). Its real atmosphere is not known.`);
-    return rockyLook({ kind: 'cloudy', temperature: light.teq(0.75), albedo: 0.75, random, notes });
+    return rockyLook({ kind: 'cloudy', temperature: light.teq(0.75), albedo: 0.75, random });
   }
   if (light.flux >= zone.outer) {
     const eyeball = locked && teff < 4000;
@@ -257,13 +258,13 @@ function rockyWorld({ light, radius, massEstimate, teff, locked, random, notes }
         ? 'Drawn as an “eyeball” world, frozen except for an open sea under its star, one possibility for a tidally locked planet (Pierrehumbert 2011). '
         : 'Seas, land and clouds are drawn as one possibility. ') +
       'Whether it has water or air at all is not known.');
-    return rockyLook({ kind: eyeball ? 'eyeball' : 'temperate', temperature: light.teq(0.3), flux: light.flux, zone, random, notes });
+    return rockyLook({ kind: eyeball ? 'eyeball' : 'temperate', temperature: light.teq(0.3), flux: light.flux, zone, random });
   }
   notes.push(`Drawn frozen over: it gets ${fluxText(light.flux)} Earth’s sunlight, less than the outer edge of the habitable zone (Kopparapu et al. 2014).`);
-  return rockyLook({ kind: 'ice', temperature: light.teq(0.5), albedo: 0.5, random, notes });
+  return rockyLook({ kind: 'ice', temperature: light.teq(0.5), albedo: 0.5, random });
 }
 
-function rockyLook({ kind, temperature, substellar = 0, flux = 1, zone = null, random, notes, albedo = 0.1, pulsar = false }) {
+function rockyLook({ kind, temperature, substellar = 0, flux = 1, zone = null, random, albedo = 0.1, pulsar = false }) {
   const pick = (options) => options[Math.floor(random('palette') * options.length)];
   switch (kind) {
     case 'lava': {
@@ -538,4 +539,3 @@ function round(value, digits) {
 }
 function positive(value) { return Number.isFinite(value) && value > 0; }
 function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
-function smoothstep(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }

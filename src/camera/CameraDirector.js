@@ -150,7 +150,7 @@ export class CameraDirector {
    * surroundings instead - a star's planets, in a system of several stars -
    * and is followed as it moves.
    */
-  overview(radiusAU = 33, { instant = false, duration = 2.2, centre = null } = {}) {
+  overview(radiusAU = this.system.catalogue.overviewAU, { instant = false, duration = 2.2, centre = null } = {}) {
     const radius = heliocentricDistance(radiusAU, this._scaleExponent);
     const halfHeight = THREE.MathUtils.degToRad(this.camera.fov) / 2;
     const halfWidth = Math.atan(Math.tan(halfHeight) * this.camera.aspect);

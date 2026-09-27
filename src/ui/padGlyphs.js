@@ -6,9 +6,7 @@
  * cross on a PlayStation one and B on a Nintendo one.
  */
 
-import { el } from './dom.js';
-
-const SVG_NS = 'http://www.w3.org/2000/svg';
+import { el, svgEl } from './dom.js';
 
 /** Face buttons by position: bottom (a), right (b), left (x), top (y). */
 const FACE = {
@@ -122,18 +120,15 @@ export function padName(family) {
 }
 
 function shape(paths) {
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 16 16');
-  svg.setAttribute('width', '14');
-  svg.setAttribute('height', '14');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.setAttribute('stroke-linejoin', 'round');
-  svg.setAttribute('stroke-linecap', 'round');
-  for (const d of paths) {
-    const path = document.createElementNS(SVG_NS, 'path');
-    path.setAttribute('d', d);
-    svg.append(path);
-  }
+  const svg = svgEl('svg', {
+    viewBox: '0 0 16 16',
+    width: '14',
+    height: '14',
+    'aria-hidden': 'true',
+    'stroke-linejoin': 'round',
+    'stroke-linecap': 'round',
+  });
+  for (const d of paths) svg.append(svgEl('path', { d }));
   return svg;
 }
 

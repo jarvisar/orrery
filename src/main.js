@@ -52,7 +52,7 @@ import { FocusNavigator } from './ui/FocusNavigator.js';
 import { padName } from './ui/padGlyphs.js';
 import { toggleFullscreen } from './ui/fullscreen.js';
 import { VRMode } from './xr/VRMode.js';
-import { el, icon, announce } from './ui/dom.js';
+import { el, icon, svgEl, announce, isTypingTarget } from './ui/dom.js';
 
 /** Scene units to kilometres, using the body-size scale rather than the orbit scale. */
 const KM_PER_UNIT = EARTH_RADIUS_KM / EARTH_RADIUS_UNITS;
@@ -578,11 +578,6 @@ function buildInterface(ctx) {
     setPressed(flightButton, enabled);
     announce(enabled ? 'Flight mode on. Escape to leave.' : 'Flight mode off');
 
-    if (!enabled) {
-      const nearest = director.nearestBody(camera.position);
-      director.syncTargetToView(nearest ? camera.position.distanceTo(nearest.group.position) : 100);
-    }
-
     if (enabled) {
       flight.setTarget(null);
       // Pressing G or the button counts as the gesture capturing the mouse
@@ -596,12 +591,12 @@ function buildInterface(ctx) {
       state.focusedId = null;
       hideTooltip();
       dismissHint();
-    } else if (refocus) {
-      // Land on whatever you were flying round; out in deep space, stay put.
+    } else {
       const nearest = director.nearestBody(camera.position);
-      if (nearest && camera.position.distanceTo(nearest.group.position) < nearest.radius * 40) {
-        selectBody(nearest.id);
-      }
+      const distance = nearest ? camera.position.distanceTo(nearest.group.position) : 100;
+      director.syncTargetToView(distance);
+      // Land on whatever you were flying round; out in deep space, stay put.
+      if (refocus && nearest && distance < nearest.radius * 40) selectBody(nearest.id);
     }
   }
 
@@ -1146,16 +1141,15 @@ function startLoop(ctx) {
       if (settled) system.focusShadows(settled);
       sinceUiUpdate = 0;
     }
-    if (ui.state.showStats && sinceStats > 0.5) {
-      const info = renderer.info.render;
-      ui.stats.textContent =
-        `${Math.round(frames / sinceStats)} fps · ${info.calls} draws · ` +
-        `${(info.triangles / 1000).toFixed(0)}k tris · ${(viewport.renderScale * 100).toFixed(0)}% scale (${viewport.pixelRatio.toFixed(2)}x` +
-        `${viewport.multisample && post.enabled ? ', MSAA' : ''})` +
-        (assets.pending ? ` · ${assets.pending} loading` : '');
-      sinceStats = 0;
-      frames = 0;
-    } else if (sinceStats > 0.5) {
+    if (sinceStats > 0.5) {
+      if (ui.state.showStats) {
+        const info = renderer.info.render;
+        ui.stats.textContent =
+          `${Math.round(frames / sinceStats)} fps · ${info.calls} draws · ` +
+          `${(info.triangles / 1000).toFixed(0)}k tris · ${(viewport.renderScale * 100).toFixed(0)}% scale (${viewport.pixelRatio.toFixed(2)}x` +
+          `${viewport.multisample && post.enabled ? ', MSAA' : ''})` +
+          (assets.pending ? ` · ${assets.pending} loading` : '');
+      }
       sinceStats = 0;
       frames = 0;
     }
@@ -1246,12 +1240,7 @@ async function buildVisitor(assets, scene, system) {
 
 /** The wordmark's glyph: a Sun and one planet on its orbit. */
 function brandMark() {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 20 20');
-  svg.setAttribute('width', '18');
-  svg.setAttribute('height', '18');
-  svg.setAttribute('class', 'brand__mark');
-  svg.setAttribute('aria-hidden', 'true');
+  const svg = svgEl('svg', { viewBox: '0 0 20 20', width: '18', height: '18', class: 'brand__mark', 'aria-hidden': 'true' });
   svg.innerHTML =
     '<circle cx="10" cy="10" r="7.25" class="brand__orbit"/>' +
     '<circle cx="10" cy="10" r="2.4" class="brand__sun"/>' +
@@ -1332,13 +1321,6 @@ function hasWebGL() {
   } catch {
     return false;
   }
-}
-
-/** True where a key press is text entry. Sliders and switches do not count. */
-function isTypingTarget(target) {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable || ['TEXTAREA', 'SELECT'].includes(target.tagName)) return true;
-  return target.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'button'].includes(target.type);
 }
 
 function debounce(fn, ms) {

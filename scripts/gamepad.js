@@ -12,7 +12,7 @@
  */
 import { mkdirSync } from 'node:fs';
 import {
-  sleep, requireChrome, ensureServer, launch, waitForApp,
+  requireChrome, ensureServer, launch, waitForApp,
 } from './lib/browser.js';
 
 const STRICT = process.argv.includes('--strict');

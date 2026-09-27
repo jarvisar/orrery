@@ -18,6 +18,7 @@
  */
 
 import * as THREE from 'three';
+import { smoothstep } from '../core/math.js';
 
 const NOISE = /* glsl */ `
   #define PI 3.141592653589793
@@ -608,10 +609,6 @@ export function paintRings(rings, seed = 0.5) {
 function fraction(x) {
   const s = Math.sin(x) * 43758.5453;
   return s - Math.floor(s);
-}
-function smoothstep(a, b, x) {
-  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
-  return t * t * (3 - 2 * t);
 }
 function pause() {
   return new Promise((resolve) => setTimeout(resolve, 0));

@@ -150,6 +150,8 @@ try {
 } catch (error) {
   exitCode = 1;
   console.error(`smoke: ${error.message}`);
+  // What the page reported before it failed, which is often why.
+  for (const problem of [...new Set(problems)]) console.error(`  - ${problem}`);
 } finally {
   await browser.close();
   server?.kill();

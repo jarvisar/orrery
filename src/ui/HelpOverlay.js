@@ -143,7 +143,6 @@ export const CONTROLLER = [
 export class HelpOverlay {
   /** @param {{exoplanet?: boolean}} [options] Around another star: its own sources. */
   constructor({ exoplanet = false } = {}) {
-    this.exoplanet = exoplanet;
     this.isOpen = false;
     this._releaseFocus = null;
     /** The connected controller's make, or null with none connected. */

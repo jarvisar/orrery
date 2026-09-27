@@ -117,10 +117,6 @@ export class Clock {
     return dateFromDays(this.days);
   }
 
-  set date(value) {
-    this.days = daysSinceJ2000(value);
-  }
-
   /** Sets the speed, keeping the current direction. Clamped to the preset range. */
   setRate(daysPerSecond) {
     this.daysPerSecond = Math.min(MAX_RATE, Math.max(MIN_RATE, daysPerSecond));
@@ -128,10 +124,6 @@ export class Clock {
 
   jumpToNow(options) {
     this.travelTo(daysSinceJ2000(new Date()), options);
-  }
-
-  get signedRate() {
-    return this.daysPerSecond * this.direction;
   }
 
   /**

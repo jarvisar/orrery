@@ -24,11 +24,6 @@ export function isFullscreen() {
   return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
 }
 
-/** True while a request is waiting for a click or key press. */
-export function fullscreenPending() {
-  return pending !== null;
-}
-
 /**
  * Enters or leaves full screen. Resolves to what happened: 'entered',
  * 'exited', 'pending' (waiting for a click or key press), 'cancelled' (a

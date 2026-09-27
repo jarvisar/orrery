@@ -1,10 +1,20 @@
-import { CATALOGUE_PATH, archiveQuery, hostQuery, NAME_QUERY, QUERY_URL, catalogueFromArchive, validateCatalogue, groupSystems } from '../data/exoplanets.js';
+/**
+ * The NASA exoplanet catalogue in the browser: the copy bundled with the site
+ * or a newer one saved from an earlier refresh, whichever is newer, and a
+ * refresh straight from the archive (through a CORS proxy) when it is stale or
+ * asked for. Subscribers hear of every change of data or status.
+ */
+
+import {
+  CATALOGUE_PATH, archiveQuery, hostQuery, NAME_QUERY, QUERY_URL, catalogueFromArchive, validateCatalogue, groupSystems,
+} from '../data/exoplanets.js';
 
 // jarvisar/cors-proxy accepts the full upstream URL in this header at /proxy.
 export const PROXY_URL = 'https://cors-proxy-phi.vercel.app/proxy';
 /** The archive adds planets about weekly, and the deploy refreshes the bundled copy as often. */
 const MAX_AGE = 7 * 24 * 60 * 60 * 1000;
-const PAGE_SIZE = 700; // Keep each response below serverless response-size limits.
+/** Planets per request, which keeps each response below serverless response-size limits. */
+const PAGE_SIZE = 700;
 
 export class ExoplanetCatalogue {
   constructor({ fetcher = (...args) => fetch(...args), storage = catalogueStorage } = {}) {
@@ -16,12 +26,30 @@ export class ExoplanetCatalogue {
     this.status = '';
     this.refreshing = false;
   }
-  subscribe(fn) { this.listeners.add(fn); return () => this.listeners.delete(fn); }
-  emit() { for (const fn of this.listeners) fn(); }
-  accept(data) { this.data = validateCatalogue(data); this.systems = groupSystems(data); }
-  load() {
-    return this._load ??= this._loadInitial().catch((error) => { this._load = null; throw error; });
+
+  /** Calls `fn` on every change of data or status. Returns an unsubscribe function. */
+  subscribe(fn) {
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
   }
+
+  emit() {
+    for (const fn of this.listeners) fn();
+  }
+
+  accept(data) {
+    this.data = validateCatalogue(data);
+    this.systems = groupSystems(data);
+  }
+
+  /** The newer of the saved and bundled copies, or NASA's when there is neither. Shared by every caller; retried after a failure. */
+  load() {
+    return this._load ??= this._loadInitial().catch((error) => {
+      this._load = null;
+      throw error;
+    });
+  }
+
   async _loadInitial() {
     const [stored, bundled] = await Promise.allSettled([
       this.storage.read(),
@@ -31,9 +59,14 @@ export class ExoplanetCatalogue {
       }),
     ]);
     const valid = (result) => {
-      try { return result.status === 'fulfilled' && result.value ? validateCatalogue(result.value) : null; } catch { return null; }
+      try {
+        return result.status === 'fulfilled' && result.value ? validateCatalogue(result.value) : null;
+      } catch {
+        return null;
+      }
     };
-    const saved = valid(stored), shipped = valid(bundled);
+    const saved = valid(stored);
+    const shipped = valid(bundled);
     const newest = [saved, shipped].filter(Boolean).sort((a, b) => Date.parse(b.fetchedAt) - Date.parse(a.fetchedAt))[0];
     // A release has overtaken the saved refresh (or it is from an older format):
     // drop it, so later visits read one catalogue rather than two.
@@ -47,16 +80,32 @@ export class ExoplanetCatalogue {
     }
     return this.data;
   }
-  get stale() { return Boolean(this.data) && Date.now() - Date.parse(this.data.fetchedAt) > MAX_AGE; }
+
+  get stale() {
+    return Boolean(this.data) && Date.now() - Date.parse(this.data.fetchedAt) > MAX_AGE;
+  }
+
   refreshIfStale() {
     if (this.stale) return this.refresh();
   }
+
   /** One small query, so a mistyped link does not cost a whole refresh to rule out. */
   async hasHost(name) {
     if (typeof name !== 'string' || !name.trim() || name.length > 120) return false;
-    try { return (await this.request(hostQuery(name))).some((row) => row?.hostname === name); } catch { return false; }
+    try {
+      return (await this.request(hostQuery(name))).some((row) => row?.hostname === name);
+    } catch {
+      return false;
+    }
   }
-  refresh() { return this._refresh ??= this._refreshLive().finally(() => { this._refresh = null; }); }
+
+  /** Fetches the whole catalogue from NASA; concurrent calls share one refresh. Resolves to whether it worked. */
+  refresh() {
+    return this._refresh ??= this._refreshLive().finally(() => {
+      this._refresh = null;
+    });
+  }
+
   async _refreshLive() {
     this.refreshing = true;
     this.lastError = null;
@@ -68,12 +117,16 @@ export class ExoplanetCatalogue {
       // then request bounded ranges without TOP, checking each page's membership.
       const names = (await this.request(NAME_QUERY)).map((row) => row?.pl_name);
       if (names.length < 1000 || names.length > 70000 || names.some((n) => typeof n !== 'string' || !n) ||
-          new Set(names).size !== names.length) throw new Error('Invalid archive name index');
+          new Set(names).size !== names.length) {
+        throw new Error('Invalid archive name index');
+      }
       for (let offset = 0; offset < names.length; offset += PAGE_SIZE) {
         const expected = names.slice(offset, offset + PAGE_SIZE);
         const batch = await this.request(archiveQuery({ first: expected[0], last: expected.at(-1) }));
         const received = new Set(batch.map((r) => r?.pl_name));
-        if (batch.length !== expected.length || expected.some((name) => !received.has(name))) throw new Error('Archive changed during refresh; retry');
+        if (batch.length !== expected.length || expected.some((name) => !received.has(name))) {
+          throw new Error('Archive changed during refresh; retry');
+        }
         rows.push(...batch);
         this.status = `Checking NASA · ${rows.length.toLocaleString()} planets received`;
         this.emit();
@@ -86,7 +139,9 @@ export class ExoplanetCatalogue {
       return true;
     } catch (error) {
       this.lastError = error;
-      this.status = this.data ? 'NASA refresh unavailable · keeping the saved catalogue. Try again later.' : 'NASA is unavailable. Reconnect and try again.';
+      this.status = this.data
+        ? 'NASA refresh unavailable · keeping the saved catalogue. Try again later.'
+        : 'NASA is unavailable. Reconnect and try again.';
       return false;
     } finally {
       this.refreshing = false;
@@ -94,12 +149,15 @@ export class ExoplanetCatalogue {
     }
   }
 
+  /** One archive query, through the proxy; the rows it returns. */
   async request(query) {
     const upstream = new URL(QUERY_URL);
     upstream.searchParams.set('query', query);
     const response = await this.fetcher(PROXY_URL, {
-      headers: { 'Target-URL': upstream.href }, credentials: 'omit',
-      signal: AbortSignal.timeout(45000), cache: 'no-store',
+      headers: { 'Target-URL': upstream.href },
+      credentials: 'omit',
+      signal: AbortSignal.timeout(45000),
+      cache: 'no-store',
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const batch = await response.json();
@@ -114,6 +172,8 @@ export const catalogueStorage = {
   write: (data) => stored('readwrite', (store) => store.put(data, 'latest')),
   clear: () => stored('readwrite', (store) => store.delete('latest')),
 };
+
+/** Runs one operation on the saved catalogue's store, resolving with its result once the transaction completes. */
 function stored(mode, operate) {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('orrery-exoplanets', 1);
@@ -124,8 +184,14 @@ function stored(mode, operate) {
       const db = request.result;
       const tx = db.transaction('catalogue', mode);
       const operation = operate(tx.objectStore('catalogue'));
-      tx.oncomplete = () => { db.close(); resolve(operation.result); };
-      tx.onerror = tx.onabort = () => { db.close(); reject(tx.error); };
+      tx.oncomplete = () => {
+        db.close();
+        resolve(operation.result);
+      };
+      tx.onerror = tx.onabort = () => {
+        db.close();
+        reject(tx.error);
+      };
     };
   });
 }

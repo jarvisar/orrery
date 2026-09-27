@@ -93,11 +93,11 @@ npm run desktop:smoke -- --packaged    # launch the build and check it
 | Linux x64 | `Orrery-<v>-linux-x86_64.AppImage`, `...-linux-amd64.deb`, `...-linux-x64.tar.gz` | Linux or macOS |
 | macOS | `Orrery-<v>-mac-arm64.dmg` (Apple silicon), `...-mac-x64.dmg` (Intel) | macOS |
 
-electron-builder can't make a DMG or AppImage on Windows, so `.github/workflows/desktop.yml` builds all three on every push to `main` and every pull request. Each build is launched with `--self-test`, and the installers and a screenshot from the Mac build are uploaded as artifacts. To download the latest build:
+electron-builder can't make a DMG or AppImage on Windows, so `.github/workflows/desktop.yml` builds all three on every push to `main` and every pull request. Each build is launched with `--self-test`, and the installers and a screenshot from each build are uploaded as artifacts. To download the latest build:
 
 ```sh
 gh run list --workflow desktop.yml --branch main --limit 1
-gh run download <run id> --name orrery-linux    # or orrery-win, orrery-mac, screenshot-mac
+gh run download <run id> --name orrery-linux    # or orrery-win, orrery-mac, screenshot-linux, screenshot-win, screenshot-mac
 ```
 
 ### Updates

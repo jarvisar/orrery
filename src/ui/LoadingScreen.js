@@ -59,9 +59,4 @@ export class LoadingScreen {
     await new Promise((resolve) => setTimeout(resolve, 650));
     this.root.remove();
   }
-
-  fail(message) {
-    this.status.textContent = message;
-    this.bar.style.background = '#e05c5c';
-  }
 }

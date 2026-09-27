@@ -63,12 +63,12 @@ export class Picker {
   }
 
   onSelect(callback) { this._onSelect = callback; }
+  onHover(callback) { this._onHover = callback; }
 
   /** Makes something outside the catalogue clickable. Its meshes carry `userData.bodyId`. */
   addSelectable(id, meshes) {
     this._extras.set(id, meshes);
   }
-  onHover(callback) { this._onHover = callback; }
 
   /**
    * What to offer where no body is hit: `(direction, tolerance) => id|null`,

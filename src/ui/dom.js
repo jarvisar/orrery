@@ -39,34 +39,35 @@ export function el(tag, props = {}, children = []) {
   return node;
 }
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** An SVG element, with each of `attributes` set as an attribute. */
+export function svgEl(tag, attributes = {}) {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
+  return node;
+}
+
 /** Inline SVG icon. Paths are stroked with `currentColor` by the stylesheet. */
 export function icon(name, size = 18) {
   const paths = ICONS[name];
   if (!paths) throw new Error(`unknown icon "${name}"`);
 
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('width', size);
-  svg.setAttribute('height', size);
-  svg.setAttribute('aria-hidden', 'true');
-  svg.setAttribute('stroke-linecap', 'round');
-  svg.setAttribute('stroke-linejoin', 'round');
-
-  for (const d of paths) {
-    const path = document.createElementNS(SVG_NS, 'path');
-    path.setAttribute('d', d);
-    svg.append(path);
-  }
+  const svg = svgEl('svg', {
+    viewBox: '0 0 24 24',
+    width: size,
+    height: size,
+    'aria-hidden': 'true',
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+  });
+  for (const d of paths) svg.append(svgEl('path', { d }));
   return svg;
 }
-
-const SVG_NS = 'http://www.w3.org/2000/svg';
 
 const ICONS = {
   play: ['M8 5.5v13l11-6.5z'],
   pause: ['M9.5 5v14', 'M14.5 5v14'],
-  rewind: ['M11 6 4 12l7 6z', 'M20 6l-7 6 7 6z'],
-  forward: ['M13 6l7 6-7 6z', 'M4 6l7 6-7 6z'],
   reverse: ['M3 12a9 9 0 1 0 2.64-6.36L3 8.3', 'M3 3.5v4.8h4.8'],
   settings: [
     'M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z',
@@ -78,12 +79,6 @@ const ICONS = {
   chevron: ['M6 9l6 6 6-6'],
   back: ['M15 6l-6 6 6 6'],
   next: ['M9 6l6 6-6 6'],
-  check: ['M20 6 9 17l-5-5'],
-  route: [
-    'M6 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
-    'M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
-    'M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15',
-  ],
   link: [
     'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71',
     'M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
@@ -129,6 +124,13 @@ export function announce(text) {
 
 let announcer = null;
 let announceTimer = 0;
+
+/** True where a key press is text entry. Sliders and switches do not count. */
+export function isTypingTarget(target) {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable || ['TEXTAREA', 'SELECT'].includes(target.tagName)) return true;
+  return target.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'button'].includes(target.type);
+}
 
 /** Traps Tab within `container` while it is open, and restores focus on close. */
 export function trapFocus(container) {

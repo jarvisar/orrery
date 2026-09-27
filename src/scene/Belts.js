@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { BELTS, SIDEREAL_YEAR_DAYS } from '../data/bodies.js';
 import { heliocentricDistance } from './scaling.js';
 import { createDisk } from './Disks.js';
+import { makeGlowTexture } from './SolarSystem.js';
 
 export class Belts {
   /** @param {THREE.Scene} scene */
@@ -23,7 +24,8 @@ export class Belts {
 
     this.clouds = [];
     this.density = 1;
-    this._sprite = makeParticleTexture();
+    // A soft round dot; square points read as pixel noise at these sizes.
+    this._sprite = makeGlowTexture(32, [[0, 1], [0.45, 0.75], [1, 0]]);
   }
 
   build(density = this.density) {
@@ -157,21 +159,4 @@ export class Belts {
     this._sprite.dispose();
     this.root.removeFromParent();
   }
-}
-
-/** A soft round dot; square points read as pixel noise at these sizes. */
-function makeParticleTexture(size = 32) {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  gradient.addColorStop(0, 'rgba(255,255,255,1)');
-  gradient.addColorStop(0.45, 'rgba(255,255,255,0.75)');
-  gradient.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, size, size);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
 }

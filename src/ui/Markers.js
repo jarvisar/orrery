@@ -8,6 +8,7 @@
 
 import * as THREE from 'three';
 import { el } from './dom.js';
+import { smoothstep } from '../core/math.js';
 
 /** Apparent radius, in CSS pixels, at which a marker is fully faded out / in. */
 const HIDE_ABOVE = 7;
@@ -219,9 +220,4 @@ function measureText(text) {
     _measureContext.font = `500 11.5px ${style.fontFamily}`;
   }
   return Math.ceil(_measureContext.measureText(text).width);
-}
-
-function smoothstep(edge0, edge1, x) {
-  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
-  return t * t * (3 - 2 * t);
 }

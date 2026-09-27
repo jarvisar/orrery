@@ -55,10 +55,9 @@ export class Settings {
     this.values[key] = value;
     save(this.values);
     for (const listener of this._listeners.get(key) ?? []) listener(value, key);
-    for (const listener of this._listeners.get('*') ?? []) listener(value, key);
   }
 
-  /** Subscribes to one key, or to every key with '*'. Returns an unsubscribe function. */
+  /** Subscribes to one key. Returns an unsubscribe function. */
   on(key, listener) {
     if (!this._listeners.has(key)) this._listeners.set(key, new Set());
     this._listeners.get(key).add(listener);

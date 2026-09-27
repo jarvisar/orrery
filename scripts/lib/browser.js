@@ -1,6 +1,6 @@
 /**
  * Headless Chrome and a dev server, shared by the checks that load the real
- * page (smoke.js, responsive.js).
+ * page (smoke.js, responsive.js, vr.js, gamepad.js, exoplanets-smoke.js).
  */
 import { existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';

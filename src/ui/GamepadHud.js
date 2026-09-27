@@ -10,7 +10,7 @@
  */
 
 import { el } from './dom.js';
-import { padGlyph, padName } from './padGlyphs.js';
+import { padGlyphs, padName } from './padGlyphs.js';
 
 /** How long the legend stays before fading, unless held up. */
 const LINGER_MS = 7000;
@@ -135,7 +135,7 @@ export class GamepadHud {
       ...LEGENDS[this.context].map(({ buttons, text, extra }) =>
         el('div', { class: extra ? 'padbar__row is-extra' : 'padbar__row' }, [
           el('span', { class: 'padbar__text', text }),
-          el('span', { class: 'pad-group' }, buttons.map((button) => padGlyph(button, this.family))),
+          padGlyphs(buttons, this.family),
         ]))
     );
   }

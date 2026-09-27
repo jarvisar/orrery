@@ -13,7 +13,7 @@
  */
 
 import * as THREE from 'three';
-import { periodDays } from '../data/bodies.js';
+import { periodDays, SOLAR_RADIUS_KM } from '../data/bodies.js';
 import { SOLAR_SYSTEM } from '../data/systems.js';
 import { exoplanetSurface, stellarSurface, starDisplayColor } from './exoplanetSurface.js';
 import { WorldPainter, paintRings } from './worldTextures.js';
@@ -35,7 +35,6 @@ const _inverseTilt = new THREE.Quaternion();
 
 /** Point-light intensity of a star, set for visibility rather than photometry. */
 const STAR_LIGHT = 3.2;
-const SOLAR_RADIUS_KM = 695_700;
 
 /** Corona sprite size, in solar radii. */
 const CORONA_RADII = 6;
@@ -68,7 +67,6 @@ export class SolarSystem {
    */
   constructor(scene, assets, catalogue = SOLAR_SYSTEM) {
     this.catalogue = catalogue;
-    this.scene = scene;
     this.assets = assets;
 
     /** @type {Map<string, BodyView>} */
@@ -242,7 +240,7 @@ export class SolarSystem {
     }
 
     orientBody(view.tilt.quaternion, body, this.catalogue);
-    view.elements = this._scaleElements(body, view);
+    view.elements = this._scaleElements(body);
     this._prepareDetail(view);
 
     this.bodies.set(body.id, view);
@@ -661,7 +659,7 @@ export class SolarSystem {
    * `a` stays in its natural unit (AU for planets, km for moons); compression
    * is applied per frame to the instantaneous radius (see scaling.js).
    */
-  _scaleElements(body, view) {
+  _scaleElements(body) {
     if (!body.orbit) return null;
     const parent = body.parent ? this.catalogue.byId.get(body.parent) : null;
     return {
@@ -953,7 +951,7 @@ function adaptedLight(color) {
 }
 
 /** Stops are [radius, intensity] pairs, both 0..1, painted white for the material to tint. */
-function makeGlowTexture(size, stops) {
+export function makeGlowTexture(size, stops) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d');

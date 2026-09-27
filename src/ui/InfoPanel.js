@@ -9,10 +9,10 @@
  * neighbours', to scale. The bright arc is the ground covered since periapsis.
  */
 
-import { el, icon, formatKm } from './dom.js';
+import { el, icon, svgEl, formatKm } from './dom.js';
 import { AU_KM } from '../data/bodies.js';
 import { SOLAR_SYSTEM } from '../data/systems.js';
-import { orbitalPosition, eccentricAnomaly, perifocalToWorld } from '../sim/kepler.js';
+import { orbitalPosition, eccentricAnomalyAt, perifocalToWorld } from '../sim/kepler.js';
 
 export const KIND_LABEL = {
   star: 'Star',
@@ -24,7 +24,6 @@ export const KIND_LABEL = {
 
 const LIGHT_KM_S = 299_792.458;
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
 const MAP = { width: 256, height: 132, pad: 9, samples: 128 };
 
 const _now = { x: 0, y: 0, z: 0 };
@@ -129,18 +128,17 @@ export class InfoPanel {
   _buildProvenance(body) {
     this.provenance.replaceChildren();
     if (!body.exoplanet) return;
-    const link = (href, text) => el('a', { href, target: '_blank', rel: 'noopener', text });
     this.provenance.append(...[
       el('h3', { class: 'section-title', text: 'About this model' }),
       ...body.modelNotes.map((text) => el('p', { text })),
       el('p', { text: 'Orbits share an illustrative plane; their orientation and phase do not predict transits or the positions on the date shown. The background sky is the view from Earth.' }),
-      link(body.source, `${body.sourceName ?? 'NASA archive & published measurements'} ↗`),
-      body.reference ? el('p', {}, [body.reference.href ? link(body.reference.href, body.reference.label) : body.reference.label])
+      externalLink(body.source, `${body.sourceName ?? 'NASA archive & published measurements'} ↗`),
+      body.reference ? el('p', {}, [body.reference.href ? externalLink(body.reference.href, body.reference.label) : body.reference.label])
         : el('p', { text: body.sourceName ? 'Publication references are recorded in the source file history.' : 'Reference available in the archive.' }),
-      body.distanceReference?.href && el('p', {}, [link(body.distanceReference.href, `Distance: ${body.distanceReference.label}`)]),
-      body.appearanceReference && el('p', {}, [link(body.appearanceReference.href, `Appearance: ${body.appearanceReference.label}`)]),
-      body.diskReference && el('p', {}, [link(body.diskReference.href, `Disk: ${body.diskReference.label}`)]),
-      body.companionSource && el('p', {}, [link(body.companionSource, 'Stellar hierarchy: Open Exoplanet Catalogue ↗')]),
+      body.distanceReference?.href && el('p', {}, [externalLink(body.distanceReference.href, `Distance: ${body.distanceReference.label}`)]),
+      body.appearanceReference && el('p', {}, [externalLink(body.appearanceReference.href, `Appearance: ${body.appearanceReference.label}`)]),
+      body.diskReference && el('p', {}, [externalLink(body.diskReference.href, `Disk: ${body.diskReference.label}`)]),
+      body.companionSource && el('p', {}, [externalLink(body.companionSource, 'Stellar hierarchy: Open Exoplanet Catalogue ↗')]),
       el('p', { text: `${body.sourceName ?? 'NASA default solution'} · retrieved ${(body.sourceDate ?? this.catalogue.fetchedAt).slice(0, 10)} (UTC). Quoted errors and limits are from the source.` }),
     ].filter(Boolean));
   }
@@ -163,7 +161,7 @@ export class InfoPanel {
         el('p', { text: member.blurb }),
         el('dl', { class: 'info__facts' }, Object.entries(member.facts).map(([key, value]) =>
           el('div', { class: 'info__fact' }, [el('dt', { text: key }), el('dd', { text: value })]))),
-        el('a', { href: member.source, target: '_blank', rel: 'noopener', text: 'Published measurements ↗' }),
+        externalLink(member.source, 'Published measurements ↗'),
       ])),
     ].filter(Boolean));
   }
@@ -263,11 +261,11 @@ export class InfoPanel {
     }
 
     const members = this._neighbours(view.body)
-      .map((body) => ({ body, el: body.id === view.id ? own : diagramElements(this.elementsOf(body.id)) }))
-      .filter((member) => member.el);
+      .map((body) => ({ body, elements: body.id === view.id ? own : diagramElements(this.elementsOf(body.id)) }))
+      .filter((member) => member.elements);
 
     const { width, height, pad, samples } = MAP;
-    const reach = Math.max(...members.map(({ el }) => el.a * (1 + el.e)));
+    const reach = Math.max(...members.map(({ elements }) => elements.a * (1 + elements.e)));
     const scale = (height / 2 - pad) / reach;
     const cx = width / 2;
     const cy = height / 2;
@@ -276,13 +274,13 @@ export class InfoPanel {
     const project = (p) => [cx + p.x * scale, cy + p.z * scale];
 
     const svg = svgEl('svg', { viewBox: `0 0 ${width} ${height}`, width: '100%' });
-    const parts = { members: [], project, scale, own };
+    const parts = { members: [], project };
 
     for (const member of members) {
       const isOwn = member.body.id === view.id;
       svg.append(svgEl('path', {
         class: isOwn ? 'orbit-path is-own' : 'orbit-path',
-        d: orbitPath(member.el, 0, Math.PI * 2, samples, project),
+        d: orbitPath(member.elements, 0, Math.PI * 2, samples, project),
       }));
     }
 
@@ -356,23 +354,23 @@ export class InfoPanel {
       return;
     }
 
-    const el_ = view.elements;
-    orbitalPosition(el_, tDays, _now);
+    const orbit = view.elements;
+    orbitalPosition(orbit, tDays, _now);
     const distance = Math.hypot(_now.x, _now.y, _now.z);
 
     // Speed from a one-minute finite difference: exact enough at these scales
     // and far simpler than differentiating the anomaly analytically.
     const dt = 1 / 1440;
-    orbitalPosition(el_, tDays + dt, _soon);
+    orbitalPosition(orbit, tDays + dt, _soon);
     const travelled = Math.hypot(_soon.x - _now.x, _soon.y - _now.y, _soon.z - _now.z);
-    const speedKmS = (el_.heliocentric ? travelled * AU_KM : travelled) / (dt * 86_400);
+    const speedKmS = (orbit.heliocentric ? travelled * AU_KM : travelled) / (dt * 86_400);
 
     // Fraction of the period elapsed since periapsis.
-    const turns = (el_.meanLong - el_.periLong) / 360 + tDays / el_.periodDays;
+    const turns = (orbit.meanLong - orbit.periLong) / 360 + tDays / orbit.periodDays;
     const sincePeriapsis = turns - Math.floor(turns);
     const parent = body.parent ? this.catalogue.byId.get(body.parent) : null;
 
-    if (el_.heliocentric) {
+    if (orbit.heliocentric) {
       rows.push(['From the Sun', `${distance.toFixed(3)} AU`]);
       if (body.id !== 'earth') {
         const fromEarth = Math.hypot(_now.x - _earth.x, _now.y - _earth.y, _now.z - _earth.z);
@@ -392,12 +390,12 @@ export class InfoPanel {
     }
     rows.push(['Orbital speed', `${speedKmS.toFixed(2)} km/s`]);
     rows.push([
-      el_.heliocentric ? 'Since perihelion' : 'Since periapsis',
+      orbit.heliocentric ? 'Since perihelion' : 'Since periapsis',
       `${(sincePeriapsis * 100).toFixed(1)}% of orbit`,
     ]);
 
     this._renderLive(rows);
-    this._updateDiagram(el_, tDays);
+    this._updateDiagram(orbit, tDays);
   }
 
   _updateDiagram(own, tDays) {
@@ -411,15 +409,14 @@ export class InfoPanel {
       node.setAttribute('cy', y.toFixed(2));
     }
 
-    const meanAnomaly = (own.meanLong - own.periLong + (360 / own.periodDays) * tDays) * (Math.PI / 180);
-    let E = eccentricAnomaly(meanAnomaly, own.e);
+    let E = eccentricAnomalyAt(own, tDays);
     if (E < 0) E += Math.PI * 2;
     parts.travelled.setAttribute('d', orbitPath(own, 0, E, Math.max(2, Math.ceil(E * 12)), parts.project));
 
     const cx = MAP.width / 2;
     const cy = MAP.height / 2;
     for (const member of parts.members) {
-      orbitalPosition(member.el, tDays, _point);
+      orbitalPosition(member.elements, tDays, _point);
       const [nx, ny] = parts.project(_point);
       member.dot.setAttribute('cx', nx.toFixed(2));
       member.dot.setAttribute('cy', ny.toFixed(2));
@@ -480,6 +477,11 @@ function withSuperscripts(text) {
   return parts;
 }
 
+/** A link that opens in a new tab. */
+function externalLink(href, text) {
+  return el('a', { href, target: '_blank', rel: 'noopener', text });
+}
+
 function formatDuration(seconds) {
   if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 2 : 1)} s`;
   if (seconds < 3600) {
@@ -491,22 +493,16 @@ function formatDuration(seconds) {
 }
 
 /** An SVG path along an orbit from one eccentric anomaly to another, seen from above. */
-function orbitPath(el, fromE, toE, steps, project) {
-  const b = Math.sqrt(1 - el.e * el.e);
+function orbitPath(elements, fromE, toE, steps, project) {
+  const b = Math.sqrt(1 - elements.e * elements.e);
   let d = '';
   for (let i = 0; i <= steps; i++) {
     const E = fromE + ((toE - fromE) * i) / steps;
-    perifocalToWorld(el.a * (Math.cos(E) - el.e), el.a * b * Math.sin(E), el, _point);
+    perifocalToWorld(elements.a * (Math.cos(E) - elements.e), elements.a * b * Math.sin(E), elements, _point);
     const [x, y] = project(_point);
     d += `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
   }
   return d;
-}
-
-function svgEl(tag, attributes) {
-  const node = document.createElementNS(SVG_NS, tag);
-  for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
-  return node;
 }
 
 function diagramElements(elements) {

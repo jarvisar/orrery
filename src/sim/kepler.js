@@ -41,6 +41,16 @@ export function eccentricAnomaly(meanAnomaly, e) {
 }
 
 /**
+ * Where a body is round its orbit at `tDays`, as its eccentric anomaly. The
+ * mean anomaly advances linearly; everything else is fixed for our purposes.
+ */
+export function eccentricAnomalyAt(el, tDays) {
+  const n = 360 / el.periodDays;
+  const M = (el.meanLong - el.periLong + n * tDays) * DEG;
+  return eccentricAnomaly(M, el.e);
+}
+
+/**
  * Position of a body on its orbit at `tDays`, in the same length unit as
  * `elements.a`, expressed in three.js axes (XZ is the reference plane, +Y is
  * its north pole).
@@ -51,10 +61,7 @@ export function eccentricAnomaly(meanAnomaly, e) {
  * @param {{x:number,y:number,z:number}} out Written in place to avoid garbage.
  */
 export function orbitalPosition(el, tDays, out) {
-  // Mean anomaly advances linearly; everything else is fixed for our purposes.
-  const n = 360 / el.periodDays;
-  const M = (el.meanLong - el.periLong + n * tDays) * DEG;
-  const E = eccentricAnomaly(M, el.e);
+  const E = eccentricAnomalyAt(el, tDays);
 
   // Position in the orbital plane, perifocal frame.
   const px = el.a * (Math.cos(E) - el.e);

@@ -21,7 +21,7 @@ npm run vr          # an emulated Quest 3: controllers, hands and the VR panel
 npm run gamepad     # an emulated game controller: bindings, menus and full screen
 ```
 
-The browser checks use your local installation of Chrome and skip themselves if it isn't found. Pass `--strict` to make a missing Chrome a failure (CI does this). `npm run responsive -- --shots=dir`, `VR_SHOTS=dir` and `GAMEPAD_SHOTS=dir` save screenshots.
+The browser checks use your local installation of Chrome and skip themselves if it isn't found. Pass `--strict` to make a missing Chrome a failure (CI does this). Set `CHROME_PATH` to use another Chrome, and `SMOKE_URL` to test a server that is already running instead of starting one. `npm run responsive -- --shots=dir`, `VR_SHOTS=dir` and `GAMEPAD_SHOTS=dir` save screenshots.
 
 Exoplanet data and checks:
 

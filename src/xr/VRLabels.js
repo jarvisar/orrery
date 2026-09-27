@@ -9,6 +9,7 @@
  */
 
 import * as THREE from 'three';
+import { smoothstep } from '../core/math.js';
 
 /** Apparent radius, in radians, at which a label is fully faded out / in. */
 const HIDE_ABOVE = 0.03;
@@ -221,9 +222,4 @@ function labelTexture(name, color, font) {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return { texture, aspect: width / LABEL_HEIGHT };
-}
-
-function smoothstep(edge0, edge1, x) {
-  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
-  return t * t * (3 - 2 * t);
 }

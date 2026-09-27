@@ -30,6 +30,7 @@ export class TimeBar {
   /**
    * @param {import('../sim/Clock.js').Clock} clock
    * @param {object} [hooks]
+   * @param {boolean} [hooks.exoplanet] Another star's system, which has no listed moments.
    * @param {(days: number, moment?: import('../data/moments.js').Moment) => void} [hooks.onJump]
    * @param {() => void} [hooks.onNow]
    * @param {() => Promise<void>} [hooks.onCopyLink]

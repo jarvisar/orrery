@@ -308,8 +308,8 @@ export class VRMode {
       // Draw at the panels' own resolution rather than the runtime's
       // cheaper default.
       this.renderer.xr.setFramebufferScaleFactor(nativeScale(session));
-      // three turns fixed foveation all the way up unless told otherwise,
-      // which smears everything outside the middle of the view.
+      // Fixed foveation stays off, always: three turns it all the way up unless
+      // told otherwise, which smears everything outside the middle of the view.
       this.renderer.xr.setFoveation(0);
 
       this.session = session;
@@ -1396,7 +1396,7 @@ export class VRMode {
       paused: this.clock.paused,
       reversed: this.clock.direction < 0,
       pointing,
-      pointingAtFocus: Boolean(pointing) && this._pointedId() === this.focus?.id,
+      pointingAtFocus: Boolean(pointing) && pointedId === this.focus?.id,
       labels: this.settings.get('showLabels'),
       help: this._help,
     };

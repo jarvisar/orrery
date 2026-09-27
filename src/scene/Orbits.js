@@ -9,7 +9,9 @@ import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { heliocentricDistance, satelliteDistance } from './scaling.js';
-import { sampleOrbitPath, perifocalToWorld, eccentricAnomaly } from '../sim/kepler.js';
+import { addPatch } from './shading.js';
+import { sampleOrbitPath, perifocalToWorld, eccentricAnomalyAt } from '../sim/kepler.js';
+import { smoothstep } from '../core/math.js';
 
 /**
  * Samples per revolution. At 256 the largest orbit on screen (Pluto's, up to
@@ -74,7 +76,7 @@ export class Orbits {
       if (!view.elements) continue;
       this.lines.set(view.id, this._createLine(view));
     }
-    this._applyVisibility();
+    this.syncVisibility();
   }
 
   _createLine(view) {
@@ -229,7 +231,6 @@ export class Orbits {
     this.root.visible = visible;
   }
 
-
   rescale() {
     for (const entry of this.lines.values()) {
       const segments = entry.view.elements.heliocentric ? HELIOCENTRIC_SEGMENTS : SATELLITE_SEGMENTS;
@@ -240,15 +241,11 @@ export class Orbits {
   }
 
   /** Mirrors the moon / dwarf-planet visibility toggles. */
-  _applyVisibility() {
+  syncVisibility() {
     for (const [id, entry] of this.lines) {
       entry.allowed = this.system.isVisible(id);
       if (!entry.allowed) entry.line.visible = false;
     }
-  }
-
-  syncVisibility() {
-    this._applyVisibility();
   }
 
   clear() {
@@ -279,8 +276,7 @@ function pathPhases(segments) {
 
 /** Eccentric anomaly at `tDays` as a 0..1 fraction, matching pathPhases. */
 function orbitPhase(el, tDays) {
-  const meanAnomaly = (el.meanLong - el.periLong + (360 / el.periodDays) * tDays) * (Math.PI / 180);
-  const E = eccentricAnomaly(meanAnomaly, el.e) / (Math.PI * 2);
+  const E = eccentricAnomalyAt(el, tDays) / (Math.PI * 2);
   return E - Math.floor(E);
 }
 
@@ -289,7 +285,7 @@ function orbitPhase(el, tDays) {
  * optional edge smoothing (see Orbits#setSmoothing).
  */
 function applyTrail(material, head, smooth) {
-  material.onBeforeCompile = (shader) => {
+  addPatch(material, 'orbit-trail', (shader) => {
     shader.uniforms.uHead = head;
     shader.uniforms.uSmooth = smooth;
     shader.fragmentShader = shader.fragmentShader
@@ -307,8 +303,7 @@ function applyTrail(material, head, smooth) {
         alpha *= mix( 1.0, coverage, uSmooth );
         `
       );
-  };
-  material.customProgramCacheKey = () => 'orbit-trail';
+  });
 }
 
 /** Mean distance of a sampled path from its own centre, in scene units. */
@@ -319,10 +314,4 @@ function meanRadius(positions) {
     total += Math.hypot(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
   }
   return count ? total / count : 0;
-}
-
-/** GLSL-style smoothstep: 0 at `edge0`, 1 at `edge1`, in either order. */
-function smoothstep(edge0, edge1, x) {
-  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
-  return t * t * (3 - 2 * t);
 }

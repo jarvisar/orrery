@@ -19,6 +19,7 @@
 
 import * as THREE from 'three';
 import { heliocentricDistance } from '../scene/scaling.js';
+import { isTypingTarget } from '../ui/dom.js';
 
 const _quaternion = new THREE.Quaternion();
 const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
@@ -439,11 +440,4 @@ function applyCurve(value) {
   if (magnitude < DEAD_ZONE) return 0;
   const scaled = (magnitude - DEAD_ZONE) / (1 - DEAD_ZONE);
   return Math.sign(value) * scaled ** 2;
-}
-
-/** True where a key press is text entry. Sliders and switches do not count. */
-function isTypingTarget(target) {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable || ['TEXTAREA', 'SELECT'].includes(target.tagName)) return true;
-  return target.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'button'].includes(target.type);
 }

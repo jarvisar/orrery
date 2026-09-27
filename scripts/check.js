@@ -8,7 +8,7 @@
  *   npm run check
  */
 import { readFile, readdir, access } from 'node:fs/promises';
-import { join, dirname, relative } from 'node:path';
+import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
