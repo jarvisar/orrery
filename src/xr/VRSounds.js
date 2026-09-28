@@ -30,9 +30,11 @@ export class VRSounds {
     this.context = null;
   }
 
-  /** Called from the click that starts a session. */
+  /**
+   * Called from the click that starts a session. Even with sounds off, since
+   * they can be turned on from inside the headset, where there's no click.
+   */
   unlock() {
-    if (!this.enabled) return;
     try {
       this.context ??= new AudioContext();
       if (this.context.state === 'suspended') this.context.resume().catch(() => {});

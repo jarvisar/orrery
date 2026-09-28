@@ -57,9 +57,10 @@ export const SHORTCUTS = [
       { keys: ['Grip'], desc: 'Grab and move the system' },
       { keys: ['Both grips'], desc: 'Scale and turn it' },
       { keys: ['Left stick'], desc: 'Fly (click to go faster)' },
-      { keys: ['Right stick'], desc: 'Turn, and zoom' },
+      { keys: ['Right stick'], desc: 'Turn, and zoom (click to re-frame)' },
       { keys: ['A', 'B'], desc: 'Play or pause / whole system' },
       { keys: ['X', 'Y'], desc: 'Previous or next body' },
+      { keys: ['Options'], desc: 'On the panel: labels, comfort and left-handed' },
     ],
   },
   {

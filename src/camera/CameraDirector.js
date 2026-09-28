@@ -107,7 +107,6 @@ export class CameraDirector {
 
     if (!view) {
       this._transition = null;
-      this.controls.enabled = true;
       return;
     }
 

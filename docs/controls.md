@@ -76,12 +76,13 @@ If a VR headset is available (the Quest browser, or Chrome or Edge with a PC hea
 | Both grips | Scale and rotate the system |
 | Left stick | Fly where the left controller points (click to go faster) |
 | Right stick | Turn left and right, push forward or back to zoom |
+| Right stick click | Re-frame the current body |
 | `A` / `B` | Play or pause / show the whole system |
 | `X` / `Y` | Previous / next body |
 
 A panel above the left controller shows the date, what you're looking at and a few lines about it. It has buttons for everything else, including running time backwards. `Controls` shows these controls on the panel. `Exit VR` needs a second press so it can't be hit by accident. With only one controller, the panel floats in front of you instead.
 
-While a headset is available, Settings has a Virtual reality section. It can swap hands (point with your left hand, and hold the panel and fly with your right), turn off the comfort vignette that darkens the edges of the view while a stick moves you, and turn off the interface sounds.
+`Options` on the panel has the settings worth changing in a headset: labels, orbits, moons, belts, the comfort vignette that darkens the edges of the view while a stick moves you, the interface sounds, and `Left-handed`, which swaps hands (point with your left, and hold the panel and fly with your right). The sides in the table above swap too. The same settings are in the page's Settings, under Virtual reality.
 
 Hand tracking also works:
 
@@ -94,6 +95,8 @@ Hand tracking also works:
 | Palm toward you | Bring the panel to that hand |
 
 A ring on the panel shows where your fingertip will land, and closes up as it gets there. Every press makes a short click, since a bare hand can't feel one. The panel holds still once it reaches your hand, so the other hand can press it.
+
+On Apple Vision Pro, look at something and pinch to select it. Pinch and drag to move the system, or pinch with both hands to resize it. Nothing is highlighted before the pinch, since the headset doesn't share where you're looking.
 
 Hold the Meta button to recenter the view.
 

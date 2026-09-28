@@ -11,7 +11,8 @@
  * mind, about 24 millimetres tall a metre away.
  *
  * Under the buttons, a few lines of text: the controls when a session starts,
- * then whatever is in focus.
+ * then whatever is in focus. Options swaps the buttons for a page of
+ * settings, since the page's own can't be reached from inside a headset.
  *
  * The header (the date, and what is being pointed at) changes several times
  * a second while time runs, and the buttons hardly ever. So the header is a
@@ -70,21 +71,33 @@ const GRID = [
   { id: 'overview', label: 'Whole system' },
   { id: 'next', label: 'Next  ›' },
   { id: 'reframe', label: 'Re-frame', enabled: (s) => Boolean(s.body) },
-  { id: 'slower', label: 'Slower' },
+  { id: 'slower', label: 'Slower', enabled: (s) => !s.slowest },
   { id: 'pause', label: (s) => (s.paused ? 'Play' : 'Pause'), active: (s) => s.paused },
-  { id: 'faster', label: 'Faster' },
+  { id: 'faster', label: 'Faster', enabled: (s) => !s.fastest },
   { id: 'now', label: 'Now' },
   { id: 'zoom-out', label: 'Zoom out' },
   { id: 'zoom-in', label: 'Zoom in' },
-  { id: 'labels', label: 'Labels', active: (s) => s.labels },
+  { id: 'options', label: 'Options' },
   { id: 'reverse', label: 'Reverse', active: (s) => s.reversed },
-].map((button, index) => ({
-  ...button,
-  x: PAD + (index % COLUMNS) * (BUTTON_WIDTH + GRID_GAP),
-  y: GRID_TOP + Math.floor(index / COLUMNS) * (BUTTON_HEIGHT + GRID_GAP),
-  w: BUTTON_WIDTH,
-  h: BUTTON_HEIGHT,
-}));
+].map(inGrid);
+
+/** Options swaps into the grid in place of the buttons, and Back sits where Options was. */
+const BACK_INDEX = GRID.findIndex((button) => button.id === 'options');
+
+/**
+ * The settings worth changing without taking the headset off. Each is a
+ * setting's key, and `on` is the value that lights the button up.
+ */
+export const OPTIONS = [
+  { key: 'showLabels', label: 'Labels', about: 'Names on everything, and on whatever you point at.' },
+  { key: 'showOrbits', label: 'Orbits', about: 'The path each body follows.' },
+  { key: 'showMoons', label: 'Moons', about: 'Moons, and their names when their planet is chosen.' },
+  { key: 'showDwarfs', label: 'Dwarf planets', about: 'Pluto, Ceres and the rest.' },
+  { key: 'showBelts', label: 'Belts', about: 'The asteroid belt and the Kuiper belt, or a star’s dust disk.' },
+  { key: 'vrVignette', label: 'Vignette', about: 'Darkens the edges of the view while a stick moves you, which helps with motion sickness.' },
+  { key: 'vrSounds', label: 'Sounds', about: 'A click for every press, since a bare hand feels nothing.' },
+  { key: 'vrHand', label: 'Left-handed', on: 'left', about: 'Point with your left hand, and hold the panel and fly with your right.' },
+];
 
 /** Beside the text. */
 const SIDE = [
@@ -98,7 +111,32 @@ const SIDE = [
   h: SIDE_HEIGHT,
 }));
 
-const BUTTONS = [...GRID, ...SIDE];
+function inGrid(button, index) {
+  return {
+    ...button,
+    x: PAD + (index % COLUMNS) * (BUTTON_WIDTH + GRID_GAP),
+    y: GRID_TOP + Math.floor(index / COLUMNS) * (BUTTON_HEIGHT + GRID_GAP),
+    w: BUTTON_WIDTH,
+    h: BUTTON_HEIGHT,
+  };
+}
+
+/** The options page's grid: one toggle per option, in order, and Back. */
+function optionsGrid(options) {
+  const cells = [inGrid({ id: 'back', label: 'Back' }, BACK_INDEX)];
+  let index = 0;
+  for (const option of options) {
+    if (index === BACK_INDEX) index++;
+    if (index >= COLUMNS * 3) break;
+    cells.push(inGrid({
+      id: `option:${option.key}`,
+      label: option.label,
+      about: option.about,
+      active: (s) => s.options?.[option.key] === (option.on ?? true),
+    }, index++));
+  }
+  return cells;
+}
 
 /** Held: how far above the controller the panel's centre floats, in metres. */
 const HOLD_ABOVE_M = 0.05 + HEIGHT_M / 2;
@@ -130,8 +168,16 @@ const _local = new THREE.Vector3();
 const _target = new THREE.Vector3();
 
 export class VRPanel {
-  constructor(systemName = 'Solar System') {
+  /**
+   * @param {string} [systemName]
+   * @param {object} [options]
+   * @param {typeof OPTIONS} [options.options] The options page's toggles, for what this system has.
+   */
+  constructor(systemName = 'Solar System', { options = OPTIONS } = {}) {
     this.systemName = systemName;
+    this._pages = { main: [...GRID, ...SIDE], options: [...optionsGrid(options), ...SIDE] };
+    /** Which buttons fill the grid: 'main', or 'options'. */
+    this.page = 'main';
     const plate = layer(HEIGHT);
     this.canvas = plate.canvas;
     this.context = plate.context;
@@ -245,6 +291,7 @@ export class VRPanel {
   detach() {
     this.mesh.removeFromParent();
     this.holder = null;
+    this.page = 'main';
     this._hover = null;
     this._armed = null;
     // Indexed by input slot, so there can be gaps. forEach skips them.
@@ -283,9 +330,9 @@ export class VRPanel {
     return Math.abs(local.x) <= WIDTH_M / 2 + margin && Math.abs(local.y) <= HEIGHT_M / 2 + margin;
   }
 
-  /** A button's centre in world space. */
+  /** A button's centre in world space, on the page showing now. */
   buttonPosition(id, out = new THREE.Vector3()) {
-    const button = BUTTONS.find((b) => b.id === id);
+    const button = this._buttons().find((b) => b.id === id);
     if (!button) return null;
     out.set(
       ((button.x + button.w / 2) / WIDTH - 0.5) * WIDTH_M,
@@ -297,9 +344,20 @@ export class VRPanel {
   }
 
   _buttonAt(x, y) {
-    const button = BUTTONS.find((b) =>
+    const button = this._buttons().find((b) =>
       x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h && this._enabled(b));
     return button?.id ?? null;
+  }
+
+  _buttons() {
+    return this._pages[this.page];
+  }
+
+  setPage(page) {
+    if (page === this.page) return;
+    this.page = page;
+    this._hover = null;
+    this.invalidate();
   }
 
   setHover(id) {
@@ -378,8 +436,8 @@ export class VRPanel {
     this._state = state;
 
     const plate = [
-      state.body?.id, state.paused, state.reversed, state.labels, state.hands, state.offHand, state.help,
-      this._hover, this._flash, this._armed,
+      state.body?.id, state.paused, state.reversed, state.slowest, state.fastest, state.hands, state.gaze,
+      state.offHand, state.help, JSON.stringify(state.options), this.page, this._hover, this._flash, this._armed,
     ].join('|');
     if (plate !== this._signatures.plate) {
       this._signatures.plate = plate;
@@ -388,8 +446,8 @@ export class VRPanel {
     }
 
     const header = [
-      state.body?.id, state.date, state.time, state.rate, state.paused,
-      state.pointing, state.pointingAtFocus, state.hands,
+      state.body?.id, state.anchor, state.date, state.time, state.rate, state.paused,
+      state.pointing, state.pointingAtFocus, state.hands, state.gaze,
     ].join('|');
     if (header !== this._signatures.header) {
       this._signatures.header = header;
@@ -414,17 +472,23 @@ export class VRPanel {
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    for (const button of BUTTONS) this._drawButton(ctx, button, state, sans);
+    for (const button of this._buttons()) this._drawButton(ctx, button, state, sans);
     this._drawText(ctx, this._text(state), sans, display);
   }
 
   /**
    * What the lines under the buttons say, most pressing first: a second press
-   * waiting, the controls when asked for, then whatever is in focus.
+   * waiting, what an option does, the controls when asked for, then whatever
+   * is in focus.
    */
   _text(state) {
     if (this._armed === 'exit') {
       return { eyebrow: 'Leave VR', body: 'Press Exit VR again to go back to the page. Anything else keeps you here.' };
+    }
+    if (this.page === 'options') {
+      const option = this._buttons().find((button) => button.id === this._hover && button.about);
+      if (option) return { eyebrow: option.label, body: option.about };
+      if (!state.help) return { eyebrow: 'Options', body: 'Point at one to see what it does. They are saved, and the page uses them too.' };
     }
     if (state.help) return { eyebrow: 'Controls', lines: legend(state) };
     if (state.body?.blurb) return { body: state.body.blurb };
@@ -473,10 +537,10 @@ export class VRPanel {
     ctx.textAlign = 'left';
     ctx.fillStyle = COLORS.text;
     ctx.font = `500 64px ${display}`;
-    ctx.fillText(body?.name ?? this.systemName, PAD, 104, WIDTH * 0.56);
+    ctx.fillText(body?.name ?? state.anchor ?? this.systemName, PAD, 104, WIDTH * 0.56);
     ctx.fillStyle = COLORS.dim;
     ctx.font = `400 30px ${sans}`;
-    ctx.fillText(describeKind(body), PAD, 148, WIDTH * 0.56);
+    ctx.fillText(describeKind(body, state.anchor), PAD, 148, WIDTH * 0.56);
 
     // When.
     ctx.textAlign = 'right';
@@ -496,8 +560,10 @@ export class VRPanel {
       const hint = state.pointingAtFocus ? `${action} to re-frame` : `${action} to go there`;
       ctx.fillText(`${state.pointing} · ${hint}`, PAD, 204, WIDTH - PAD * 2);
     } else {
+      // Gaze is private to the headset, so nothing can be named before the pinch.
       ctx.fillStyle = COLORS.faint;
-      ctx.fillText('Point at anything to see what it is', PAD, 204, WIDTH - PAD * 2);
+      ctx.fillText(state.gaze ? 'Look at anything and pinch to go there' : 'Point at anything to see what it is',
+        PAD, 204, WIDTH - PAD * 2);
     }
   }
 
@@ -553,7 +619,15 @@ export class VRPanel {
  * flies. Its face buttons step between bodies, the other's pause and zoom out.
  * Short enough to set at full size: squeezed text is hard to read in a headset.
  */
-function legend({ hands, offHand }) {
+function legend({ hands, gaze, offHand }) {
+  // Vision Pro: no controllers, and the eyes do the pointing.
+  if (gaze) {
+    return [
+      'Look at something and pinch to select it',
+      'Pinch and drag to move · both hands to resize',
+      'Look at a button and pinch to press it',
+    ];
+  }
   if (hands) {
     return [
       'Point, and pinch to select',
@@ -628,8 +702,8 @@ function buildCursor(panel) {
   return group;
 }
 
-function describeKind(body) {
-  if (!body) return 'Everything, as a model on a table';
+function describeKind(body, anchor) {
+  if (!body) return anchor ? 'Its planets, as a model on a table' : 'Everything, as a model on a table';
   if (body.kind === 'moon' && body.parent) return `Moon of ${BODY_BY_ID.get(body.parent)?.name ?? body.parent}`;
   if (body.exoplanet && body.kind === 'planet') return 'Exoplanet';
   return KIND_LABEL[body.kind] ?? body.kind;

@@ -309,10 +309,13 @@ function buildInterface(ctx) {
     flightHud.notify(`Arrived at ${view.name}`);
     rumble(0.4, 0.6, 180);
   };
+  // Around another star there are no moons, dwarf planets, belts or shadows to show.
+  // Another star's only belts are a measured dust disk, if it has one.
+  const unavailable = catalogue.isExoplanet
+    ? ['showMoons', 'showDwarfs', ...(catalogue.disk ? [] : ['showBelts', 'beltDensity']), 'shadowQuality']
+    : [];
   const settingsPanel = new SettingsPanel(settings, {
-    // Around another star there are no moons, dwarf planets, belts or shadows to show.
-    // Another star's only belts are a measured dust disk, if it has one.
-    omit: catalogue.isExoplanet ? ['showMoons', 'showDwarfs', ...(catalogue.disk ? [] : ['showBelts', 'beltDensity']), 'shadowQuality'] : [],
+    omit: unavailable,
     onControls: () => helpOverlay.open(),
   });
   const helpOverlay = new HelpOverlay({ exoplanet: catalogue.isExoplanet });
@@ -340,6 +343,7 @@ function buildInterface(ctx) {
       stepRate: (delta) => timeBar.stepRate(delta),
       now: () => timeBar.jumpToNow(),
     },
+    omit: unavailable,
     onStart: () => {
       setFlight(false, { refocus: false });
       helpOverlay.close();
@@ -1032,11 +1036,15 @@ function buildInterface(ctx) {
     // In a text field every key is typing except Escape, which still closes things.
     if (isTypingTarget(event.target) && event.code !== 'Escape') return;
 
+    // '?' is on a different key on most layouts outside the US.
+    const question = event.key === '?' || (event.code === 'Slash' && event.shiftKey);
     // The controls dialog is modal: while it is up, only the keys that close it count.
-    if (helpOverlay.isOpen && event.code !== 'Escape' && event.code !== 'Slash') return;
+    if (helpOverlay.isOpen && event.code !== 'Escape' && !question) return;
 
     const flightOwns = state.flying && FLIGHT_KEYS.includes(event.code);
     if (flightOwns) return;
+    // Space presses the focused button or switch, as it should.
+    if (event.code === 'Space' && event.target.closest?.('button, a[href], summary, select, [role="switch"], [role="option"]')) return;
     // Switched off in Settings, since speech input can set single keys off by accident.
     if (!settings.get('keyShortcuts') && event.code !== 'Escape') return;
 
@@ -1066,10 +1074,9 @@ function buildInterface(ctx) {
         state.showStats = !state.showStats;
         stats.hidden = !state.showStats;
         break;
-      case 'Slash':
-        if (event.shiftKey) { event.preventDefault(); helpOverlay.toggle(); }
+      default:
+        if (question) { event.preventDefault(); helpOverlay.toggle(); }
         break;
-      default: break;
     }
   });
 
@@ -1348,7 +1355,8 @@ function writeFlag(key) {
 function hasWebGL() {
   try {
     const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+    // three only draws with WebGL 2. A WebGL 1 device gets the unsupported screen.
+    const gl = canvas.getContext('webgl2');
     // Browsers cap how many live contexts a page may hold, and this probe runs
     // before the real one is created. Hand it straight back.
     gl?.getExtension('WEBGL_lose_context')?.loseContext();

@@ -3,7 +3,8 @@
  * Drives VR through IWER, Meta's WebXR emulator, standing in for a Quest 3:
  * pointing and selecting, grabbing, two-handed scaling, the sticks and face
  * buttons, the panel by ray and by fingertip, the palm gesture with either
- * hand, recentring, swapped hands, one controller, and leaving.
+ * hand, the options page, a sweep across the panel, the system menu,
+ * recentring, swapped hands, one controller, and leaving.
  *
  * Requests to the CDN the controller and hand models come from are refused,
  * so the run doesn't depend on the network and tests the offline stand-ins.
@@ -66,6 +67,10 @@ try {
     { timeout: 60_000, polling: 50 },
     (await page.evaluate(() => window.__frames)) + count
   );
+  // The palm has to be held up for a moment, which is a different number of frames on every machine.
+  const holder = (side) => page.waitForFunction(
+    (hand) => orrery.ui.vr.panel.holder?.side === hand, { timeout: 30_000, polling: 50 }, side
+  ).catch(() => {});
   const press = async (fn, ...args) => {
     await page.evaluate(fn, 1, ...args);
     await frames(2);
@@ -101,10 +106,10 @@ try {
   assert(s.paused !== pausedBefore, 'pulling the trigger on Pause did not pause');
   await shot('panel-by-ray');
 
-  const pressButton = async (id) => {
-    await page.evaluate((b) => T.aimAtButton('right', b), id);
+  const pressButton = async (id, side = 'right') => {
+    await page.evaluate((b, hand) => T.aimAtButton(hand, b), id, side);
     await frames();
-    await press((v) => T.button('right', 'trigger', v));
+    await press((v, hand) => T.button(hand, 'trigger', v), side);
     await frames(8);
     return state();
   };
@@ -120,6 +125,33 @@ try {
   assert(s.reversed, 'Reverse on the panel did not run time backwards');
   s = await pressButton('reverse');
   assert(!s.reversed, 'a second Reverse did not run time forwards again');
+
+  // At the fastest rate Faster is greyed out, and pointing at it lights nothing.
+  const rate = await page.evaluate(() => {
+    const before = orrery.clock.daysPerSecond;
+    for (let i = 0; i < 12; i++) orrery.ui.vr.actions.stepRate(1);
+    return before;
+  });
+  await page.evaluate(() => T.aimAtButton('right', 'faster'));
+  await frames(4);
+  s = await state();
+  assert(s.panelHover === null, `Faster at the fastest rate still hovered (${s.panelHover})`);
+  await page.evaluate((r) => orrery.clock.setRate(r), rate);
+
+  // Options swaps the buttons for settings. Left-handed moves the panel to
+  // the right controller, so the left one points at it to swap back.
+  s = await pressButton('options');
+  assert(s.page === 'options', `Options showed the ${s.page} page`);
+  await shot('options');
+  s = await pressButton('option:showOrbits');
+  assert(!s.orbits, 'Orbits on the options page did not hide the orbits');
+  s = await pressButton('option:showOrbits');
+  s = await pressButton('option:vrHand');
+  assert(s.hand === 'left' && s.panelHolder === 'right', `Left-handed left the hand ${s.hand}, panel on ${s.panelHolder}`);
+  s = await pressButton('option:vrHand', 'left');
+  assert(s.hand === 'right' && s.panelHolder === 'left', `a second Left-handed left the hand ${s.hand}, panel on ${s.panelHolder}`);
+  s = await pressButton('back');
+  assert(s.page === 'main' && s.orbits, `Back left the ${s.page} page, orbits ${s.orbits}`);
 
   // Exit VR wants a second press. Anything else in between calls it off.
   s = await pressButton('exit');
@@ -301,7 +333,7 @@ try {
   await page.evaluate(() => T.resetHands());
   await frames(3);
   const summoned = await page.evaluate(() => T.showPalm('left'));
-  await frames(3);
+  await holder('left');
   s = await state();
   assert(summoned > 0.7 && s.panelHolder === 'left', `turning the left palm to the eyes (${summoned.toFixed(2)}) did not bring the panel (${JSON.stringify(await page.evaluate(() => orrery.ui.vr.hands.filter((h) => h.source).map((h) => ({ side: h.side, pinch: Boolean(h.pinch), squeezing: h.squeezing, near: h.pokeNear, summoner: h === orrery.ui.vr._summoner, holder: h === orrery.ui.vr.panel.holder })))) })`);
   await shot('palm');
@@ -323,7 +355,7 @@ try {
 
   // The right palm does it too, for pressing with the left.
   const right = await page.evaluate(() => T.showPalm('right'));
-  await frames(3);
+  await holder('right');
   s = await state();
   assert(right > 0.7 && s.panelHolder === 'right', `turning the right palm to the eyes (${right.toFixed(2)}) did not bring the panel`);
   await page.evaluate(() => T.resetHands());
@@ -350,6 +382,31 @@ try {
   await frames();
   s = await state();
   assert(s.paused !== pausedHands, 'a fingertip resting on Pause pressed it more than once');
+
+  // A hand sweeping sideways through the panel presses nothing on the way.
+  const pausedSweep = s.paused;
+  await page.evaluate(() => T.pokeButton('right', 'pause', 0.02, -0.07));
+  await frames();
+  await page.evaluate(() => T.pokeButton('right', 'pause', -0.01));
+  await frames();
+  await page.evaluate(() => T.pokeButton('right', 'pause', 0.06));
+  await frames();
+  s = await state();
+  assert(s.paused === pausedSweep, 'a fingertip sweeping across the panel pressed Pause');
+
+  // The system menu coming up lets go of the panel. Input comes back with it.
+  await page.evaluate(() => T.pokeButton('right', 'pause', 0.03));
+  await frames();
+  await page.evaluate(() => __device.updateVisibilityState('visible-blurred'));
+  await frames(4);
+  s = await state();
+  assert(!s.cursor.shown && s.panelHover === null, `under the system menu the panel kept a fingertip (${JSON.stringify(s.cursor)}, ${s.panelHover})`);
+  await page.evaluate(() => __device.updateVisibilityState('visible'));
+  await frames(6);
+  await page.evaluate(() => T.pokeButton('right', 'pause', 0.03));
+  await frames();
+  s = await state();
+  assert(s.panelHover === 'pause', `after the system menu a fingertip over Pause hovered ${s.panelHover}`);
 
   /* --- leaving ------------------------------------------------------------- */
 
@@ -411,7 +468,7 @@ try {
   assert(label === 'Whole system', `back on the page showing ${label}, not the whole system`);
 
   if (problems.length === 0) {
-    console.log('vr: ok — controllers, hands, panel, palm, poke, one controller, swapped hands, recentre, exit and another star all behaved');
+    console.log('vr: ok — controllers, hands, panel, options, palm, poke, sweep, system menu, one controller, swapped hands, recentre, exit and another star all behaved');
   } else {
     exitCode = 1;
     console.error(`vr: ${problems.length} problem(s)`);
@@ -494,6 +551,9 @@ function installHelpers(page) {
           help: vr._help,
           armed: vr.panel._armed,
           reversed: orrery.clock.direction < 0,
+          page: vr.panel.page,
+          hand: orrery.settings.get('vrHand'),
+          orbits: orrery.settings.get('showOrbits'),
           panelAt: vr.panel.mesh.position.toArray(),
           cursor: (() => {
             const cursor = vr.panel._cursors[slot('right')?.index];
@@ -543,14 +603,16 @@ function installHelpers(page) {
 
       /**
        * Puts a fingertip `depth` metres in front of a panel button (negative:
-       * through it), by moving the whole hand, which keeps its pose.
+       * through it), and `across` metres to its right, by moving the whole
+       * hand, which keeps its pose.
        */
-      pokeButton(side, id, depth) {
+      pokeButton(side, id, depth, across = 0) {
         const hand = slot(side);
         const tip = hand.hand.joints['index-finger-tip'];
         const button = vr.panel.buttonPosition(id);
         const normal = new THREE.Vector3(0, 0, 1).transformDirection(vr.panel.mesh.matrixWorld);
-        const goal = vr.rig.worldToLocal(button.addScaledVector(normal, depth * vr.scale));
+        const right = new THREE.Vector3(1, 0, 0).transformDirection(vr.panel.mesh.matrixWorld);
+        const goal = vr.rig.worldToLocal(button.addScaledVector(normal, depth * vr.scale).addScaledVector(right, across * vr.scale));
         const target = input(side);
         const offset = tip.position.clone().sub(new THREE.Vector3(target.position.x, target.position.y, target.position.z));
         target.position.set(goal.x - offset.x, goal.y - offset.y, goal.z - offset.z);

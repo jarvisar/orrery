@@ -103,7 +103,8 @@ export class FlightHud {
     this.pointer = el('div', { class: 'hud__pointer' });
     this.notice = el('div', { class: 'hud__notice panel' });
 
-    this.root = el('div', { class: 'hud', 'aria-hidden': 'true' }, [
+    // Inert until flight starts: hidden by opacity, its buttons would still take Tab.
+    this.root = el('div', { class: 'hud', inert: true }, [
       el('div', { class: 'hud__reticle' }),
       this.aim,
       this.bracket,
@@ -147,7 +148,7 @@ export class FlightHud {
 
   setActive(active) {
     this.root.classList.toggle('is-active', active);
-    this.root.setAttribute('aria-hidden', String(!active));
+    this.root.inert = !active;
     if (!active) {
       this.controls.setBoost(false);
       this.notice.classList.remove('is-visible');

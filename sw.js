@@ -70,7 +70,10 @@ async function precache() {
     await cache.put(url, response);
   }));
 
-  await cache.put(REVISIONS, Response.json(Object.fromEntries(PRECACHE)));
+  // Not Response.json(), which Safari only has from 17.
+  await cache.put(REVISIONS, new Response(JSON.stringify(Object.fromEntries(PRECACHE)), {
+    headers: { 'Content-Type': 'application/json' },
+  }));
 }
 
 /** The most recent other snapshot and what it holds, or null on a first install. */

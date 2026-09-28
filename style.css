@@ -64,6 +64,10 @@ html, body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
+  /* iOS zooms the page on a quick double tap of a button otherwise. */
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 ::selection { background: var(--accent-soft); color: var(--text); }
@@ -1232,6 +1236,8 @@ body.reduce-motion .hud.is-active .hud__hint { animation: none; opacity: 1; }
   transition: transform 0.25s var(--ease), opacity 0.25s var(--ease), visibility 0.25s;
 }
 .drawer.is-open { opacity: 1; visibility: visible; transform: none; }
+/* Visible at once when opening, or focus() in the same task finds it still hidden. */
+.drawer.is-open { transition: transform 0.25s var(--ease), opacity 0.25s var(--ease), visibility 0s; }
 
 .drawer__header {
   display: flex;
@@ -1379,7 +1385,7 @@ input[type="range"]::-moz-range-thumb {
   visibility: hidden;
   transition: opacity 0.2s var(--ease), visibility 0.2s;
 }
-.help.is-open { opacity: 1; visibility: visible; }
+.help.is-open { opacity: 1; visibility: visible; transition: opacity 0.2s var(--ease), visibility 0s; }
 
 .help__card {
   width: min(620px, 100%);

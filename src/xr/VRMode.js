@@ -47,13 +47,19 @@
  * click, and one that moves a few centimetres becomes a grab. A click selects
  * whatever the ray was on when the fingers met, since pinching tugs the ray
  * off its target.
+ *
+ * Vision Pro points with the eyes instead: each pinch is a 'transient-pointer'
+ * that exists only while the fingers are together, aimed wherever the viewer
+ * was looking when they met. It's handled like a hand's pinch, click or grab,
+ * and nothing can be hovered before it.
  */
 
 import * as THREE from 'three';
 import { heliocentricDistance } from '../scene/scaling.js';
 import { daylightDirection } from '../camera/CameraDirector.js';
 import { programsReady } from '../core/Post.js';
-import { VRPanel } from './VRPanel.js';
+import { MIN_RATE, MAX_RATE } from '../sim/Clock.js';
+import { VRPanel, OPTIONS } from './VRPanel.js';
 import { VRLabels } from './VRLabels.js';
 import { VRSounds } from './VRSounds.js';
 
@@ -121,11 +127,18 @@ const POKE_CURSOR_M = 0.06;
 const POKE_HOVER_M = 0.04;
 const POKE_PRESS_M = 0.008;
 const POKE_RELEASE_M = 0.025;
+/**
+ * A fingertip that slides this far across the panel on its way in from hover
+ * range is a hand sweeping past, not a press.
+ */
+const POKE_SWIPE_M = 0.04;
 /** Cosines: how squarely a palm must face the eyes to bring the panel, and to let it go. */
 const PALM_SHOW = 0.7;
 const PALM_HIDE = 0.35;
 /** How close to the middle of the view that hand has to be as well. */
 const PALM_IN_VIEW = 0.6;
+/** And for how long, in seconds, so a glance at a hand doesn't bring the panel. */
+const PALM_DWELL_S = 0.2;
 
 /** Controllers and hands, plus room for momentary pointers such as a gaze-and-pinch. */
 const INPUT_SLOTS = 4;
@@ -203,13 +216,14 @@ export class VRMode {
    * @param {import('../core/Picker.js').Picker} options.picker
    * @param {import('../core/Settings.js').Settings} options.settings
    * @param {object} options.actions What the controllers and the panel can ask for.
+   * @param {string[]} [options.omit] Settings with nothing to act on in this system, left off the panel.
    * @param {() => void} [options.onStart]
    * @param {() => void} [options.onEnd]
    * @param {(error: Error) => void} [options.onError] A session could not be started.
    * @param {(width: number, height: number) => void} [options.onResolution] One eye's size, in pixels.
    */
   constructor({
-    renderer, camera, scene, system, clock, picker, settings, actions,
+    renderer, camera, scene, system, clock, picker, settings, actions, omit = [],
     onStart, onEnd, onError, onResolution,
   }) {
     this.renderer = renderer;
@@ -247,7 +261,9 @@ export class VRMode {
       this.panel.invalidate();
     });
 
-    this.panel = new VRPanel(this.system.catalogue.name);
+    this._options = OPTIONS.filter((option) => !omit.includes(option.key));
+    this.panel = new VRPanel(this.system.catalogue.name, { options: this._options });
+    for (const { key } of this._options) settings.on(key, () => this.panel.invalidate());
     this.sounds = new VRSounds();
     this.sounds.enabled = settings.get('vrSounds');
     settings.on('vrSounds', (value) => { this.sounds.enabled = value; });
@@ -308,14 +324,17 @@ export class VRMode {
     try {
       // Asked for first, while the click that started it still counts as a user gesture.
       const session = await navigator.xr.requestSession('immersive-vr', {
-        optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'],
+        optionalFeatures: ['local-floor', 'hand-tracking'],
       });
       // Models before the session is handed over: controllers announce
       // themselves as soon as it is, and a model created after that never loads.
       const factories = await VRMode.preload();
       this._setupHands(factories);
 
-      const floor = !session.enabledFeatures || session.enabledFeatures.includes('local-floor');
+      // Everything is placed from the eyes, so without a floor 'local' does as well.
+      const floor = session.enabledFeatures
+        ? session.enabledFeatures.includes('local-floor')
+        : await session.requestReferenceSpace('local-floor').then(() => true, () => false);
       this.renderer.xr.setReferenceSpaceType(floor ? 'local-floor' : 'local');
       // Draw at the panels' own resolution rather than the runtime's
       // cheaper default.
@@ -325,6 +344,7 @@ export class VRMode {
       this.renderer.xr.setFoveation(0);
 
       this.session = session;
+      session.addEventListener('visibilitychange', () => this._onVisibility());
       this._enter();
       await this._compile();
       try {
@@ -349,6 +369,23 @@ export class VRMode {
 
   end() {
     this.session?.end().catch(() => {});
+  }
+
+  /**
+   * The system menu has come up over the session (or it has gone out of
+   * sight). No input arrives until it's back, so let go of everything rather
+   * than hold on with poses that have stopped updating. A pinch that was under
+   * way is not a click when it ends.
+   */
+  _onVisibility() {
+    if (!this.active || this.session?.visibilityState === 'visible') return;
+    for (const hand of this.hands) {
+      const pinching = Boolean(hand.pinch);
+      this._release(hand);
+      if (pinching) hand.pinch = { blocked: true };
+    }
+    this._regrab();
+    this.panel.setHover(null);
   }
 
   /* --- where the viewer is ------------------------------------------------ */
@@ -475,6 +512,7 @@ export class VRMode {
     this._ready = false;
     this._transition = null;
     this._help = true;
+    this._gazeSeen = false;
     this.renderer.xr.enabled = true;
     this.renderer.xr.cameraAutoUpdate = false;
 
@@ -586,15 +624,19 @@ export class VRMode {
     this._syncHead();
     if (!this._ready) this._firstFrame();
 
+    // Under the system menu frames still come, but input doesn't.
+    const blurred = this.session?.visibilityState === 'visible-blurred';
     this._follow();
     if (this._recentred) this._recentre();
     this._advanceTransition(dt);
     this._dropLost();
-    this._updatePinches();
-    this._readInput(dt);
+    if (!blurred) {
+      this._updatePinches();
+      this._readInput(dt);
+    }
     this._syncHead();
 
-    this._updatePalm();
+    if (!blurred) this._updatePalm(dt);
     if (this._summoner) {
       this.panel.besidePalm(this.rig, this._palm, this._summoner.side, this.camera, dt,
         { instant: this.settings.get('reduceMotion') });
@@ -604,8 +646,10 @@ export class VRMode {
     // matrices. The rest of the frame only needs the rig's own, and every full
     // update also makes each controller model poll its gamepad again.
     this.rig.updateMatrixWorld(true);
-    this._updatePoke();
-    this._updatePointers();
+    if (!blurred) {
+      this._updatePoke();
+      this._updatePointers();
+    }
     this._headUp.setFromMatrixColumn(this.camera.matrixWorld, 1).normalize();
     this._headRight.setFromMatrixColumn(this.camera.matrixWorld, 0).normalize();
     this.labels.update(this.viewerPosition, this._headUp, this._headRight, this.scale, this._hovered);
@@ -804,11 +848,18 @@ export class VRMode {
         /** A hand's pinch in progress: where it started, what it was on, and whether it became a grab. */
         pinch: null,
         lastPinch: null,
+        /** Whether this source has ever sent a select. A Vision Pro hand never does: the eyes select. */
+        selects: false,
         /** Fingertip on the panel: near enough to hide the ray, the button under it, and pressed. */
         pokeNear: false,
         pokeHover: null,
         poked: false,
         pokeZ: NaN,
+        /** Where on the panel the fingertip came into hover range, while it's in range. */
+        pokeEntry: new THREE.Vector2(),
+        pokeEntered: false,
+        /** How long the palm has faced the eyes. */
+        palmFor: 0,
       };
       hand.ray.add(hand.laser);
 
@@ -827,6 +878,8 @@ export class VRMode {
         hand.source = source;
         hand.side = source.handedness === 'left' ? 'left' : 'right';
         hand.was.length = 0;
+        hand.selects = false;
+        if (source.targetRayMode === 'transient-pointer') this._gazeSeen = true;
         if (standIn) standIn.visible = source.targetRayMode === 'tracked-pointer' && !source.hand;
         // A momentary pointer comes and goes with every pinch, so the panel stays where it is.
         if (source.targetRayMode !== 'transient-pointer') this._placePanel();
@@ -867,8 +920,9 @@ export class VRMode {
 
     for (const hand of this.hands) {
       const pad = hand.source?.gamepad;
-      // A tracked hand has a gamepad too, but only to report its pinch.
-      if (!pad || hand.source.hand) continue;
+      // A tracked hand has a gamepad too, but only to report its pinch, and so
+      // does a Vision Pro pinch.
+      if (!pad || hand.source.hand || hand.source.targetRayMode !== 'tracked-pointer') continue;
       // xr-standard puts the thumbstick on axes 2 and 3. Controllers with only
       // a touchpad report it on 0 and 1.
       const axes = pad.axes;
@@ -1015,14 +1069,27 @@ export class VRMode {
    * The point a hand holds things by, in the rig's own space, in metres: a
    * controller's tip, or the meeting point of a pinch. A hand's pointing ray
    * starts back near the wrist and swings as the fingers close, so it would
-   * make a shaky handle.
+   * make a shaky handle. A Vision Pro pinch's ray starts at the eyes, and its
+   * grip is where the fingers meet.
    */
   _handPoint(hand, out) {
-    const joints = hand.source?.hand ? hand.hand.joints : null;
+    const joints = this._joints(hand);
     const thumb = joints?.['thumb-tip'];
     const index = joints?.['index-finger-tip'];
     if (thumb?.visible && index?.visible) return out.addVectors(thumb.position, index.position).multiplyScalar(0.5);
+    if (hand.source?.targetRayMode === 'transient-pointer' && hand.grip.visible) {
+      return out.setFromMatrixPosition(hand.grip.matrix);
+    }
     return out.setFromMatrixPosition(hand.ray.matrix);
+  }
+
+  /**
+   * A tracked hand's joints, or null. While the hand is out of sight, or the
+   * system menu is up, three hides the hand but leaves each joint flagged
+   * visible where it was last seen.
+   */
+  _joints(hand) {
+    return hand.source?.hand && hand.hand.visible ? hand.hand.joints : null;
   }
 
   _release(hand) {
@@ -1035,6 +1102,8 @@ export class VRMode {
     hand.pokeHover = null;
     hand.poked = false;
     hand.pokeZ = NaN;
+    hand.pokeEntered = false;
+    hand.palmFor = 0;
     this.panel.setCursor(hand.index, null);
     if (this._summoner === hand) {
       this._summoner = null;
@@ -1094,10 +1163,15 @@ export class VRMode {
       const mode = source?.targetRayMode;
       // A fingertip at the panel is about to touch it, not point at it. And a
       // palm turned up to hold the panel is not pointing anywhere, which is
-      // also when Quest hides its own pointer.
-      const pointing = (mode === 'tracked-pointer' || mode === 'gaze') &&
-        !hand.squeezing && !hand.pokeNear && hand !== this._summoner;
+      // also when Quest hides its own pointer. Where the eyes select (Vision
+      // Pro), a hand's own ray never does, so it isn't drawn.
+      const pointing = (mode === 'tracked-pointer' || mode === 'gaze') && hand.ray.visible &&
+        !hand.squeezing && !hand.pokeNear && hand !== this._summoner &&
+        !(this._gazeSeen && source.hand && !hand.selects);
       hand.laser.visible = pointing && mode === 'tracked-pointer';
+      // A Vision Pro pinch held on a panel button lights it up until the fingers part.
+      const pinched = mode === 'transient-pointer' && !hand.pinch?.blocked ? hand.pinch?.target : null;
+      if (pinched?.type === 'panel' && pinched.id) panelButton = pinched.id;
       if (!pointing) {
         this._setHover(hand, null);
         continue;
@@ -1127,7 +1201,7 @@ export class VRMode {
 
   /** 1 for a hand held open, falling to 0 as the thumb and forefinger meet. Always 1 for a controller. */
   _pinchOpenness(hand) {
-    const joints = hand.source?.hand ? hand.hand.joints : null;
+    const joints = this._joints(hand);
     const thumb = joints?.['thumb-tip'];
     const index = joints?.['index-finger-tip'];
     if (!thumb?.visible || !index?.visible) return 1;
@@ -1240,7 +1314,10 @@ export class VRMode {
    */
   _onPinchStart(hand) {
     hand.lastPinch = null;
-    if (!hand.source?.hand || !this.presenting || !this._ready) return;
+    const source = hand.source;
+    if (source) hand.selects = true;
+    const pinches = source?.hand || source?.targetRayMode === 'transient-pointer';
+    if (!pinches || !this.presenting || !this._ready) return;
     // A finger at the panel is pressing it, and a pinch there is incidental.
     // A pinch with the palm turned up is Quest's own menu gesture.
     if (hand.pokeNear || hand === this._summoner) {
@@ -1286,32 +1363,44 @@ export class VRMode {
 
   /**
    * Pressing the panel with a fingertip. A press needs the finger to arrive
-   * from in front and cross the face. It lets go once the finger is back out,
-   * so resting a finger on a button presses it once, not once a frame.
+   * from in front and cross the face, more or less straight on, so a hand
+   * sweeping past on its way somewhere else doesn't press anything. It lets go
+   * once the finger is back out, so resting a finger on a button presses it
+   * once, not once a frame, and nor does pushing it right through.
    */
   _updatePoke() {
     for (const hand of this.hands) {
       hand.pokeNear = false;
       hand.pokeHover = null;
-      const tip = hand.source?.hand && hand !== this.panel.holder ? hand.hand.joints['index-finger-tip'] : null;
+      const tip = hand !== this.panel.holder ? this._joints(hand)?.['index-finger-tip'] : null;
       const local = tip?.visible ? this.panel.toLocal(tip.getWorldPosition(_v)) : null;
       if (!local) {
         hand.poked = false;
         hand.pokeZ = NaN;
+        hand.pokeEntered = false;
         this.panel.setCursor(hand.index, null);
         continue;
       }
 
       const z = local.z;
-      hand.pokeNear = this.panel.covers(local, 0.02) && z > -0.04 && z < POKE_NEAR_M;
+      const over = this.panel.covers(local, 0.02);
+      hand.pokeNear = over && z > -0.04 && z < POKE_NEAR_M;
       const button = hand.pokeNear ? this.panel.buttonAtLocal(local) : null;
       if (z < POKE_HOVER_M) hand.pokeHover = button;
 
+      if (!over || z >= POKE_HOVER_M) hand.pokeEntered = false;
+      else if (!hand.pokeEntered && z >= POKE_PRESS_M) {
+        hand.pokeEntered = true;
+        hand.pokeEntry.set(local.x, local.y);
+      }
+
       if (hand.poked) {
-        if (z > POKE_RELEASE_M || !hand.pokeNear) hand.poked = false;
+        if (z > POKE_RELEASE_M || !over) hand.poked = false;
       } else if (button && z < POKE_PRESS_M && hand.pokeZ >= POKE_PRESS_M) {
+        const swept = hand.pokeEntered &&
+          Math.hypot(local.x - hand.pokeEntry.x, local.y - hand.pokeEntry.y) > POKE_SWIPE_M;
         hand.poked = true;
-        this._onPanel(button);
+        if (!swept) this._onPanel(button);
       }
       hand.pokeZ = z;
 
@@ -1329,7 +1418,7 @@ export class VRMode {
    * that one belongs to the system. Either hand will do, so it works one-handed
    * and for whichever hand the viewer would rather press with.
    */
-  _updatePalm() {
+  _updatePalm(dt) {
     if (this.panel.holder && this.panel.holder !== this._summoner) return; // on a controller
     const summoner = this._summoner;
     if (summoner) {
@@ -1337,13 +1426,19 @@ export class VRMode {
       else if (this._palmFacing(summoner, this._palm) < PALM_HIDE) {
         this._summoner = null;
         this.panel.holder = null;
+        summoner.palmFor = 0;
       }
       return;
     }
     for (const hand of this.hands) {
       // Not a hand busy pinching, holding on, or with a fingertip on a button.
-      if (!hand.source?.hand || hand.pinch || hand.squeezing || hand.pokeHover || hand.poked) continue;
-      if (this._palmFacing(hand, this._palm) <= PALM_SHOW) continue;
+      if (!hand.source?.hand || hand.pinch || hand.squeezing || hand.pokeHover || hand.poked ||
+          this._palmFacing(hand, this._palm) <= PALM_SHOW) {
+        hand.palmFor = 0;
+        continue;
+      }
+      hand.palmFor += dt;
+      if (hand.palmFor < PALM_DWELL_S) continue;
       this._summoner = hand;
       this.panel.holder = hand;
       this.panel.summon();
@@ -1359,11 +1454,11 @@ export class VRMode {
    * than a joint's orientation, so there are no joint axes to get wrong.
    */
   _palmFacing(hand, centre) {
-    const joints = hand.hand.joints;
-    const wrist = joints.wrist;
-    const index = joints['index-finger-metacarpal'];
-    const pinky = joints['pinky-finger-metacarpal'];
-    const middle = joints['middle-finger-metacarpal'];
+    const joints = this._joints(hand);
+    const wrist = joints?.wrist;
+    const index = joints?.['index-finger-metacarpal'];
+    const pinky = joints?.['pinky-finger-metacarpal'];
+    const middle = joints?.['middle-finger-metacarpal'];
     if (!wrist?.visible || !index?.visible || !pinky?.visible || !middle?.visible) return -1;
 
     _v.subVectors(index.position, wrist.position);
@@ -1430,13 +1525,22 @@ export class VRMode {
       case 'reverse': actions.toggleDirection(); break;
       case 'zoom-in': this._zoom(1 / ZOOM_STEP); break;
       case 'zoom-out': this._zoom(ZOOM_STEP); break;
-      case 'labels': this.settings.set('showLabels', !this.settings.get('showLabels')); break;
+      case 'options': panel.setPage('options'); break;
+      case 'back': panel.setPage('main'); break;
       case 'controls': this._help = !this._help; break;
       case 'exit': this.end(); break;
-      default: break;
+      default:
+        if (id.startsWith('option:')) this._toggleOption(id.slice('option:'.length));
+        break;
     }
     panel.arm(null);
     panel.flash(id);
+  }
+
+  _toggleOption(key) {
+    const { settings } = this;
+    if (key === 'vrHand') settings.set(key, settings.get(key) === 'left' ? 'right' : 'left');
+    else settings.set(key, !settings.get(key));
   }
 
   _pointedId() {
@@ -1448,21 +1552,29 @@ export class VRMode {
     const pointedId = this._pointedId();
     // The visitor has no catalogue entry, hence no name.
     const pointing = pointedId && (this.system.bodies.get(pointedId)?.name ?? 'Something');
-    // Hands, when there are no controllers: the panel's hints then talk about pinching.
+    // Hands, when there are no controllers: the panel's hints then talk about
+    // pinching. And once a Vision Pro pinch has been seen, about looking.
     const controllers = this.hands.some((hand) =>
       hand.source && !hand.source.hand && hand.source.targetRayMode === 'tracked-pointer');
+    const hands = !controllers && this.hands.some((hand) =>
+      hand.source?.hand && (hand.selects || !this._gazeSeen));
+    const rate = this.clock.daysPerSecond;
     return {
-      hands: !controllers && this.hands.some((hand) => hand.source?.hand),
+      hands,
+      gaze: !controllers && !hands && this._gazeSeen,
       offHand: this.offHand,
       body: this.focus?.body ?? null,
+      anchor: this._anchor?.name ?? null,
       date: this.clock.formatDate(),
       time: this.clock.formatTime(),
       rate: this.clock.describeRate(),
       paused: this.clock.paused,
       reversed: this.clock.direction < 0,
+      slowest: rate <= MIN_RATE * 1.001,
+      fastest: rate >= MAX_RATE / 1.001,
       pointing,
       pointingAtFocus: Boolean(pointing) && pointedId === this.focus?.id,
-      labels: this.settings.get('showLabels'),
+      options: Object.fromEntries(this._options.map(({ key }) => [key, this.settings.get(key)])),
       help: this._help,
     };
   }
