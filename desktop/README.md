@@ -49,7 +49,7 @@ The web app checks for `window.orreryDesktop` in four places. Each one is commen
 | Where | What it does |
 | --- | --- |
 | `src/main.js`, `registerServiceWorker` | skips the service worker |
-| `src/main.js`, `copyLink` | copies a `https://orrery.ajarvis.co/` link instead of `app://` |
+| `src/main.js`, `copyLink` | copies a `https://orrery.jarvisar.com/` link instead of `app://` |
 | `src/ui/fullscreen.js`, `toggleFullscreen` | goes full screen without waiting for a key press |
 | `src/ui/UpdateToast.js` | shows the "Update available" message for copies that can't update themselves |
 

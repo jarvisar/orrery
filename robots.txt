@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://orrery.ajarvis.co/sitemap.xml
+Sitemap: https://orrery.jarvisar.com/sitemap.xml
