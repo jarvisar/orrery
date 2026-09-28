@@ -28,7 +28,7 @@ export const LINK_ORIGINS = [
   'https://doi.org',
   'https://arxiv.org',
   // The live site, named in index.html's canonical and link preview tags.
-  'https://ajarvis.co',
+  'https://orrery.jarvisar.com',
 ];
 
 const remote = REMOTE_ORIGINS.join(' ');

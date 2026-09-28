@@ -19,6 +19,8 @@ export const SERVED = [
   'src',
   'vendor',
   'public',
+  'robots.txt',
+  'sitemap.xml',
 ];
 
 /** Tracked, but only for developing the site: never served. */
