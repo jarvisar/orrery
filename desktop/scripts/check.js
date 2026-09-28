@@ -81,8 +81,8 @@ console.log(`types     ${served.length} served files, all with a content type`);
 
 // --------------------------------------------------------------- 4. origins
 // Only quoted URLs count: a URL in a comment is not something the page loads.
-// XML namespaces look like URLs but are never fetched.
-const NAMESPACES = ['http://www.w3.org'];
+// XML namespaces and the JSON-LD vocabulary look like URLs but are never fetched.
+const NAMESPACES = ['http://www.w3.org', 'https://schema.org'];
 const allowed = new Set([...REMOTE_ORIGINS, ...LINK_ORIGINS, ...NAMESPACES]);
 const code = served.filter((file) => /\.(js|html|css)$/.test(file) && !rel(file).startsWith('vendor/'));
 const origins = new Map();

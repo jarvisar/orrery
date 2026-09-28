@@ -2,7 +2,7 @@
 
 An interactive 3D model of the solar system built with [three.js](https://threejs.org/). Explore planets and moons, change the date, or fly around in flight mode. You can also explore other star systems using data from the [NASA Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu/).
 
-Visit the [GitHub Pages site](https://jarvisar.github.io/orrery/) to access the latest deployment. The site can be installed from your browser and works offline. There is also a desktop app for Windows, macOS and Linux.
+Visit the [live site](https://ajarvis.co/orrery/) to access the latest deployment. The site can be installed from your browser and works offline. There is also a desktop app for Windows, macOS and Linux.
 
 ![Solar system](docs/screenshot-system.jpg)
 

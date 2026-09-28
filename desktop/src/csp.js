@@ -27,6 +27,8 @@ export const LINK_ORIGINS = [
   // Papers behind the observed exoplanet appearances and dust disks.
   'https://doi.org',
   'https://arxiv.org',
+  // The live site, named in index.html's canonical and link preview tags.
+  'https://ajarvis.co',
 ];
 
 const remote = REMOTE_ORIGINS.join(' ');
