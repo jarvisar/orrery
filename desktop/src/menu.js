@@ -2,7 +2,7 @@
  * Menus and the few browser shortcuts worth keeping.
  *
  * macOS gets a standard menu bar, since that is where Quit, Hide, copy and
- * paste live there. Windows and Linux get none at all: the scene is edge to
+ * paste live on a Mac. Windows and Linux get none at all: the scene is edge to
  * edge, and a menu bar that appears on Alt would steal the arrow keys the app
  * uses. The same shortcuts are handled directly on those platforms instead.
  */
@@ -48,7 +48,7 @@ export function installMenu({ webUrl, sourceUrl }) {
 /**
  * Windows and Linux: F11 full screen, F5 / Ctrl+R reload, F12 /
  * Ctrl+Shift+I developer tools, Ctrl+plus / minus / 0 zoom. A handled key
- * never reaches the page; every other key does, untouched.
+ * never reaches the page. Every other key goes through untouched.
  *
  * @param {Electron.BrowserWindow} win
  * @param {() => void} onChange Called after anything worth saving changes.

@@ -1,6 +1,6 @@
 /**
- * Keyboard and controller reference. The handlers live in `src/main.js`; keep
- * this list in step with them.
+ * Keyboard and controller reference. The handlers live in `src/main.js`, so
+ * keep this list in step with them.
  *
  * Controller buttons are drawn as the connected controller labels them, and
  * while one is connected its sections come first.
@@ -85,12 +85,12 @@ export const SHORTCUTS = [
 
 /**
  * On a touch screen the pointer rows are given as gestures (`touch`, and
- * `touchDesc` where the wording differs); rows with only `touch` are for touch
+ * `touchDesc` where the wording differs). Rows with only `touch` are for touch
  * alone, and rows with only `keys` still apply to a tablet's keyboard.
  */
 const coarse = window.matchMedia('(pointer: coarse)');
 
-/** Controller buttons by position; see src/ui/padGlyphs.js. */
+/** Controller buttons by position. See src/ui/padGlyphs.js. */
 export const CONTROLLER = [
   {
     group: 'Controller',
@@ -207,7 +207,7 @@ export class HelpOverlay {
     );
   }
 
-  /** Draws controller sections for this make, first; null puts them after the keyboard's. */
+  /** Draws controller sections for this make, first. Null puts them after the keyboard's. */
   setController(family) {
     if (family === this._family) return;
     this._family = family;

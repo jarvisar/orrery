@@ -10,7 +10,7 @@
  *   hooks     the web app still consults window.orreryDesktop where it has to
  *   syntax    the desktop sources parse
  *
- *   npm run desktop:check        (from the root; needs no install)
+ *   npm run desktop:check        (from the root, needs no install)
  */
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';

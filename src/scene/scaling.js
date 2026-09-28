@@ -1,15 +1,15 @@
 /**
  * Converts real measurements to scene units.
  *
- * True scale leaves every planet a sub-pixel speck (at Earth-radius = 24 units,
- * Neptune would sit 720,000 units out), so every length - radii, heliocentric
- * and moon distances, ring radii - is compressed by one power law:
+ * True scale leaves every planet a sub-pixel speck (with Earth's radius at 24
+ * units, Neptune would be 720,000 units out). So every length (radii, orbit
+ * distances, ring radii) is compressed by the same power law:
  *
  *   units = EARTH_RADIUS_UNITS × (km / EARTH_RADIUS_KM) ^ exponent
  *
  * Nothing is tuned per category, so the ordering of every size and gap
  * survives, and small moons aren't inflated relative to the space around them.
- * The exponent is the Scale setting; raising it moves towards true proportions.
+ * The exponent is the Scale setting. Raising it moves towards true proportions.
  */
 
 import { AU_KM, EARTH_RADIUS_KM } from '../data/bodies.js';
@@ -20,9 +20,9 @@ export const EARTH_RADIUS_UNITS = 24;
 const MIN_RADIUS_UNITS = 3;
 
 /**
- * The compression exponent. 1 would be true scale; 0.5 is a square root. The
- * range stops where the whole system still fits comfortably in one view
- * (the top) and where moons still sit visibly clear of their planets (the bottom).
+ * The compression exponent. 1 is true scale and 0.5 is a square root. The max
+ * is where the whole system still fits in one view, and the min is where moons
+ * still sit visibly clear of their planets.
  */
 export const SCALE_EXPONENT_RANGE = { min: 0.45, max: 0.65, default: 0.55 };
 
@@ -38,8 +38,8 @@ export function bodyRadius(body, exponent) {
 }
 
 /**
- * Takes the *instantaneous* distance, not the semi-major axis, so eccentricity
- * survives the transform (Pluto still ducks inside Neptune's orbit).
+ * Takes the current distance, not the semi-major axis, so eccentric orbits keep
+ * their shape (Pluto still dips inside Neptune's orbit).
  */
 export function heliocentricDistance(distanceAU, exponent) {
   return toUnits(distanceAU * AU_KM, exponent);

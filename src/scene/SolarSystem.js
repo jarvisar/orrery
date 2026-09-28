@@ -3,9 +3,9 @@
  *
  * Every body follows the same three-node structure:
  *
- *   group  - positioned in world space each frame, never rotated
- *    └ tilt - axial tilt, set once so the pole keeps pointing the same way
- *       └ mesh - spins on its own Y axis
+ *   group: positioned in world space each frame, never rotated
+ *     tilt: axial tilt, set once so the pole keeps pointing the same way
+ *       mesh: spins on its own Y axis
  *
  * Moons are not parented to their planet: a moon's world position is its
  * primary's position plus its own orbital offset, so nothing inherits anyone's
@@ -39,17 +39,28 @@ const STAR_LIGHT = 3.2;
 /** Corona sprite size, in solar radii. */
 const CORONA_RADII = 6;
 
-/** Scales the catalogue's bump scales down; at full strength crater rims cast hard black edges. */
+/** Scales the catalogue's bump scales down. At full strength crater rims cast hard black edges. */
 const BUMP_SOFTENING = 0.65;
 
 /**
  * A body this few drawing-buffer pixels in radius is drawn as a coarse sphere,
- * and switches back past the second; the gap stops one on the line flickering.
+ * and switches back past the second. The gap stops one on the line flickering.
  * At 4px a 24-sided outline strays from a circle by a thirtieth of a pixel.
  */
 const COARSE_BELOW = 3;
 const COARSE_UNTIL = 4;
 const COARSE_SEGMENTS = [24, 12];
+/**
+ * Models are hidden below this radius in pixels, and shown again past
+ * SHOW_MODEL_FROM. Phobos and Deimos are thousands of triangles each.
+ */
+const HIDE_MODEL_BELOW = 0.5;
+const SHOW_MODEL_FROM = 0.75;
+
+/** Whether a model `apparent` pixels in radius is drawn, given whether it is now. */
+export function modelShown(apparent, shown) {
+  return apparent >= (shown ? HIDE_MODEL_BELOW : SHOW_MODEL_FROM);
+}
 
 /** Sphere tessellation by on-screen size. */
 function sphereSegments(radiusUnits) {
@@ -75,7 +86,7 @@ export class SolarSystem {
     this.pickables = [];
     this._disposables = [];
 
-    /** The Scale setting; see src/scene/scaling.js. Set before build(). */
+    /** The Scale setting (see src/scene/scaling.js). Set before build(). */
     this.scaleExponent = SCALE_EXPONENT_RANGE.default;
 
     this.root = new THREE.Group();
@@ -91,7 +102,7 @@ export class SolarSystem {
   }
 
   /**
-   * Creates every mesh. Textures may still be streaming; each material starts
+   * Creates every mesh. Textures may still be streaming. Each material starts
    * with 1x1 placeholders in the slots it will eventually use, so the shader
    * compiles once and arriving textures are pure uploads.
    */
@@ -118,7 +129,8 @@ export class SolarSystem {
   async _paintWorlds(onPaint) {
     this.painter = new WorldPainter(this.assets.renderer);
     this._maps = new Map();
-    // A brown dwarf's bands are painted as a planet's; a star's granulation, if it shows any.
+    // A brown dwarf's bands are painted as a planet's. Other stars get their
+    // granulation painted, if they show any.
     const jobs = this.catalogue.bodies.filter((b) => b.look).map((body) => {
       const planet = body.kind !== 'star' ? body.look : body.look.banded;
       return { body, planet, star: !planet && body.look.granules ? body.look : null };
@@ -143,7 +155,7 @@ export class SolarSystem {
     this.sunLight = new THREE.PointLight(0xfff4e0, STAR_LIGHT, 0, 0);
     if (catalogue.isExoplanet) this.sunLight.color.copy(adaptedLight(catalogue.byId.get(catalogue.starId).color));
     this.sunLight.name = 'sunlight';
-    // Shadows are for moons crossing planets and rings; an exoplanet system has
+    // Shadows are for moons crossing planets and rings. An exoplanet system has
     // neither, and a point light's shadow is six extra renders of the scene.
     this.sunLight.castShadow = !catalogue.isExoplanet;
     this.sunLight.shadow.mapSize.set(1024, 1024);
@@ -195,7 +207,7 @@ export class SolarSystem {
     }
     for (const [id, light] of this.starLights) {
       const { star, path, lit } = this._starlight.get(id);
-      // The host always has a light; with nothing of its own to light, it goes dark.
+      // The host always has a light. With nothing of its own to light, it goes dark.
       if (!lit.length) { light.intensity = 0; continue; }
       // How far this star can stray from each pair it belongs to.
       const offsets = new Map([[id, 0]]);
@@ -262,17 +274,22 @@ export class SolarSystem {
    * Draws each body that is only a few pixels across with a coarse sphere. From
    * afar nearly all of the scene's triangles would otherwise go on bodies
    * smaller than a pixel, which a phone's GPU still has to sort into tiles one
-   * by one. At that size the two look the same.
+   * by one. At that size the two look the same. A model has no coarse version,
+   * so it's hidden once it's under a pixel across.
    *
-   * @param {THREE.Vector3|null} viewer Where the camera is; null for full detail everywhere (a headset).
+   * @param {THREE.Vector3|null} viewer Where the eyes are, or null for full detail everywhere.
    * @param {number} pixelScale Drawing-buffer pixels per scene unit, one unit away.
    */
   updateDetail(viewer, pixelScale) {
     for (const view of this.bodies.values()) {
-      if (!view.detail.length) continue;
+      if (!view.detail.length && !view.model) continue;
       const apparent = viewer
         ? (view.radius / Math.max(viewer.distanceTo(view.group.position), 1e-6)) * pixelScale
         : Infinity;
+      if (view.model) {
+        view.model.visible = modelShown(apparent, view.model.visible);
+        continue;
+      }
       const coarse = apparent < (view.coarse ? COARSE_UNTIL : COARSE_BELOW);
       if (coarse === view.coarse) continue;
       view.coarse = coarse;
@@ -286,7 +303,7 @@ export class SolarSystem {
     this._disposables.push(geometry);
 
     const isStar = body.kind === 'star';
-    // Rock and cloud are near-matte; a broad Phong highlight looks like plastic.
+    // Rock and cloud are near-matte. A broad Phong highlight looks like plastic.
     // Only a body with a specular map (oceans, Pluto's ice) gets a tight glint.
     const material = isStar
       ? new THREE.MeshBasicMaterial({ color: 0xffffff })
@@ -361,7 +378,7 @@ export class SolarSystem {
   }
 
   async _attachModel(view, body) {
-    // Irregular moons ship as glTF; until it arrives a same-sized placeholder
+    // Irregular moons ship as glTF. Until it arrives, a same-sized placeholder
     // keeps the body selectable.
     const radius = view.baseRadius;
     const placeholderGeo = new THREE.IcosahedronGeometry(radius, 2);
@@ -379,14 +396,16 @@ export class SolarSystem {
       const model = source.clone(true);
       fitToRadius(model, radius);
       model.traverse((child) => {
-        if (child.isMesh) child.userData.bodyId = body.id;
+        if (!child.isMesh) return;
+        child.userData.bodyId = body.id;
+        child.raycast = raycastBounds;
       });
 
       view.tilt.remove(placeholder);
       this.pickables.splice(this.pickables.indexOf(placeholder), 1);
       model.rotation.y = placeholder.rotation.y;
       view.tilt.add(model);
-      view.mesh = view.spinNode = model;
+      view.mesh = view.spinNode = view.model = model;
       model.traverse((child) => { if (child.isMesh) this.pickables.push(child); });
     } catch (err) {
       console.warn(`[scene] model "${body.model}" failed; keeping placeholder`, err);
@@ -402,6 +421,10 @@ export class SolarSystem {
       transparent: true,
       opacity: body.rings.opacity ?? 1,
       depthWrite: false,
+      // three draws a transparent two-sided material in two passes, back faces
+      // first, and switches program twice a frame to do it. A flat ring never
+      // covers itself, so one pass looks the same.
+      forceSinglePass: true,
     });
 
     const rings = new THREE.Mesh(undefined, material);
@@ -416,7 +439,7 @@ export class SolarSystem {
     this._disposables.push(material);
     this.pickables.push(rings);
 
-    // Analytic shadows both ways; see ringShadow.js for why not a shadow map.
+    // Analytic shadows both ways. See ringShadow.js for why not a shadow map.
     const onPlanet = receiveRingShadow(view.material, { innerRadius: 0, outerRadius: 0 });
     onPlanet.uniforms.uRingMap.value = clear;
     const onRings = receivePlanetShadow(material, { planetRadius: radius });
@@ -656,8 +679,8 @@ export class SolarSystem {
   }
 
   /**
-   * `a` stays in its natural unit (AU for planets, km for moons); compression
-   * is applied per frame to the instantaneous radius (see scaling.js).
+   * `a` stays in its natural unit (AU for planets, km for moons). Compression
+   * is applied per frame to the current distance (see scaling.js).
    */
   _scaleElements(body) {
     if (!body.orbit) return null;
@@ -732,7 +755,7 @@ export class SolarSystem {
     if (this.catalogue.isExoplanet) {
       for (const view of this.bodies.values()) {
         view.onFrame?.();
-        // The Sun sits at the origin; other stars' planets are lit from wherever theirs is.
+        // The Sun sits at the origin. Other stars' planets are lit from wherever theirs is.
         if (view.air && view.lightPosition) view.air.material.uniforms.uStarPosition.value.copy(view.lightPosition);
       }
     }
@@ -751,7 +774,7 @@ export class SolarSystem {
 
     _vec.copy(parent.group.position).sub(view.group.position);
     _vec.applyQuaternion(_inverseTilt.copy(view.tilt.quaternion).invert());
-    // SphereGeometry puts the middle of an equirectangular map - longitude 0 -
+    // SphereGeometry puts the middle of an equirectangular map (longitude 0)
     // on local +X, and a Y rotation of `a` carries +X to (cos a, 0, -sin a).
     view.spinNode.rotation.y = Math.atan2(-_vec.z, _vec.x);
   }
@@ -789,7 +812,7 @@ export class SolarSystem {
   }
 
   /**
-   * Brackets the shadow camera's near/far around the focused body; one cube map
+   * Brackets the shadow camera's near/far around the focused body. One cube map
    * can't span the Sun to Eris with enough precision for moon-on-planet shadows.
    */
   focusShadows(view) {
@@ -838,7 +861,7 @@ class BodyView {
     this.kind = body.kind;
     /** Current on-screen radius. Follows the Scale setting. */
     this.radius = radius;
-    /** Radius the meshes were built at; the tilt node scales them to `radius`. */
+    /** Radius the meshes were built at. The tilt node scales them to `radius`. */
     this.baseRadius = radius;
     this.visible = true;
 
@@ -854,9 +877,11 @@ class BodyView {
     this.ringShadow = null;
     this.shells = [];
     this.elements = null;
-    /** Each sphere's full and coarse geometry, and which is drawn; see SolarSystem#updateDetail. */
+    /** Each sphere's full and coarse geometry, and which is drawn. See SolarSystem#updateDetail. */
     this.detail = [];
     this.coarse = false;
+    /** A loaded glTF model in place of a sphere. Hidden when it's too small to see. */
+    this.model = null;
   }
 
   /** Outermost extent including rings, for camera framing. */
@@ -877,7 +902,7 @@ function depth(body, byId) {
 
 /**
  * A ring whose U coordinate runs radially, so ring textures can be a 1px-high
- * strip; three's RingGeometry projects a square UV across the bounding box.
+ * strip. three's RingGeometry projects a square UV across the bounding box.
  */
 function createRadialRingGeometry(inner, outer, segments) {
   const positions = [];
@@ -911,10 +936,10 @@ function createRadialRingGeometry(inner, outer, segments) {
 
 /**
  * Points a body's tilt node so that local +Y is its north pole and local +X is
- * where its equator crosses Earth's - the IAU's reference for the prime
- * meridian, so that spinning local +X by the meridian angle W lands longitude 0
- * where it really is. Moons with no pole of their own share their planet's; a
- * body with no measured pole at all is simply tilted by its obliquity.
+ * where its equator crosses Earth's. That crossing is the IAU's reference for
+ * the prime meridian, so spinning local +X by the meridian angle W lands
+ * longitude 0 where it really is. Moons with no pole of their own share their
+ * planet's. A body with no measured pole at all is just tilted by its obliquity.
  */
 const _pole = new THREE.Vector3();
 const _node = new THREE.Vector3();
@@ -943,8 +968,8 @@ const WHITE = new THREE.Color(1, 1, 1);
 /**
  * Another star's light, about halfway to white. Eyes adapt to the light they
  * are in, as they do to a warm room, so under a red dwarf ice still looks
- * white-ish rather than the orange a daylight-balanced camera would record;
- * enough of the star's colour is kept that its planets are visibly lit by it.
+ * white-ish rather than the orange a daylight-balanced camera would record.
+ * Enough of the star's colour is kept that its planets are visibly lit by it.
  */
 function adaptedLight(color) {
   return new THREE.Color(color).lerp(WHITE, 0.5);
@@ -978,6 +1003,27 @@ function raycastSphere(raycaster, intersects) {
   // Only front faces are drawn, so from inside there is nothing to hit.
   if (_sphere.containsPoint(ray.origin) || !ray.intersectSphere(_sphere, _hit)) return;
 
+  const distance = ray.origin.distanceTo(_hit);
+  if (distance < raycaster.near || distance > raycaster.far) return;
+  intersects.push({ distance, point: _hit.clone(), object: this });
+}
+
+/**
+ * Assign as a model mesh's `raycast`: picks against its bounding sphere
+ * instead of testing its thousands of triangles. That takes 0.5-1.3ms a ray
+ * on a fast desktop, and there's a ray for every VR hand every frame. From
+ * inside the sphere it tests the triangles after all.
+ */
+export function raycastBounds(raycaster, intersects) {
+  const { geometry } = this;
+  if (!geometry.boundingSphere) geometry.computeBoundingSphere();
+  _sphere.copy(geometry.boundingSphere).applyMatrix4(this.matrixWorld);
+  const { ray } = raycaster;
+  if (_sphere.containsPoint(ray.origin)) {
+    THREE.Mesh.prototype.raycast.call(this, raycaster, intersects);
+    return;
+  }
+  if (!ray.intersectSphere(_sphere, _hit)) return;
   const distance = ray.origin.distanceTo(_hit);
   if (distance < raycaster.near || distance > raycaster.far) return;
   intersects.push({ distance, point: _hit.clone(), object: this });

@@ -42,7 +42,7 @@ export function eccentricAnomaly(meanAnomaly, e) {
 
 /**
  * Where a body is round its orbit at `tDays`, as its eccentric anomaly. The
- * mean anomaly advances linearly; everything else is fixed for our purposes.
+ * mean anomaly advances linearly. Everything else is fixed for our purposes.
  */
 export function eccentricAnomalyAt(el, tDays) {
   const n = 360 / el.periodDays;
@@ -134,8 +134,8 @@ export function spinAngle(periodHours, tDays) {
 /**
  * Where a body's prime meridian points at `tDays`: the IAU's W = W0 + W'd,
  * measured east along the equator from where it crosses the Earth's. Taken
- * modulo one turn before scaling, so Earth - some ten thousand turns past
- * J2000 by now - keeps its precision.
+ * modulo one turn before scaling, so Earth (some ten thousand turns past
+ * J2000 by now) keeps its precision.
  *
  * @param {{periodHours:number, meridianDeg?:number}} spin
  */

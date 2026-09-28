@@ -22,7 +22,7 @@ const collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
 const byName = (a, b) => collator.compare(a.name, b.name);
 const byDistance = (a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity);
 
-/** How each choice in the list's menu orders it; 'stars' is sorted in render(). */
+/** How each choice in the list's menu orders it. 'stars' is sorted in render(). */
 const ORDER = {
   featured: (a, b) => rank(a) - rank(b) || byDistance(a, b) || byName(a, b),
   nearest: (a, b) => byDistance(a, b) || byName(a, b),
@@ -180,7 +180,7 @@ export class SystemExplorer {
   async open() {
     this.onOpen();
     this.panel.showModal();
-    // On a touch screen, focusing the field would throw up the keyboard over the list.
+    // On a touch screen, focusing the field would bring up the keyboard over the list.
     if (!window.matchMedia('(pointer: coarse)').matches) this.search.focus();
     loadStellarCatalogue().then((supplement) => {
       this.supplement = supplement;
@@ -230,13 +230,13 @@ export class SystemExplorer {
     const query = searchKey(this.search.value);
     // A search is read in name order, even from Featured.
     const sort = query && this.sort.value === 'featured' ? 'name' : this.sort.value;
-    // Progress updates during a refresh re-render; the list only changes with these.
+    // Progress updates during a refresh re-render, but the list only changes with these.
     const key = JSON.stringify([data.fetchedAt, query, sort, this.limit, Boolean(this.supplement)]);
     if (key === this._rendered) return;
     this._rendered = key;
 
     this.count.textContent = `${data.rows.length.toLocaleString()} planets · ${systems.length.toLocaleString()} hosts`;
-    // Sorted once per catalogue and order; filtering keeps the order.
+    // Sorted once per catalogue and order. Filtering keeps the order.
     if (this._sorted?.systems !== systems || this._sorted.sort !== sort) {
       // Multiple stars: the systems that can show them all come first.
       const order = sort === 'stars'

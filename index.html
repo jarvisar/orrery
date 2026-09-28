@@ -11,7 +11,7 @@
 <meta name="color-scheme" content="dark">
 
 <!-- Installed to a home screen: full screen, no browser chrome. The status bar
-     draws over the scene, which the interface already insets itself from. -->
+     draws over the scene, and the interface already leaves room for it. -->
 <meta name="application-name" content="Orrery">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -32,11 +32,11 @@
 <link rel="preload" as="font" type="font/woff2" href="public/fonts/jost.woff2" crossorigin>
 
 <!-- The first three textures the loading screen waits on, requested before the
-     module graph has even been parsed. Only when the network is serving them:
+     module graph has even been parsed. Only when the network is serving them.
      Chrome will not match a preload to a request the service worker answers,
      so on an installed or returning visit they would just be read twice. The
      images are preloaded as fetches because that is how src/core/AssetLoader.js
-     requests them, to decode them itself; an image preload would go unused. -->
+     requests them, to decode them itself. An image preload would go unused. -->
 <script>
   // The desktop app (desktop/) reads them from disk, where a preload is a second read.
   if (!navigator.serviceWorker?.controller && !window.orreryDesktop) {

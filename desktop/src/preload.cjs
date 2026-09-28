@@ -1,8 +1,8 @@
 /**
  * The one thing the page learns about being inside the desktop app:
  * `window.orreryDesktop`. The web app checks for it in the few places it
- * behaves differently (search src/ for orreryDesktop); in a browser it is
- * simply undefined.
+ * behaves differently (search src/ for orreryDesktop). In a browser it is
+ * undefined.
  *
  * CommonJS because preload scripts in a sandboxed renderer cannot be modules.
  * The values arrive as command-line switches, set in main.js.
@@ -22,8 +22,8 @@ contextBridge.exposeInMainWorld('orreryDesktop', Object.freeze({
   /** The public site, for links meant for other people. */
   webUrl: argument('web-url'),
   /**
-   * Full screen with no click or key press needed first, as a browser would
-   * insist (src/ui/fullscreen.js uses it for the controller's View button).
+   * Full screen without the click or key press a browser insists on first
+   * (src/ui/fullscreen.js uses it for the controller's View button).
    * Resolves to whether it worked.
    */
   requestFullscreen: () => ipcRenderer.invoke('orrery:request-fullscreen'),

@@ -5,7 +5,7 @@ same radial profile 2048 times over. We average it down to a single 1024x1 strip
 and let the ring geometry carry a radial U coordinate instead.
 
 The cloud sheet is fully desaturated and pure white wherever it is visible, so
-its RGB channels carry no information - only the alpha does. Stored as a
+its RGB channels carry no information, only the alpha does. Stored as a
 grayscale JPEG and used as an alphaMap.
 """
 import json, os
@@ -16,7 +16,7 @@ Image.MAX_IMAGE_PIXELS = None
 OUT = "public/textures"
 manifest = json.load(open(os.path.join(OUT, "manifest.json")))
 
-# --- Saturn rings -> radial strip -------------------------------------------
+# --- Saturn rings to radial strip -------------------------------------------
 src = np.array(Image.open("public/saturn_rings.png").convert("RGBA")).astype(np.float32)
 h, w, _ = src.shape
 cx, cy, N, ANGLES = (w - 1) / 2, (h - 1) / 2, 1024, 720
@@ -40,7 +40,7 @@ manifest["saturn_rings"] = {"file": "saturn_rings.webp", "w": N, "h": 1,
                             "bytes": os.path.getsize(f"{OUT}/saturn_rings.webp"), "radialStrip": True}
 print(f"saturn_rings -> {N}x1 radial strip, {os.path.getsize(f'{OUT}/saturn_rings.webp')/1024:.1f} KB")
 
-# --- Earth clouds -> alpha-only ---------------------------------------------
+# --- Earth clouds to alpha-only ---------------------------------------------
 cl = Image.open("public/earth_clouds.png").convert("RGBA")
 alpha = cl.getchannel("A").resize((2048, 1024), Image.LANCZOS)
 alpha.save(f"{OUT}/earth_clouds.jpg", "JPEG", quality=84, optimize=True, progressive=True)

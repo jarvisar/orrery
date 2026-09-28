@@ -27,8 +27,8 @@ const STICK_ZOOM_RATE = 1.8;
 
 /**
  * OrbitControls' gesture states (its _STATE, not exported): none, and the ones
- * that zoom - the wheel (which starts with no pointer down), the middle button,
- * and a pinch with either two-finger pan or rotate.
+ * that zoom. That's the wheel (which starts with no pointer down), the middle
+ * button, and a pinch with either two-finger pan or rotate.
  */
 const NO_GESTURE = -1;
 const ZOOM_GESTURES = new Set([NO_GESTURE, 1, 5, 6]);
@@ -69,7 +69,7 @@ export class CameraDirector {
     this._lastFocusPosition = new THREE.Vector3();
     this._transition = null;
     this._scaleExponent = system.scaleExponent;
-    // The wheel and a pinch spend their zoom inside the event, before update()
+    // The wheel and a pinch apply their zoom inside the event, before update()
     // could see it, so they claim it here instead.
     this.controls.addEventListener('start', () => {
       if (ZOOM_GESTURES.has(this.controls.state)) this._claim('zoom');
@@ -115,8 +115,8 @@ export class CameraDirector {
     this.controls.minDistance = view.radius * 1.15;
 
     // Approach along the current viewing direction where that is meaningful, so
-    // the camera does not swing wildly around the system on every selection -
-    // but not so faithfully that it arrives looking at the night side.
+    // the camera does not swing wildly around the system on every selection.
+    // But not so closely that it arrives looking at the night side.
     _offset.copy(this.camera.position).sub(this.controls.target);
     const litView = daylightDirection(view, _lit);
     if (_offset.lengthSq() < 1e-6) {
@@ -146,9 +146,9 @@ export class CameraDirector {
   /**
    * The whole system at a three-quarter angle, framed to `radiusAU`. Keeps the
    * camera's current bearing round the Sun, so it rises and pulls back rather
-   * than swinging round to some fixed side. `centre`, a body, frames its
-   * surroundings instead - a star's planets, in a system of several stars -
-   * and is followed as it moves.
+   * than swinging round to some fixed side. Passing a body as `centre` frames
+   * its surroundings instead (a star's planets, in a system of several stars)
+   * and follows it as it moves.
    */
   overview(radiusAU = this.system.catalogue.overviewAU, { instant = false, duration = 2.2, centre = null } = {}) {
     const radius = heliocentricDistance(radiusAU, this._scaleExponent);
@@ -188,21 +188,21 @@ export class CameraDirector {
   }
 
   /**
-   * Orbits, pans and zooms from analog input - a controller's sticks and
-   * triggers - as rates, so how it feels does not depend on the frame rate.
-   * Each value runs -1 to 1; the sticks move the camera the way dragging does,
+   * Orbits, pans and zooms from analog input (a controller's sticks and
+   * triggers) as rates, so how it feels does not depend on the frame rate.
+   * Each value runs -1 to 1. The sticks move the camera the way dragging does,
    * and positive zoom goes in. Goes through the same accumulators as the mouse,
    * so damping and the zoom limits apply alike.
    *
    * The underscored methods are three's internals, pinned by the vendored
    * copy (see scripts/check.js). The public rotateLeft() and friends each run
-   * a whole update() as well, which on top of the one in update() below would
-   * step the damping twice a frame.
+   * a whole update() as well. With the one in update() below, that would step
+   * the damping twice a frame.
    */
   drive({ orbitX = 0, orbitY = 0, panX = 0, panY = 0, zoom = 0 }, dt) {
     const { controls } = this;
     if (!controls.enabled) return;
-    // Mid-transition, what the sticks move is theirs; see _claim().
+    // Mid-transition, what the sticks move is theirs. See _claim().
     if (orbitX || orbitY) this._claim('rotate');
     if (panX || panY) this._claim('pan');
     if (zoom) this._claim('zoom');
@@ -316,7 +316,7 @@ export class CameraDirector {
 
   /**
    * The flight-mode equivalent. There is no orbit target to measure against, so
-   * this clips against the closest surface instead - otherwise a near plane left
+   * this clips against the closest surface instead. Otherwise a near plane left
    * over from a wide shot slices straight through a moon you fly up to.
    */
   fitClippingToSurroundings() {
@@ -347,7 +347,7 @@ export class CameraDirector {
     this.controls.target.copy(this.camera.position).addScaledVector(_delta, distance);
   }
 
-  /** Nearest body to a world position; used when leaving flight mode. */
+  /** Nearest body to a world position. Used when leaving flight mode. */
   nearestBody(position) {
     let best = null;
     let bestDistance = Infinity;
@@ -374,7 +374,7 @@ export class CameraDirector {
 /**
  * A viewing direction that shows a body mostly lit: the Sun about fifty degrees
  * off to one side and a little above, like a three-quarter portrait. Also
- * leaves the direction toward the Sun in `_sunward`. Null for the Sun itself.
+ * leaves the direction toward the Sun in `_sunward`. Null for stars.
  */
 export function daylightDirection(view, out) {
   if (view.kind === 'star') return null;

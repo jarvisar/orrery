@@ -15,7 +15,7 @@ import { smoothstep } from '../core/math.js';
 
 /**
  * Samples per revolution. At 256 the largest orbit on screen (Pluto's, up to
- * 2,500px in radius) strays from the true curve by a fifth of a pixel; more
+ * 2,500px in radius) strays from the true curve by a fifth of a pixel. More
  * only adds vertex work.
  */
 const HELIOCENTRIC_SEGMENTS = 256;
@@ -164,8 +164,6 @@ export class Orbits {
    */
   update(cameraPosition, tDays) {
     for (const entry of this.lines.values()) {
-      entry.head.value = orbitPhase(entry.view.elements, tDays);
-
       if (entry.parentId) {
         const parent = this.system.bodies.get(entry.parentId);
         if (parent) entry.line.position.copy(parent.group.position);
@@ -187,6 +185,8 @@ export class Orbits {
 
       entry.material.opacity = opacity;
       entry.line.visible = entry.allowed && opacity > 0.008;
+      // Solving for the trail's head is most of the work here, and a hidden path doesn't need it.
+      if (entry.line.visible) entry.head.value = orbitPhase(entry.view.elements, tDays);
     }
   }
 

@@ -2,8 +2,8 @@ name: Deploy to GitHub Pages
 
 # The site is plain ES modules with an import map and no build step, so this
 # workflow does not compile anything. It stages the files that are actually
-# served — leaving out the dev server, the asset pipeline and the README
-# screenshots — verifies them, and hands the result to Pages.
+# served (leaving out the dev server, the asset pipeline and the README
+# screenshots), verifies them, and hands the result to Pages.
 
 on:
   push:
@@ -65,7 +65,7 @@ jobs:
         run: npm run exoplanets:verify
 
       - name: Stage the site
-        # Copies the files listed in scripts/lib/served.js - the same list the
+        # Copies the files listed in scripts/lib/served.js, the same list the
         # desktop app is packaged from.
         run: |
           node scripts/stage.js _site

@@ -49,7 +49,7 @@ const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE; // see scripts/electron.js
 
 const child = spawn(command, commandArgs, { stdio: 'inherit', env });
-// The app has its own three-minute limit; this only catches a hang before it starts.
+// The app has its own three-minute limit. This only catches a hang before it starts.
 const guard = setTimeout(() => {
   console.error('smoke: the app did not exit within 4 minutes');
   child.kill();
@@ -68,7 +68,7 @@ function findPackaged() {
   const candidates = {
     win32: dirs.filter((d) => d.name.startsWith('win')).map((d) => join(dist, d.name, 'Orrery.exe')),
     linux: dirs.filter((d) => d.name.startsWith('linux')).map((d) => join(dist, d.name, 'orrery')),
-    // mac-arm64/ or mac/ (Intel); prefer the one this machine runs natively.
+    // mac-arm64/ or mac/ (Intel). Prefer the one this machine runs natively.
     darwin: dirs.filter((d) => d.name.startsWith('mac'))
       .sort((a) => (a.name.includes(process.arch) ? -1 : 1))
       .map((d) => join(dist, d.name, 'Orrery.app/Contents/MacOS/Orrery')),

@@ -81,8 +81,8 @@ try {
       viewport.setAdaptiveResolution(false);
       viewport.setAdaptiveResolution(true);
       Object.assign(viewport, {
-        // Real SwiftShader startup can already be constrained; these scenarios
-        // test only the synthetic timings below, not the preceding page load.
+        // Real SwiftShader startup can already be constrained. These scenarios
+        // only test the made-up timings below, not the page load before them.
         constrained: false,
         _lastAdjust: 0, _ceiling: Infinity, _ceilingUntil: 0, _trial: null, _holdUntil: 0, _retryMs: 15_000, _holdMs: 30_000,
       });

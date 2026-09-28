@@ -1,15 +1,15 @@
 /**
  * The catalogue every part of the app is built from.
  *
- * Nothing here is a scene unit. These are real measurements - kilometres,
- * days, degrees - and `src/scene/scaling.js` is the single place that turns
+ * Nothing here is a scene unit. These are real measurements (kilometres,
+ * days, degrees), and `src/scene/scaling.js` is the single place that turns
  * them into something you can actually look at. Adding a body means adding an
- * entry here and a texture; no other file needs to change.
+ * entry here and a texture. No other file needs to change.
  *
  * Planetary orbits use the J2000 osculating elements from JPL's "Keplerian
  * Elements for Approximate Positions of the Major Planets" (valid 1800-2050).
  * Dwarf-planet and satellite elements are mean values rounded from the JPL
- * Small-Body Database and the Planetary Satellite Mean Elements tables; they
+ * Small-Body Database and the Planetary Satellite Mean Elements tables. They
  * are good enough to place a body on the right side of its primary, not to
  * navigate by.
  */
@@ -17,7 +17,7 @@
 /** Astronomical unit, kilometres. */
 export const AU_KM = 149_597_870.7;
 
-/** Earth's volumetric mean radius - the yardstick for relative sizes. */
+/** Earth's volumetric mean radius, the yardstick for relative sizes. */
 export const EARTH_RADIUS_KM = 6371;
 
 /** The IAU's nominal solar radius: the unit other stars' radii (R☉) are given in. */
@@ -40,10 +40,10 @@ export const SUN_ID = 'sun';
  * @property {number} meanLong     Mean longitude at J2000, degrees.
  * @property {number} periLong     Longitude of perihelion, degrees.
  * @property {number} nodeLong     Longitude of the ascending node, degrees.
- * @property {number} [periodDays] Orbital period; derived from `aAU` when absent.
+ * @property {number} [periodDays] Orbital period, derived from `aAU` when absent.
  * @property {'equator'|'ecliptic'} [plane] What `inc` is measured from. Satellite
  *   elements are conventionally referred to the primary's equator, which is
- *   what keeps Saturn's moons in the plane of its rings; the Moon is the odd
+ *   what keeps Saturn's moons in the plane of its rings. The Moon is the odd
  *   one out, with elements referred to the ecliptic. Ignored for heliocentric
  *   orbits, which are always ecliptic.
  *
@@ -54,7 +54,7 @@ export const SUN_ID = 'sun';
  *   equatorial, from the IAU Working Group on Cartographic Coordinates and
  *   Rotational Elements. This is what points Earth's axis at Polaris and makes
  *   the seasons fall in the right months. Moons without one share their
- *   planet's; bodies with no measured pole fall back to `tiltDeg`.
+ *   planet's. Bodies with no measured pole fall back to `tiltDeg`.
  * @property {number} [meridianDeg] Where the prime meridian stood at J2000 (the
  *   IAU's W0). With it, the side of Earth in daylight is the side in daylight
  *   at the date shown.

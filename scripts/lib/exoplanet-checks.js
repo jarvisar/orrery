@@ -1,8 +1,8 @@
 /**
- * Invariants any catalogue must satisfy before it replaces the shipped copy:
- * each system builds into a finite, drawable model that keeps every planet.
- * They hold for any data, so the weekly refresh can use them; the named-system
- * tests for the committed copy are in scripts/exoplanets.test.js.
+ * Checks any catalogue has to pass before it replaces the shipped copy: each
+ * system builds into a finite, drawable model that keeps every planet. They
+ * hold for any data, so the weekly refresh can use them. The tests for named
+ * systems in the committed copy are in scripts/exoplanets.test.js.
  */
 import { groupSystems, makeSystem } from '../../src/data/exoplanets.js';
 import { orbitalPosition } from '../../src/sim/kepler.js';
@@ -11,7 +11,7 @@ import { heliocentricDistance, SCALE_EXPONENT_RANGE } from '../../src/scene/scal
 
 const DAYS = [-100000, 0, 9750, 100000];
 
-/** Throws with the first system that fails; returns how many were checked. */
+/** Throws on the first system that fails. Returns how many were checked. */
 export function verifyModels(data, supplement) {
   const entries = groupSystems(data);
   for (const entry of entries) {

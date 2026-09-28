@@ -45,12 +45,12 @@ export function habitableZone(teff) {
 /* --- stars ------------------------------------------------------------------ */
 
 /**
- * A star's kind and surface. `teff` may be an estimate; `teffNote` says so.
+ * A star's kind and surface. `teff` may be an estimate. If it is, `notes` says so.
  *
  * Granules are convection cells, about ten pressure scale heights across, and
  * a scale height goes as T/g: relative to the star, d/R ≈ 0.0019 (T/5772)(R/M)
  * (Trampedach et al. 2013). The Sun's millions of granules are far too small
- * to draw, so the size is compressed; a giant's few thousand still come out
+ * to draw, so the size is compressed. A giant's few thousand still come out
  * visibly coarser than a dwarf's.
  */
 export function starLook({ name = '', teff = null, radiusSun = 1, massSun = null, logg = null, spectype = '' }) {
@@ -156,8 +156,8 @@ export function planetLook({ name, radius, mass = null, massLimit = null, radius
   if (size === 'rock' && density !== null && density < 3) size = 'subneptune';
   if (size === 'subneptune' && radius < 2 && density !== null && density > 5) size = 'rock';
   if (size === 'neptune' && positive(mass) && mass > 80) size = 'giant';
-  // With only a limit on its mass the drawn size is a placeholder; the limit
-  // still says which kind of world it is.
+  // With only a limit on its mass the drawn size is a placeholder, but the
+  // limit still says which kind of world it is.
   if (!positive(mass) && !radiusMeasured && positive(massLimit)) size = massLimit > 50 ? 'giant' : massLimit > 10 ? 'neptune' : size;
   const puffy = (size === 'giant' || size === 'neptune') && density !== null && density < 0.15;
 
@@ -437,7 +437,7 @@ function youngGiant({ random, notes }) {
 /**
  * A self-luminous giant or brown dwarf by temperature. Sodium and potassium
  * absorb green light, so dusty L types look red to purple (Burrows et al.
- * 2001 give an L5 as R:G:B ≈ 1 : 0.3 : 0.42); below the L/T transition
+ * 2001 give an L5 as R:G:B ≈ 1 : 0.3 : 0.42). Below the L/T transition
  * (~1,300 K) the dust clears and methane turns them a dull magenta.
  */
 export function youngLook(temperature, random = () => 0.5) {
@@ -456,7 +456,7 @@ export function youngLook(temperature, random = () => 0.5) {
  * than its night side: with ε the fraction of heat carried round (0 none, 1
  * all), T_day = T₀(⅔ − 5ε/12)^¼ and T_night = T₀(ε/4)^¼, where T₀ = √2·Teq
  * (Cowan & Agol 2011). The hottest planets carry the least round (Komacek &
- * Showman 2016); observed night sides cluster near 1,100 K (Keating et al.
+ * Showman 2016). Observed night sides cluster near 1,100 K (Keating et al.
  * 2019). Winds push the hottest point 10-20° east of noon on hot Jupiters
  * (Knutson et al. 2007), and only a few degrees on ultra-hot ones.
  */

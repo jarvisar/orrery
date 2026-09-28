@@ -10,7 +10,7 @@ export class SettingsPanel {
    * @param {object} [options]
    * @param {string[]} [options.omit] Settings with nothing to act on in this view
    *   (moons and belts around another star). Hidden, but kept.
-   * @param {() => void} [options.onControls] Opens the controls list; a phone's
+   * @param {() => void} [options.onControls] Opens the controls list. A phone's
    *   top bar has no room for its own button.
    */
   constructor(settings, { omit = [], onControls = () => {} } = {}) {

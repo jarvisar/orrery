@@ -2,10 +2,10 @@
  * Draws the app icons in desktop/build/ from the site's own icon,
  * public/icon/orrery.svg, so the desktop app always matches the web app.
  *
- *   npm run icons      (in desktop/; runs under Electron, which does the drawing)
+ *   npm run icons      (in desktop/, under Electron, which does the drawing)
  *
- *   build/icon.png      1024², the SVG as it is: Windows and Linux
- *   build/icon-mac.png  1024², inset on Apple's icon grid with its soft shadow,
+ *   build/icon.png      1024x1024, the SVG as is, for Windows and Linux
+ *   build/icon-mac.png  1024x1024, inset on Apple's icon grid with its soft shadow,
  *                       since macOS draws icons as they are rather than masking them
  *
  * electron-builder turns these into .ico and .icns. build/icons.json records

@@ -1,4 +1,4 @@
-/** NASA default published solutions; shared by the importer and browser. */
+/** NASA's default published solutions, shared by the importer and the browser. */
 import { AU_KM, EARTH_RADIUS_KM, SOLAR_RADIUS_KM } from './bodies.js';
 import { stellarLayout } from './stellarSystems.js';
 import { searchKey } from './starNames.js';
@@ -58,7 +58,7 @@ export const QUERY_URL = `${ARCHIVE}/TAP/sync?${new URLSearchParams({ query: QUE
 
 /* --- hosts in the sky ------------------------------------------------------- */
 
-/** Written by the importer beside the catalogue, and loaded with the sky, where the catalogue is not. */
+/** Written by the importer beside the catalogue. The sky loads this instead of the whole catalogue. */
 export const SKY_HOSTS_PATH = 'public/data/sky-hosts.json';
 /** The faintest star the sky draws from its catalogue (Sky.js, scripts/build-sky.py). */
 export const SKY_MAGNITUDE_LIMIT = 6.5;
@@ -183,7 +183,9 @@ export function validateCatalogue(data) {
       throw new Error('Invalid or duplicate planet in the exoplanet catalogue.');
     }
     names.add(row.pl_name);
-    for (const [key, value] of Object.entries(row)) {
+    // Object.entries would make a pair for every field of every row, about 250,000 arrays.
+    for (const key of Object.keys(row)) {
+      const value = row[key];
       const valid = TEXT_KEYS.has(key) ? typeof value === 'string'
         : REF_KEYS.has(key) ? Number.isInteger(value) && value >= 0 && value < data.refs.length
         : NUMERIC_KEYS.has(key) && typeof value === 'number' && Number.isFinite(value);
@@ -228,8 +230,8 @@ function sourced(row, key) {
 }
 const COMPOSITE = 'from the NASA composite table, which may cite a different publication than the default solution';
 
-/** Central mass–radius fit used by the archive (Chen & Kipping 2017).
- * A population estimate, not a measurement or a composition determination.
+/** Central mass-radius fit used by the archive (Chen & Kipping 2017).
+ * A population estimate, not a measurement, and it says nothing about composition.
  * https://exoplanetarchive.ipac.caltech.edu/docs/pscp_calc.html
  */
 export function radiusEstimate(row) {
@@ -306,8 +308,9 @@ function factText(row, key, unit = '') {
 }
 
 /**
- * Relative system-plane illustration, never a transit/position ephemeris.
- * `binaryMass` is the reconstructed pair's total mass for a circumbinary planet.
+ * An illustrative orbit in the system's own plane, never an ephemeris for
+ * transits or positions. `binaryMass` is the reconstructed pair's total mass
+ * for a circumbinary planet.
  */
 export function orbitModel(row, { binaryMass = null } = {}) {
   const circumbinary = row.cb_flag === 1;
@@ -318,7 +321,7 @@ export function orbitModel(row, { binaryMass = null } = {}) {
   if (reportedPeriod.composite) notes.push(`Orbital period ${COMPOSITE}.`);
   if (reportedSize.composite) notes.push(`Orbit size ${COMPOSITE}.`);
   // Imaged and microlensed planets often have only a separation on the sky.
-  // With a period it came from an orbit fit; without one it is still the best
+  // With a period it came from an orbit fit. Without one it's still the best
   // size available, and on average a little smaller than the true orbit.
   if (projected && a && !period) {
     notes.push('Only the separation projected on the sky is reported. It is used as the orbit size; the true orbit is usually somewhat larger.');
@@ -413,7 +416,7 @@ export function makeSystem(entry, data, supplement = null) {
       modelNotes: [radius.note, node.massNote, ...hierarchy, BLACKBODY_NOTE, ...appearance.look.notes].filter(Boolean),
     };
   }) : [hostStar];
-  // The planets' host leads the lists; the rest keep their place in the hierarchy.
+  // The planets' host leads the lists. The rest keep their place in the hierarchy.
   stars.sort((a, b) => (b.id === starId) - (a.id === starId));
 
   // The light a planet gets: its own star's, or the sum of a pair's.
@@ -436,7 +439,7 @@ export function makeSystem(entry, data, supplement = null) {
     const orbit = orbitModel(row, { binaryMass: parentNode?.kind === 'binary' ? parentNode.mass : null });
     const estimate = radiusEstimate(row);
     const projected = PROJECTED.test(row.discoverymethod ?? '');
-    // What it probably looks like; see worlds.js and appearances.js.
+    // What it probably looks like (see worlds.js and appearances.js).
     const look = orbit.reason ? null : observedLook(planetLook({
       name: row.pl_name, radius: estimate.radius, mass: usable(row, 'pl_masse') ?? usable(row, 'pl_msinie'),
       massLimit: [row.pl_masse, row.pl_msinie].find(positive) ?? null,
@@ -515,7 +518,7 @@ export function makeSystem(entry, data, supplement = null) {
 
 /**
  * How many stars NASA lists, how many are drawn, and a sentence saying which
- * are not and why. Named where the supplement knows them; otherwise counted.
+ * are not and why. Named where the supplement knows them, otherwise counted.
  */
 export function companionSummary(entry, layout) {
   const listed = entry.stars;

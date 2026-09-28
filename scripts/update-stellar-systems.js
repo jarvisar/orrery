@@ -2,7 +2,7 @@
 /**
  * Refreshes public/data/stellar-systems.json: the stellar hierarchies (which
  * star orbits which, and how) from the Open Exoplanet Catalogue. Only systems
- * with a <binary> are kept; NASA remains the authority on which planets exist.
+ * with a <binary> are kept. NASA is still the authority on which planets exist.
  *
  * Atomic, like the NASA importer: the new copy replaces the old only once it
  * validates, is no more than 5% smaller, and every system still builds a finite
@@ -18,7 +18,7 @@ import { validateStellarCatalogue } from '../src/data/stellarSystems.js';
 import { verifyModels } from './lib/exoplanet-checks.js';
 
 const URL_GZ = 'https://raw.githubusercontent.com/OpenExoplanetCatalogue/oec_gzip/master/systems.xml.gz';
-/** OEC element to the archive's column name; units already agree (M☉, R☉, K, AU, days). */
+/** OEC element to the archive's column name. The units already match (M☉, R☉, K, AU, days). */
 const FIELDS = {
   mass: 'st_mass', radius: 'st_rad', temperature: 'st_teff',
   semimajoraxis: 'pl_orbsmax', period: 'pl_orbper', eccentricity: 'pl_orbeccen',
@@ -30,7 +30,7 @@ const FIELDS = {
  * pair by its two members.
  */
 const CORRECTIONS = [
-  // A 42.15-year visual orbit (e = 0.58, i = 128°; Söderhjelm 1999) entered in days.
+  // A 42.15-year visual orbit (e = 0.58, i = 128°, from Söderhjelm 1999) entered in days.
   { components: ['Gliese 667 A', 'Gliese 667 B'], key: 'pl_orbper', was: 42.15, now: 42.15 * 365.25 },
 ];
 
@@ -78,7 +78,7 @@ function decode(text) {
 
 const child = (node, tag) => node.children.find((c) => c.tag === tag);
 const texts = (node, tag) => node.children.filter((c) => c.tag === tag).map((c) => c.text.trim()).filter(Boolean);
-/** A plain decimal number, as the catalogue writes them; anything else is unusable. */
+/** A plain decimal number, as the catalogue writes them. Anything else is unusable. */
 function decimal(text) {
   const trimmed = text?.trim() ?? '';
   return /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(trimmed) ? Number(trimmed) : null;

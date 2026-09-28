@@ -3,8 +3,8 @@
  *
  * Not file://: Chromium treats every file:// URL as its own opaque origin,
  * which breaks the ES modules, fetches and localStorage. A privileged standard
- * scheme behaves like an https:// site, a stable secure origin, so WebXR, the
- * clipboard and pointer lock work and settings survive a restart.
+ * scheme behaves like an https:// site (a stable, secure origin), so WebXR, the
+ * clipboard and pointer lock work, and settings survive a restart.
  */
 import { protocol } from 'electron';
 import { readFile, stat } from 'node:fs/promises';

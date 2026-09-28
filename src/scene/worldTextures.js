@@ -8,9 +8,9 @@
  * no seam at the date line and nothing pinches at the poles.
  *
  * Two maps per planet:
- *   colour  sRGB albedo (the hardware encodes it; the shader writes linear)
+ *   colour  sRGB albedo (the shader writes linear and the hardware encodes it)
  *   data    R height (bump), G cloud cover (the cloud shell's alphaMap reads
- *           G), B heat (0 cold to 1 hottest; see exoplanetSurface.js), A how
+ *           G), B heat (0 cold to 1 hottest, see exoplanetSurface.js), A how
  *           shiny (seas and ice)
  * Stars get one data map: two granulation fields, spots and faculae.
  *
@@ -188,7 +188,7 @@ const PLANET = /* glsl */ `
       float b = 0.34 * sin( lat * f + uOffset.y + wobble * 2.2 ) + 0.18 * noise( vec3( lat * f * 1.3, uOffset.z, 4.1 ) );
       // Fine streaks drawn out along the flow.
       float streak = fbm( d * vec3( 28.0, 28.0 * uBands.w * 1.6, 28.0 ) + uOffset * 1.9 + vec3( eddy * 1.5 ), 3 );
-      // Contrast applies to the belts and zones; the weather within them stays.
+      // Contrast applies to the belts and zones, not the weather within them.
       b = 0.5 + b * uBands.y + turbulence * ( 0.15 * eddy + 0.08 * detail + 0.07 * streak );
       // Toward the poles the banding breaks up into mottled haze.
       float polar = smoothstep( 0.72, 0.96, abs( d.y ) );
@@ -414,8 +414,8 @@ export class WorldPainter {
   /**
    * Compiles the shaders these looks need, all at once, before any is painted.
    * Where the browser can (KHR_parallel_shader_compile), that happens off the
-   * page's thread, so the loading screen keeps moving; painting with a shader
-   * not yet compiled stops the page until it is.
+   * page's thread, so the loading screen keeps moving. Painting with a shader
+   * that isn't compiled yet stops the page until it is.
    */
   async prepare({ planets = [], stars = [] }) {
     const materials = new Set([
@@ -494,7 +494,7 @@ export class WorldPainter {
    * loading screen keeps moving.
    */
   async _paint(material, uniforms, target) {
-    // three binds the uniforms object once, when it compiles; swap values, not objects.
+    // three binds the uniforms object once, when it compiles. Swap values, not objects.
     for (const [name, uniform] of Object.entries(uniforms)) material.uniforms[name].value = uniform.value;
     this.quad.material = material;
 

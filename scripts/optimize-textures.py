@@ -1,10 +1,10 @@
 """One-shot pipeline that rebuilds public/textures/ from the original source art.
 
-Colour (albedo) maps become WebP; single-channel data maps (elevation/specular)
+Colour (albedo) maps become WebP. Single-channel data maps (elevation/specular)
 become grayscale JPEG, which beats WebP for smooth noise-free height data.
-Target sizes are chosen from how large each body actually renders on screen -
-an 8192x4096 bump map on a moon drawn 8px across costs 179MB of VRAM for
-nothing, which is what used to stall the first frame.
+Target sizes are chosen from how large each body actually renders on screen.
+An 8192x4096 bump map on a moon drawn 8px across costs 179MB of VRAM for
+nothing, and that used to stall the first frame.
 """
 import os, sys, json
 from PIL import Image
@@ -13,9 +13,9 @@ Image.MAX_IMAGE_PIXELS = None
 SRC, OUT = "public", "public/textures"
 
 # (source, output stem, kind, max width)
-#   kind: 'color'  -> WebP RGB
-#         'alpha'  -> WebP RGBA (keeps transparency)
-#         'data'   -> grayscale JPEG (bump / specular / elevation)
+#   kind: 'color'  saved as WebP RGB
+#         'alpha'  saved as WebP RGBA (keeps transparency)
+#         'data'   saved as grayscale JPEG (bump / specular / elevation)
 JOBS = [
     # stars_milkyway is built by scripts/build-sky.py, which reprojects it.
     ("2k_sun.jpg",                  "sun",              "color", 2048),

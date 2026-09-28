@@ -6,12 +6,12 @@
  * at a time when there is headroom. Where worth having, the top rung is full
  * resolution with multisampling, and the first step down drops only the MSAA.
  *
- * Each change reallocates the canvas and post targets (a hitch), so it changes
- * rarely: it drops straight to the rung expected to fit, and does not retry a
- * rung that proved too slow for a while, so a borderline device does not
- * see-saw. A step down is kept only if frames actually got quicker (a battery-
- * capped phone or CPU-bound frame is slow at any resolution), and frames that
- * uploaded a texture are not counted.
+ * Each change reallocates the canvas and post targets (a hitch), so changes
+ * are kept rare. It drops straight to the rung expected to fit, and waits a
+ * while before retrying a rung that proved too slow, so a borderline device
+ * does not see-saw. A step down is kept only if frames actually got quicker
+ * (a battery-capped phone or CPU-bound frame is slow at any resolution), and
+ * frames that uploaded a texture are not counted.
  */
 
 import * as THREE from 'three';
@@ -35,7 +35,7 @@ const MAX_DENSITY = 2;
  * screen is drawn below its own density and upscaled, which softens edges anyway.
  */
 const MULTISAMPLE_MAX_DENSITY = 2;
-/** Roughly what multisampling adds to a whole frame, as measured; only used to judge how far to step down. */
+/** Roughly what multisampling adds to a whole frame, as measured. Only used to judge how far to step down. */
 const MULTISAMPLE_COST = 1.3;
 
 /**
@@ -78,18 +78,18 @@ export class Viewport {
       canvas,
       antialias: true,
       powerPreference: 'high-performance',
-      // The scene spans a 3-unit moon to a 78,000-unit orbit; only a
+      // The scene spans a 3-unit moon to a 78,000-unit orbit. Only a
       // logarithmic depth buffer avoids z-fighting at that range.
       logarithmicDepthBuffer: true,
       stencil: false,
     });
 
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    // AgX rolls bright colour off toward white; ACES pushes it toward saturated
+    // AgX rolls bright colour off toward white. ACES pushes it toward saturated
     // orange, which turns the Sun into a ball of cheese.
     this.renderer.toneMapping = THREE.AgXToneMapping;
     this.renderer.toneMappingExposure = 1.0;
-    // The frame is several passes; count the whole frame, not the last pass.
+    // The frame is several passes. Count the whole frame, not the last pass.
     this.renderer.info.autoReset = false;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;

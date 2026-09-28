@@ -43,7 +43,7 @@ export async function toggleFullscreen({ onPendingEnd } = {}) {
     await exitFullscreen();
     return 'exited';
   }
-  // Only ask when the browser would say yes; asking without a gesture logs a
+  // Only ask when the browser would say yes. Asking without a gesture logs a
   // warning in some browsers and throws in others. Where there is no way to
   // tell, ask and see.
   if (navigator.userActivation?.isActive !== false) {
@@ -76,7 +76,7 @@ function waitForGesture(onPendingEnd) {
   };
 
   function answer(event) {
-    // Escape means no; and the key that answers is spent on this, rather than
+    // Escape means no. The key that answers is spent on this, rather than
     // also pausing time or whatever else it would do.
     if (event.type === 'keydown') {
       if (['Shift', 'Control', 'Alt', 'Meta'].includes(event.key)) return;
@@ -84,7 +84,7 @@ function waitForGesture(onPendingEnd) {
       event.stopImmediatePropagation();
       if (event.key === 'Escape') return end(false);
     }
-    // Asked while this event's gesture is still fresh; answered once it settles.
+    // Asked while this event's gesture is still fresh, and answered once it settles.
     stopWaiting();
     requestFullscreen().then(() => end(true), () => end(false));
   }

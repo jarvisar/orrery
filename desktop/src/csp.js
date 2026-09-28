@@ -1,7 +1,7 @@
 /**
  * The Content-Security-Policy every page is served with.
  *
- * The page is all local files; the exceptions are REMOTE_ORIGINS. A new one
+ * The page loads only local files, apart from REMOTE_ORIGINS. A new origin
  * would work in the browser and fail here, so `npm run desktop:check` compares
  * this list against the https:// origins the source mentions.
  *

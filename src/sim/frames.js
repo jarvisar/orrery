@@ -4,8 +4,8 @@
  * The scene is the J2000 ecliptic in three.js axes: +X points at the March
  * equinox, +Y is ecliptic north, and ecliptic +Y becomes three's -Z (see
  * perifocalToWorld in kepler.js). Poles and star positions are published in
- * the J2000 equatorial frame instead - right ascension and declination - which
- * is the same frame tipped about the equinox direction by the obliquity of the
+ * the J2000 equatorial frame instead (right ascension and declination). It's
+ * the same frame tipped about the equinox direction by the obliquity of the
  * ecliptic. This is the one conversion between them.
  */
 

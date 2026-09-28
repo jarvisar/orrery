@@ -17,7 +17,7 @@ const LINGER_MS = 7000;
 
 /** Keep in step with the bindings in src/main.js and the list in HelpOverlay.js. */
 const LEGENDS = {
-  // Extras step aside on a short screen (style.css); the controls list has them all.
+  // Extras are hidden on a short screen (style.css). The controls list has them all.
   orbit: [
     { buttons: ['ls'], text: 'Orbit' },
     { buttons: ['lt', 'rt'], text: 'Zoom' },
@@ -76,7 +76,7 @@ export class GamepadHud {
     else if (!this._noticeActive) this.hide();
   }
 
-  /** A line of news over the legend for a few seconds; the legend comes too. */
+  /** A line of news over the legend for a few seconds. The legend comes up with it. */
   notice(text, ms = 4000) {
     this.title.textContent = text;
     this.title.classList.add('is-news');

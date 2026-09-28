@@ -16,7 +16,7 @@ There is no build step. The dev server serves the repository as is, so what you 
 ```sh
 npm run check       # syntax, vendored three.js, textures, models, fonts and links
 npm run smoke       # loads the page in headless Chrome and fails on any error
-npm run responsive  # layout and accessibility at thirteen screen sizes, short ones included
+npm run responsive  # layout and accessibility at 13 screen sizes, short ones included
 npm run vr          # an emulated Quest 3: controllers, hands and the VR panel
 npm run gamepad     # an emulated game controller: bindings, menus and full screen
 ```
@@ -55,7 +55,7 @@ See [desktop/README.md](../desktop/README.md) for more details.
 
 `scripts/stamp-sw.js` adds every deployed file and its hash to `sw.js`. The service worker uses that list to cache the site for offline use, and only downloads changed files after an update. The committed `sw.js` has an empty list, so `npm run dev` always loads the latest files.
 
-The first time, go to *Settings → Pages* in the repository and set **Source** to **GitHub Actions**.
+The first time, go to `Settings` > `Pages` in the repository and set `Source` to `GitHub Actions`.
 
 `.github/workflows/ci.yml` runs all of the checks on pull requests and other branches.
 
@@ -93,7 +93,7 @@ python scripts/build-sky.py 8k_stars_milky_way.jpg bsc5.dat
 - Planet positions use JPL's approximate orbital elements, which are valid between 1800 and 2050. Dwarf planet and moon orbits use average values.
 - Axis orientation and rotation come from the IAU WGCCRE reports, so the seasons and the day side of each planet are correct.
 - Eccentricity, inclination and axial tilt are real. Every moon here is tidally locked.
-- Sizes and distances are compressed with one formula, `units = 24 × (km / Earth radius) ^ k`, in `src/scene/scaling.js`. The **Scale** setting changes `k`. Higher values are closer to real proportions.
+- Sizes and distances are compressed with one formula, `units = 24 × (km / Earth radius) ^ k`, in `src/scene/scaling.js`. The `Scale` setting changes `k`. Higher values are closer to real proportions.
 - Moon orbits are measured from their planet's equator, except the Moon's.
 - Stars are shown at their J2000 positions.
 - Light doesn't fade with distance, otherwise everything past Jupiter would be dark.

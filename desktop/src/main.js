@@ -2,15 +2,15 @@
  * The desktop app: one window showing the web app, served from app://orrery/.
  *
  * In development the window serves the repository's working tree, so an edit
- * to src/ shows up on reload; a packaged build carries a copy staged by
+ * to src/ shows up on reload. A packaged build carries a copy staged by
  * scripts/stage.js from the same list GitHub Pages deploys.
  *
  * Switches, in addition to Chromium's own:
  *   --fullscreen        start full screen (automatic in Steam Deck Game Mode)
- *   --debug             open ?debug, which puts the scene on window.orrery, and the dev tools
+ *   --debug             open ?debug (which puts the scene on window.orrery) and the dev tools
  *   --web-root=<dir>    serve a different copy of the site, e.g. the staged desktop/web
- *   --software-gl       render WebGL on the CPU (SwiftShader), for machines without a GPU;
- *                       chosen automatically when the GPU cannot provide WebGL
+ *   --software-gl       render WebGL on the CPU (SwiftShader), for machines without a GPU
+ *                       (used automatically when the GPU cannot provide WebGL)
  *   --low-power-gpu     stay on the integrated GPU of a laptop that has two
  *   --self-test         load, check that everything came up, and exit 0 or 1 (see self-test.js)
  *   --screenshot=<png>  with --self-test, save what the window showed
@@ -45,7 +45,7 @@ const DEBUG = flag('debug');
 const pkg = JSON.parse(readFileSync(join(app.getAppPath(), 'package.json'), 'utf8'));
 const WEB_URL = pkg.homepage;
 
-/** Permissions the page may have; everything else is refused. */
+/** Permissions the page may have. Everything else is refused. */
 const PERMISSIONS = new Set(['fullscreen', 'pointerLock', 'clipboard-sanitized-write']);
 
 app.setName(PRODUCT_NAME);
@@ -81,7 +81,7 @@ const only = webRoot === REPO
   : undefined;
 
 const report = { problems: [] };
-/** The main window's saved state (window-state.js); unset in a self-test. */
+/** The main window's saved state (window-state.js). Stays null in a self-test. */
 let windowState = null;
 
 if (!SELF_TEST && !app.requestSingleInstanceLock()) {
@@ -130,7 +130,7 @@ async function start() {
     PERMISSIONS.has(permission) && origin?.replace(/\/$/, '') === ORIGIN);
 
   // window.orreryDesktop.requestFullscreen() (preload.cjs). A browser only goes
-  // full screen in answer to a click or key, never a controller button; here
+  // full screen in answer to a click or key, never a controller button. Here
   // the request runs as though the user had clicked.
   ipcMain.handle('orrery:request-fullscreen', (event) => {
     if (!isOwn(event.senderFrame?.url ?? '')) return false;
@@ -169,7 +169,7 @@ function createWindow() {
     title: PRODUCT_NAME,
     backgroundColor: BACKGROUND,
     show: false,
-    // Windows takes the icon from the .exe once packaged; Linux has to be told.
+    // Windows takes the icon from the .exe once packaged, but Linux has to be told.
     icon: process.platform === 'darwin' || (app.isPackaged && process.platform === 'win32')
       ? undefined
       : join(app.getAppPath(), 'build/icon.png'),
@@ -207,7 +207,7 @@ function createWindow() {
   return win;
 }
 
-/** Links out of the app open in the system browser; nothing else leaves it. */
+/** Links out of the app open in the system browser. Nothing else leaves it. */
 function lockDown(contents) {
   contents.on('will-navigate', (event, url) => {
     if (isOwn(url)) return;

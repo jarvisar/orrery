@@ -36,7 +36,7 @@ export const MIME = {
   '.webm': 'video/webm',
 };
 
-/** Files served with no extension, or a name that says what they are. */
+/** Files served with no extension, matched by name. */
 export const MIME_BY_NAME = {
   LICENSE: 'text/plain; charset=utf-8',
   VERSION: 'text/plain; charset=utf-8',

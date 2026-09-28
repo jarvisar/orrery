@@ -2,7 +2,7 @@
  * Mouse and touch picking.
  *
  * - Body meshes are tested, never the sky sphere, orbit paths or belts. Where
- *   none is hit, a fallback may offer something else (stars with planets; see
+ *   none is hit, a fallback may offer something else (stars with planets, see
  *   setFallback), found by the pointer's direction alone.
  * - A drag is not a click, so releasing after rotating the camera does not
  *   change focus.
@@ -35,8 +35,8 @@ export class Picker {
     this.enabled = true;
 
     this.raycaster = new THREE.Raycaster();
-    // Points are drawn at a constant pixel size, so a proportional threshold is
-    // meaningless for them; the belts are not pickable anyway.
+    // Only meshes are picked (bodies, rings and shells), so this shouldn't matter.
+    // Zero keeps a line from ever catching a click if one ends up in the targets.
     this.raycaster.params.Line.threshold = 0;
 
     this._pointer = new THREE.Vector2();
@@ -165,7 +165,7 @@ export class Picker {
     return null;
   }
 
-  /** Called once per frame; a no-op unless the pointer moved. */
+  /** Called once per frame. A no-op unless the pointer or the view moved. */
   update() {
     if (!this.enabled) return;
     if (this._hovering && !this._pressed && !this.camera.matrixWorld.equals(this._lastView)) {

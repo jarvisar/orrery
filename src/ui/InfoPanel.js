@@ -238,7 +238,7 @@ export class InfoPanel {
     );
   }
 
-  /** The body and its nearest sibling in and out - or two on one side, at either end. */
+  /** The body and its nearest sibling in and out, or two on one side at either end. */
   _neighbours(body) {
     const size = (b) => b.orbit.aAU ?? b.orbit.aKm;
     const siblings = this.catalogue.bodies
@@ -284,7 +284,7 @@ export class InfoPanel {
       }));
     }
 
-    // Another star's own colour; a pair's centre of mass takes the host's, as a ring.
+    // Another star's own colour. A pair's centre of mass takes the host's, as a ring.
     const primaryColor = view.body.exoplanet
       ? (own.parentBody ?? this.catalogue.byId.get(this.catalogue.starId))?.color ?? '#ffd9a0'
       : own.heliocentric ? '#ffd9a0' : (own.parentBody?.color ?? '#ffffff');

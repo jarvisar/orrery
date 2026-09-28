@@ -2,8 +2,7 @@
  * Application entry point. Startup order matters:
  *
  *   1. Build the scene graph with placeholder textures in every map slot.
- *   2. Stream in the Sun, planets and sky - and only those - behind the loading
- *      screen.
+ *   2. Stream in only the Sun, planets and sky behind the loading screen.
  *   3. Compile every shader program with `compileAsync` before the first frame.
  *   4. Start rendering, then load moons, dwarf planets and detail maps in the
  *      background.
@@ -27,7 +26,7 @@ import { Picker } from './core/Picker.js';
 import { SkyHosts, hostSummary } from './core/SkyHosts.js';
 import { GamepadInput } from './core/Gamepads.js';
 import { Post } from './core/Post.js';
-import { SolarSystem } from './scene/SolarSystem.js';
+import { SolarSystem, raycastBounds, modelShown } from './scene/SolarSystem.js';
 import { Orbits } from './scene/Orbits.js';
 import { Belts } from './scene/Belts.js';
 import { Sky } from './scene/Sky.js';
@@ -93,7 +92,7 @@ async function boot() {
     try {
       await exoplanets.load();
       let entry = exoplanets.systems.find((s) => s.name === requestedSystem);
-      // Newer than the saved copy? Only a host the archive really has is worth a refresh.
+      // May be newer than the saved copy. Only refresh if the archive really has this host.
       if (!entry && await exoplanets.hasHost(requestedSystem) && await exoplanets.refresh()) {
         entry = exoplanets.systems.find((s) => s.name === requestedSystem);
       }
@@ -159,7 +158,9 @@ async function boot() {
   belts.build(settings.get('beltDensity'));
   belts.setVisible(settings.get('showBelts'));
 
-  const visitor = catalogue.isExoplanet ? { view: null, meshes: [], update() {} } : await buildVisitor(assets, scene, system);
+  const visitor = catalogue.isExoplanet
+    ? { view: null, meshes: [], update() {}, updateDetail() {} }
+    : await buildVisitor(assets, scene, system);
 
   system.setCategoryVisible('moon', settings.get('showMoons'));
   system.setCategoryVisible('dwarf', settings.get('showDwarfs'));
@@ -174,8 +175,8 @@ async function boot() {
 
   const picker = new Picker(canvas, camera, system);
   picker.addSelectable(VISITOR_ID, visitor.meshes);
-  // Stars with planets, once the sky is drawn, ringed in the whole-system view,
-  // where a click on one offers a visit (see buildInterface).
+  // Once the sky is drawn, stars with planets are ringed in the whole-system
+  // view, and clicking one goes there (see buildInterface).
   const skyHosts = new SkyHosts();
   const hostRings = new HostRings(scene);
 
@@ -197,15 +198,15 @@ async function boot() {
     .then(() => hostRings.setHosts(skyHosts.hosts))
     .catch((error) => console.warn('[sky] stars with planets unavailable', error));
   await post.compileAsync();
-  assets.pumpUploads(999);
+  assets.pumpUploads(Infinity);
   assets.uploadSceneTextures(scene);
 
   const ui = buildInterface({
     settings, clock, scene, assets, system, orbits, belts, sky,
     director, flight, picker, skyHosts, hostRings, viewport, visitor, post,
   });
-  // Another star opens on the planets: its own, where they would be lost in a
-  // wide stellar orbit (catalogue.home), else the whole system.
+  // Another star opens on its planets: the host's own (catalogue.home) where
+  // they'd be lost in a wide stellar orbit, else the whole system.
   if (catalogue.isExoplanet && !new URLSearchParams(location.search).get('body')) {
     // The stars with planets stay unringed until the user comes back to it,
     // so the new system gets a clear view first.
@@ -213,7 +214,7 @@ async function boot() {
   } else ui.selectBody(initialBodyId(catalogue), { instant: true });
   ui.markers.update(viewport.width, viewport.height);
 
-  // Draw and start animating *underneath* the loading screen, so the fade
+  // Draw and start animating underneath the loading screen, so the fade
   // uncovers a live scene rather than a black canvas.
   post.render(0);
   startLoop({
@@ -234,7 +235,7 @@ async function boot() {
   await assets.drain({ concurrency: 4 });
   // One more compile pass, in case a streamed model brought its own materials.
   await post.compileAsync().catch(() => {});
-  // A headset draws with the screen's variants; have them ready before it starts.
+  // A headset draws with the screen's variants, so have them ready before it starts.
   if (post.enabled && await VRMode.isSupported()) await post.compileAsync({ screen: true }).catch(() => {});
 
   // Last, so filling the offline copy never competes with the first load, and
@@ -242,10 +243,10 @@ async function boot() {
   registerServiceWorker();
 }
 
-/** Offline support and installability; see sw.js. */
+/** Offline support and installability. See sw.js. */
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
-  // The desktop app (desktop/) ships every file on disk already; an offline
+  // The desktop app (desktop/) ships every file on disk already, so an offline
   // cache would only be a second copy of it.
   if (window.orreryDesktop) return;
   navigator.serviceWorker.register('sw.js').catch((error) => {
@@ -283,7 +284,7 @@ function buildInterface(ctx) {
     onHome: () => showHome(),
   });
   // On a phone, upright or on its side, the panel would cover the body it
-  // describes; start it folded.
+  // describes, so start it folded.
   const infoPanel = new InfoPanel({
     catalogue,
     collapsed: window.matchMedia('(max-width: 720px), (max-height: 500px)').matches,
@@ -317,7 +318,7 @@ function buildInterface(ctx) {
   const helpOverlay = new HelpOverlay({ exoplanet: catalogue.isExoplanet });
   const markers = new Markers(system, camera, (id) => selectBody(id));
   const installToast = new InstallToast();
-  const updateToast = new UpdateToast(); // desktop app only; see desktop/src/updates.js
+  const updateToast = new UpdateToast(); // desktop app only (see desktop/src/updates.js)
   const gamepad = new GamepadInput();
   const padHud = new GamepadHud();
   markers.setEnabled(settings.get('showLabels'));
@@ -374,8 +375,9 @@ function buildInterface(ctx) {
     onResolution: (width, height) => orbits.setResolution(width, height),
   });
 
-  // Shown only when a headset (or a runtime for one) is present; rechecked on
-  // devicechange. Named, not just drawn: in a headset's browser it is the way in.
+  // Shown only when a headset (or a runtime for one) is present. Rechecked on
+  // devicechange. It has a text label next to the icon because in a headset's
+  // browser it's the way in.
   const vrButton = el(
     'button',
     {
@@ -498,11 +500,11 @@ function buildInterface(ctx) {
     // Fetch this body's still-queued textures next rather than in catalogue order.
     if (view) assets.promote(collectTextureNames(view.body));
 
-    // The visitor is never linked to; it is meant to be found.
+    // The visitor is never linked to. It is meant to be found.
     if (id !== VISITOR_ID) setUrlBody(id);
   }
 
-  /** The whole system; or, with `centreId`, one body and what orbits it, followed as it moves. */
+  /** The whole system. With `centreId`, one body and what orbits it, followed as it moves. */
   function showOverview(radiusAU = catalogue.overviewAU, { instant = false, centreId = null, quietSky = false } = {}) {
     if (state.flying) setFlight(false, { refocus: false });
     state.focusedId = null;
@@ -552,7 +554,7 @@ function buildInterface(ctx) {
   /** The current view as a link: body and simulated time, to the minute. */
   async function copyLink() {
     // In the desktop app this page's own address is app://, which would mean
-    // nothing to whoever it is sent to; the link goes to the public site instead.
+    // nothing to whoever it is sent to. The link goes to the public site instead.
     const url = new URL(window.orreryDesktop?.webUrl ?? window.location.href);
     if (catalogue.id) url.searchParams.set('system', catalogue.id);
     else url.searchParams.delete('system');
@@ -580,8 +582,8 @@ function buildInterface(ctx) {
 
     if (enabled) {
       flight.setTarget(null);
-      // Pressing G or the button counts as the gesture capturing the mouse
-      // needs. A controller's buttons do not, and it steers without the mouse.
+      // Capturing the mouse needs a user gesture, and pressing G or the button
+      // counts. A controller's buttons don't, and it steers without the mouse.
       if (!state.padActive) flight.capture();
       director.focusOn(null);
       bodyPicker.select(null);
@@ -595,7 +597,7 @@ function buildInterface(ctx) {
       const nearest = director.nearestBody(camera.position);
       const distance = nearest ? camera.position.distanceTo(nearest.group.position) : 100;
       director.syncTargetToView(distance);
-      // Land on whatever you were flying round; out in deep space, stay put.
+      // Land on whatever you were flying round. Out in deep space, stay put.
       if (refocus && nearest && distance < nearest.radius * 40) selectBody(nearest.id);
     }
   }
@@ -607,7 +609,7 @@ function buildInterface(ctx) {
     return `${body.name}, ${(KIND_LABEL[body.kind] ?? body.kind).toLowerCase()}`;
   }
 
-  /** Sets where flight is headed; `engage` also hands the controls to the autopilot. */
+  /** Sets where flight is headed. `engage` also hands the controls to the autopilot. */
   function setDestination(id, { engage = false } = {}) {
     const view = lookup(id);
     if (!view) return;
@@ -627,6 +629,11 @@ function buildInterface(ctx) {
     }
     flight.setAutopilot(!flight.autopilot);
     if (flight.autopilot) flightHud.notify(`Autopilot: flying to ${flight.target.name}`);
+  }
+
+  /** Whether a dialog darkens and blurs the whole view. */
+  function coversScene() {
+    return explorer.isOpen || helpOverlay.isOpen;
   }
 
   /** The whole-system view, the one place stars with planets can be chosen. */
@@ -676,7 +683,7 @@ function buildInterface(ctx) {
 
   /* --- first visit ------------------------------------------------------- */
 
-  // The hint goes first; the install toast waits until it has gone, since on a
+  // The hint goes first. The install toast waits until it has gone, since on a
   // phone the two would share the same spot.
   let hintTimer = 0;
   function welcome() {
@@ -739,13 +746,16 @@ function buildInterface(ctx) {
   });
   settings.on('adaptiveResolution', (value) => viewport.setAdaptiveResolution(value));
   settings.on('exposure', (value) => { viewport.renderer.toneMappingExposure = value; });
-  settings.on('effects', (value) => {
+  settings.on('effects', async (value) => {
+    // Every material draws with its other variant from now on, and switching
+    // on also needs the composer's own passes. They're compiled before the
+    // switch so the browser can do it off the main thread. Compiled after it,
+    // each would stall a frame, which on a phone adds up to most of a second.
+    await post.compileAsync({ screen: !value }).catch(() => {});
+    if (settings.get('effects') !== value) return; // switched back in the meantime
     post.setEnabled(value);
     // With effects off the frame goes straight to the canvas, which is always multisampled.
     orbits.setSmoothing(value && !viewport.multisample);
-    // Every material now draws with its other variant; compile the rest now
-    // rather than each the first time it comes into view.
-    post.compileAsync().catch(() => {});
   });
   settings.on('reduceMotion', (value) => {
     document.body.classList.toggle('reduce-motion', value);
@@ -779,13 +789,13 @@ function buildInterface(ctx) {
     reframe({ instant: true });
   }, 120));
 
-  settings.on('beltDensity', debounce((value) => belts.build(value), 200));
+  settings.on('beltDensity', debounce((value) => belts.setDensity(value), 200));
 
   settings.on('shadowQuality', (value) => {
     system.setShadowQuality(value);
     viewport.setShadowsEnabled(system.sunLight.castShadow);
-    // Toggling shadows changes every material's program; recompile now rather
-    // than stall on the next frame.
+    // Toggling shadows changes every material's program, so recompile now
+    // rather than stall on the next frame.
     post.compileAsync().catch(() => {});
   });
 
@@ -814,7 +824,7 @@ function buildInterface(ctx) {
 
   /* --- game controller --------------------------------------------------- */
 
-  // Bound by position, so the same thumb does the same thing on any make; the
+  // Bound by position, so the same thumb does the same thing on any make. The
   // glyphs show each make's own labels. Keep in step with the legend in
   // src/ui/GamepadHud.js and the list in src/ui/HelpOverlay.js.
   // Three modes: orbiting a body, flight, and menus (after Menu, or whenever a
@@ -970,7 +980,7 @@ function buildInterface(ctx) {
     focusNav.release();
   }
 
-  /** Controller vs mouse/keyboard/touch; the controller adds its legend and a heavier focus ring (style.css). */
+  /** Controller vs mouse/keyboard/touch. The controller adds its legend and a heavier focus ring (style.css). */
   function setPadActive(active) {
     if (active === state.padActive) return;
     state.padActive = active;
@@ -994,7 +1004,7 @@ function buildInterface(ctx) {
     window.addEventListener(type, pointerUsed, { capture: true, passive: true });
   }
 
-  /** The legend for what the controller is doing now; it only changes when that does. */
+  /** The legend for what the controller is doing now. It only changes when that does. */
   function showPadLegend() {
     let context = state.flying ? 'flight' : 'orbit';
     // An open menu or panel explains itself.
@@ -1006,7 +1016,7 @@ function buildInterface(ctx) {
 
   async function padFullscreen() {
     const result = await toggleFullscreen({ onPendingEnd: () => padHud.clearNotice() });
-    // A controller's press is not enough for the browser; a key or a click is.
+    // A controller's press is not enough for the browser, but a key or a click is.
     if (result === 'pending') padHud.notice('Press any key or click to go full screen', 10_000);
     else if (result === 'unsupported') padHud.notice('Full screen is not available in this browser');
   }
@@ -1019,7 +1029,7 @@ function buildInterface(ctx) {
 
   window.addEventListener('keydown', (event) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
-    // In a text field every key is typing - except Escape, which still closes things.
+    // In a text field every key is typing except Escape, which still closes things.
     if (isTypingTarget(event.target) && event.code !== 'Escape') return;
 
     // The controls dialog is modal: while it is up, only the keys that close it count.
@@ -1068,7 +1078,7 @@ function buildInterface(ctx) {
   return {
     state, stats, tooltip, timeBar, infoPanel, flightHud, bodyPicker, markers, vr, gamepad,
     selectBody, showOverview, explorer, setFlight, hideTooltip, welcome, updateGamepad, showsHostRings,
-    reduceMotion,
+    reduceMotion, coversScene,
   };
 }
 
@@ -1081,6 +1091,7 @@ function startLoop(ctx) {
   let sinceUiUpdate = 0;
   let sinceStats = 0;
   let frames = 0;
+  let wasImmersive = false;
 
   renderer.setAnimationLoop(() => {
     // Clamp so returning to a backgrounded tab does not jump the simulation
@@ -1093,21 +1104,29 @@ function startLoop(ctx) {
     // The interval that just ended, which covers the previous frame's work.
     viewport.sample(rawDelta * 1000);
 
+    // In a headset the viewer's head is the camera, inside a rig that the VR
+    // controls move. camera.position is then relative to that rig.
+    const immersive = vr.presenting;
+    // VR never draws through the composer. See Post#releaseTargets.
+    if (immersive && !wasImmersive) post.releaseTargets();
+    wasImmersive = immersive;
+    // Read before this frame writes to the page. Read after, it would make the
+    // browser lay the page out again in the middle of the frame.
+    const width = immersive ? 0 : viewport.width;
+    const height = immersive ? 0 : viewport.height;
+
     clock.advance(dt);
     system.update(clock.days);
     belts.update(clock.days);
     visitor.update(dt);
     ui.updateGamepad(dt);
 
-    // In a headset the viewer's head is the camera, and it sits inside a rig
-    // that the VR controls move; camera.position is then relative to that rig.
-    const immersive = vr.presenting;
     if (immersive) {
       vr.update(dt);
     } else if (ui.state.flying) {
       flight.update(dt);
       director.fitClippingToSurroundings();
-      ui.flightHud.update(viewport.width, viewport.height);
+      ui.flightHud.update(width, height);
     } else {
       director.update(dt);
       picker.update();
@@ -1118,25 +1137,35 @@ function startLoop(ctx) {
       // The camera has moved this frame, but its matrices are only brought up
       // to date when it renders. Labels are placed from them.
       camera.updateMatrixWorld();
-      ui.markers.update(viewport.width, viewport.height);
+      ui.markers.update(width, height);
     }
     hostRings.setShown(ui.showsHostRings());
     hostRings.update(dt, { instant: ui.reduceMotion() });
-    // A headset is drawn in full detail throughout.
-    system.updateDetail(immersive ? null : camera.position, pixelScale(viewport, camera));
+    const viewer = immersive ? vr.viewerPosition : camera.position;
+    const scale = immersive ? vr.pixelScale : pixelScale(height * viewport.pixelRatio, camera);
+    system.updateDetail(viewer, scale);
+    visitor.updateDetail(viewer, scale);
     // An upload's cost lands in the next interval, and is not the resolution's fault.
     if (assets.pumpUploads()) viewport.discardNextSample();
-    post.render(dt);
+    // The star-systems atlas and the controls darken and blur the whole view,
+    // so the scene isn't drawn while they're open. That leaves a phone's GPU
+    // free for the blur and the page free to scroll. Those frames say nothing
+    // about the resolution either, so they aren't sampled.
+    if (!immersive && ui.coversScene()) viewport.discardNextSample();
+    else post.render(dt);
 
     // Readouts update four times a second to keep text layout off the critical
     // path, except during a jump through time, when the date should visibly spin.
+    // Skipped in VR, where the page can't be seen and the panel shows the date.
     frames++;
     sinceUiUpdate += dt;
     sinceStats += dt;
-    if (clock.isTravelling) ui.timeBar.tick();
+    if (clock.isTravelling && !immersive) ui.timeBar.tick();
     if (sinceUiUpdate > 0.25) {
-      ui.timeBar.tick();
-      ui.infoPanel.updateLive(clock.days);
+      if (!immersive) {
+        ui.timeBar.tick();
+        ui.infoPanel.updateLive(clock.days);
+      }
       const settled = immersive ? vr.focus : !director.isTransitioning && director.focus;
       if (settled) system.focusShadows(settled);
       sinceUiUpdate = 0;
@@ -1156,9 +1185,9 @@ function startLoop(ctx) {
   });
 }
 
-/** Drawing-buffer pixels per scene unit, one unit in front of the camera. */
-function pixelScale(viewport, camera) {
-  return (viewport.height * viewport.pixelRatio) / 2 / Math.tan((camera.fov * Math.PI) / 360);
+/** Pixels per scene unit, one unit in front of the camera, in a drawing buffer `height` pixels tall. */
+function pixelScale(height, camera) {
+  return height / 2 / Math.tan((camera.fov * Math.PI) / 360);
 }
 
 /**
@@ -1171,18 +1200,19 @@ async function buildVisitor(assets, scene, system) {
   scene.add(group);
 
   const meshes = [];
+  const holder = new THREE.Group();
   try {
     const model = (await assets.model('ufo')).clone(true);
     const box = new THREE.Box3().setFromObject(model);
     const size = box.getSize(new THREE.Vector3());
     const centre = box.getCenter(new THREE.Vector3());
     model.position.sub(centre);
-    const holder = new THREE.Group();
     holder.add(model);
     holder.scale.setScalar(3.2 / Math.max(size.x, size.y, size.z));
     model.traverse((child) => {
       if (!child.isMesh) return;
       child.userData.bodyId = VISITOR_ID;
+      child.raycast = raycastBounds;
       meshes.push(child);
     });
     group.add(holder);
@@ -1235,6 +1265,11 @@ async function buildVisitor(assets, scene, system) {
       group.position.copy(moon.group.position).add(offset);
       group.rotation.set(Math.sin(clock * 0.9) * 0.12, clock * 0.8, Math.cos(clock * 0.7) * 0.1);
     },
+    /** Hidden while it's only a speck, like Phobos and Deimos in SolarSystem#updateDetail. */
+    updateDetail(viewer, pixelScale) {
+      const apparent = (view.radius / Math.max(viewer.distanceTo(group.position), 1e-6)) * pixelScale;
+      holder.visible = modelShown(apparent, holder.visible);
+    },
   };
 }
 
@@ -1250,7 +1285,7 @@ function brandMark() {
 
 function initialBodyId(catalogue) {
   const params = new URLSearchParams(window.location.search);
-  // ?planet= was the old parameter; keep old links working.
+  // ?planet= was the old parameter. Keep old links working.
   const requested = params.get('body') ?? params.get('planet');
   return requested && catalogue.byId.has(requested) ? requested : catalogue.isExoplanet ? catalogue.starId : 'earth';
 }

@@ -2,11 +2,11 @@
  * Measured dust around other stars: debris belts (rubble left over from
  * forming planets, ground to dust by collisions) and the gapped disks of stars
  * still forming them. Only disks whose edges have been resolved, mostly by
- * ALMA, by NASA archive host name. Radii are in AU as published; where a paper
+ * ALMA, by NASA archive host name. Radii are in AU as published. Where a paper
  * used a slightly different distance to the star, its radii are kept as given.
  *
  * Each belt: [inner AU, outer AU]. `dust` is the scattered-light colour where
- * it has been measured (β Pic's dust is red, AU Mic's blue); otherwise neutral.
+ * it has been measured (β Pic's dust is red, AU Mic's blue), otherwise neutral.
  */
 const DISKS = {
   'bet Pic': {

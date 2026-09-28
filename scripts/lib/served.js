@@ -1,10 +1,10 @@
 /**
  * The files that are actually served. The Pages deploy and the desktop app
- * both stage exactly these (scripts/stage.js), and the desktop app in
- * development refuses to serve anything else, so a file that was never shipped
- * 404s locally rather than after a release.
+ * both stage exactly these (scripts/stage.js). The desktop app in development
+ * refuses to serve anything else, so a file that was never shipped 404s
+ * locally rather than after a release.
  *
- * Every tracked top-level entry must be in one list or the other;
+ * Every tracked top-level entry must be in one list or the other.
  * `npm run check` fails on one that is in neither.
  */
 

@@ -3,7 +3,7 @@
  *
  * The aim marker tracks the smoothed steering vector rather than the raw
  * pointer, so it shows what the camera is acting on. The draggable throttle and
- * hold-to-boost button are for touch screens; with a keyboard they mirror W, S
+ * hold-to-boost button are for touch screens. With a keyboard they mirror W, S
  * and Shift.
  *
  * The destination gets a bracket while in view, otherwise an arrow on a ring
@@ -240,7 +240,7 @@ export class FlightHud {
           bracket = true;
         }
       } else {
-        // Straight behind has no screen direction; call it "down".
+        // Straight behind has no screen direction, so call it "down".
         const angle = _local.x || _local.y ? Math.atan2(-_local.y, _local.x) : Math.PI / 2;
         const ring = Math.min(Math.min(width, height) * 0.3, 170);
         const px = width / 2 + Math.cos(angle) * ring;

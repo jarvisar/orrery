@@ -27,8 +27,8 @@ export function findChrome() {
 }
 
 /**
- * The Chrome to use, or exits: cleanly if none is installed, as a failure
- * under --strict (which CI passes, so a missing browser never passes silently).
+ * The Chrome to use. With none installed this exits cleanly, or fails under
+ * --strict (CI passes it, so a missing browser never passes silently).
  */
 export function requireChrome(name, strict) {
   const chrome = findChrome();
@@ -97,6 +97,6 @@ export async function launch(executablePath) {
 }
 
 export function waitForApp(page) {
-  // Software rendering on a CI runner is slow; only a genuine hang should hit this.
+  // Software rendering on a CI runner is slow, so only a real hang should hit this.
   return page.waitForFunction(() => !document.getElementById('loading'), { timeout: 180_000 });
 }

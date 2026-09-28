@@ -3,7 +3,7 @@
  * Builds the desktop app: stages the web app, then packages it.
  *
  *   npm run build                # this machine's platform
- *   npm run build -- --win       # --win, --linux, --mac; several at once where the host allows
+ *   npm run build -- --win       # --win, --linux or --mac, or several at once if the host allows
  *   npm run pack                 # unpacked only (dist/*-unpacked), for a quick look or a smoke test
  *
  * Windows builds on Windows, macOS on a Mac, Linux on Linux (or macOS). The
@@ -32,7 +32,7 @@ let platforms = Object.keys(PLATFORMS).filter((name) => args.includes(`--${name}
 if (!platforms.length) platforms = [HOST];
 
 // --version=x.y.z builds as another version, for testing an update against a
-// local feed; releases always take the root package.json's.
+// local feed. Releases always take the root package.json's.
 const version = args.find((arg) => arg.startsWith('--version='))?.slice(10) ??
   JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8')).version;
 

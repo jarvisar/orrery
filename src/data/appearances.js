@@ -3,7 +3,7 @@
  * archive name. Each replaces the guess from worlds.js with what was measured
  * (a colour, an albedo, a temperature, clouds, the lack of an atmosphere) and
  * says so, with the paper, in the info panel. Colours are chosen to match the
- * published description; only HD 189733 b's has been measured as a spectrum.
+ * published description. Only HD 189733 b's has been measured as a spectrum.
  */
 
 import { youngLook } from './worlds.js';

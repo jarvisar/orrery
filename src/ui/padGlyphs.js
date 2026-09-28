@@ -1,5 +1,5 @@
 /**
- * Controller buttons, drawn the way the controller in your hands prints them.
+ * Controller buttons, drawn the way the connected controller labels them.
  *
  * Bindings are by position (src/core/Gamepads.js), and every make labels the
  * same positions differently: the bottom face button is A on an Xbox pad, a

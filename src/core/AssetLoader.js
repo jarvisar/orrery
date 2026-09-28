@@ -1,26 +1,28 @@
 /**
  * Texture and model loading.
  *
- * 1. Priority. Only the Sun, the planets and the sky block the loading screen;
- *    moons, dwarf planets and bump maps stream in afterwards. Focusing a body
+ * 1. Priority. Only the Sun, the planets and the sky block the loading screen.
+ *    Moons, dwarf planets and bump maps stream in afterwards. Focusing a body
  *    promotes its textures to the front of the queue.
  *
  * 2. Placeholders. Every optional map slot starts with a 1x1 texture, so the
  *    material compiles once with its final features and swapping in the real
  *    image is a plain upload, never a shader recompile.
  *
- * 3. Paced GPU uploads. Images are decoded off the main thread and uploaded one
- *    per frame via `renderer.initTexture`; a material only gets its texture once
- *    uploaded, so no draw call uploads (or decodes) mid-frame.
+ * 3. Paced GPU uploads. Images are decoded off the main thread and uploaded a
+ *    few rows at a time each frame. A material only gets its texture once all
+ *    of it is on the GPU, so no draw call uploads (or decodes) mid-frame.
  *
  *    Images decode to ImageBitmaps, pre-flipped for WebGL. Uploading an <img>
  *    flips and converts every pixel on the main thread: 55-170ms for a 2k map
- *    in headless Chrome, against 5-13ms from an ImageBitmap.
+ *    in headless Chrome, against 5-13ms from an ImageBitmap. Even that drops
+ *    frames on a phone. With the CPU slowed to phone speed, a whole 2k map held
+ *    the main thread for 36ms, and 512KB strips of it took about 1ms each.
  *
  * 4. Released images. Once a map is on the GPU its decoded copy is freed: a 2k
  *    map is 8MB decoded, and all of them together hold on to over 250MB that a
  *    phone cannot spare. three would upload them again from that copy if the
- *    WebGL context were lost; they are fetched and decoded again instead.
+ *    WebGL context were lost. They are fetched and decoded again instead.
  */
 
 import * as THREE from 'three';
@@ -38,6 +40,17 @@ const COLOR_SLOTS = new Set(['map', 'emissiveMap']);
  * for colour and data maps alike).
  */
 const BITMAP_OPTIONS = { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' };
+
+/**
+ * Streamed uploads go in strips of about this many bytes, as many as fit in
+ * UPLOAD_MS of a frame and always at least one. Past about 1MB a strip costs
+ * more than its share, since the browser has to wait for its GPU process.
+ */
+const STRIP_BYTES = 512 * 1024;
+const UPLOAD_MS = 2;
+
+const _region = new THREE.Box2();
+const _offset = new THREE.Vector2();
 
 export class AssetLoader {
   /** @param {THREE.WebGLRenderer} renderer */
@@ -80,14 +93,15 @@ export class AssetLoader {
 
   /**
    * Requests a texture. Returns a promise that resolves with the texture, or
-   * with a placeholder if it fails - it never rejects.
+   * with a placeholder if it fails. It never rejects.
    *
    * @param {string} name   Manifest stem, e.g. 'europa_bump'.
    * @param {string} slot   Material slot it will occupy, which decides colour space.
    * @param {number} priority Lower numbers load first.
    * @param {object} [options]
    * @param {boolean} [options.keepImage] Keep the decoded image once uploaded,
-   *   for a texture three reads again on the CPU (a scene background).
+   *   for a texture that's read again later. The sky redraws its cube map from
+   *   it after a lost context.
    */
   texture(name, slot = 'map', priority = 10, { keepImage = false } = {}) {
     const known = this._requests.get(name);
@@ -128,7 +142,7 @@ export class AssetLoader {
    * @param {object} [options]
    * @param {number} [options.concurrency] How many decodes to keep in flight.
    * @param {number} [options.maxPriority] Only load jobs at or below this
-   *   priority; the rest stay queued.
+   *   priority. The rest stay queued.
    * @param {(loaded:number, total:number, name:string) => void} [options.onProgress]
    */
   async drain({ concurrency = 6, maxPriority = Infinity, onProgress } = {}) {
@@ -177,7 +191,7 @@ export class AssetLoader {
 
       if (name === 'saturn_rings') {
         // A 1-pixel-tall radial strip. Mipmaps stop the Cassini division
-        // crawling when seen near edge-on; clamping stops the outer edge
+        // crawling when seen near edge-on. Clamping stops the outer edge
         // bleeding into the inner.
         texture.wrapS = THREE.ClampToEdgeWrapping;
         texture.wrapT = THREE.ClampToEdgeWrapping;
@@ -190,7 +204,7 @@ export class AssetLoader {
 
       this.textures.set(name, texture);
       // Resolved by pumpUploads(), once the texture is on the GPU.
-      this._uploadQueue.push({ texture, resolve });
+      this._uploadQueue.push({ texture, resolve, row: 0 });
     } catch (err) {
       console.warn(`[assets] texture "${name}" failed to load`, err);
       const fallback = this.placeholderFor(slot);
@@ -216,7 +230,7 @@ export class AssetLoader {
     return texture;
   }
 
-  /** Loads a .glb; the promise is cached, so concurrent requests fetch once. */
+  /** Loads a .glb. The promise is cached, so concurrent requests fetch once. */
   model(name) {
     if (!this.models.has(name)) {
       this.models.set(name, this._gltfLoader.loadAsync(`${MODEL_DIR}${name}.glb`).then((gltf) => {
@@ -233,26 +247,83 @@ export class AssetLoader {
   }
 
   /**
-   * Uploads up to `budget` decoded textures and resolves their requests.
-   * Called once per frame with a budget of one. Returns how many it uploaded.
+   * Uploads decoded textures and resolves each request once its texture is
+   * fully on the GPU. Called once per frame, to upload a strip or a few.
+   * With `ms` set to Infinity it uploads everything queued in one go, which is
+   * quicker overall and is what the loading screen uses. Returns whether it
+   * uploaded anything.
+   *
+   * @param {number} [ms] How long to keep uploading strips for after the first.
    */
-  pumpUploads(budget = 1) {
-    let uploaded = 0;
-    for (let i = 0; i < budget && this._uploadQueue.length; i++, uploaded++) {
-      const { texture, resolve } = this._uploadQueue.shift();
+  pumpUploads(ms = UPLOAD_MS) {
+    const start = performance.now();
+    let uploaded = false;
+    while (this._uploadQueue.length) {
+      const job = this._uploadQueue[0];
+      let done = true;
       try {
-        this.renderer.initTexture(texture);
-        this._release(texture);
+        done = ms === Infinity ? this._uploadWhole(job) : this._uploadStrip(job);
       } catch {
-        // E.g. context loss; the first draw that uses it will upload it instead.
+        // E.g. context loss. The first draw that uses it uploads it whole instead.
+        job.texture.source.dataReady = true;
+        job.texture.needsUpdate = true;
       }
-      resolve(texture);
+      uploaded = true;
+      if (done) {
+        this._uploadQueue.shift();
+        job.resolve(job.texture);
+      }
+      if (performance.now() - start >= ms) break;
     }
     return uploaded;
   }
 
+  _uploadWhole({ texture }) {
+    this.renderer.initTexture(texture);
+    this._release(texture);
+    return true;
+  }
+
   /**
-   * Frees an uploaded texture's decoded image; see the note at the top of this
+   * Uploads the next strip of a texture's rows. Returns true once it's all
+   * there. The first call also sets aside empty storage, and three builds
+   * (empty) mipmaps for it then. The last strip builds them again from the image.
+   */
+  _uploadStrip(job) {
+    const { texture } = job;
+    const { image } = texture;
+    // Only an ImageBitmap can be read out in strips. A small one might as well go whole.
+    if (typeof ImageBitmap === 'undefined' || !(image instanceof ImageBitmap) ||
+        image.width * image.height * 4 <= STRIP_BYTES) return this._uploadWhole(job);
+
+    if (job.row === 0) {
+      texture.source.dataReady = false;
+      this.renderer.initTexture(texture);
+      texture.source.dataReady = true;
+      // What the strips are read from. It's never uploaded, so three copies
+      // from its image instead of from the GPU.
+      job.source = new THREE.Texture(image);
+      job.mipmaps = texture.generateMipmaps;
+    }
+
+    const { width, height } = image;
+    const top = job.row;
+    const bottom = Math.min(height, top + Math.max(1, Math.floor(STRIP_BYTES / (width * 4))));
+    const last = bottom === height;
+    // copyTextureToTexture rebuilds the mipmaps after every copy unless told not to.
+    texture.generateMipmaps = last && job.mipmaps;
+    _region.min.set(0, top);
+    _region.max.set(width, bottom);
+    this.renderer.copyTextureToTexture(job.source, texture, _region, _offset.set(0, top));
+    texture.generateMipmaps = job.mipmaps;
+    job.row = bottom;
+
+    if (last) this._release(texture);
+    return last;
+  }
+
+  /**
+   * Frees an uploaded texture's decoded image. See the note at the top of this
    * file. Its size stays behind, which is all three reads of it from then on.
    */
   _release(texture) {
@@ -265,9 +336,9 @@ export class AssetLoader {
 
   /**
    * A lost context has come back, and three will upload every texture again on
-   * first use. A released one is given blank storage of its size (dataReady)
-   * until its image has been fetched and decoded again, which the HTTP or
-   * offline cache usually has, and is then filled in place.
+   * first use. A released one gets blank storage of its size (dataReady) until
+   * its image is fetched and decoded again, and is then filled in place. The
+   * HTTP or offline cache usually has the image.
    */
   _restore() {
     for (const texture of this._released) {
@@ -280,7 +351,7 @@ export class AssetLoader {
         texture.image = fresh.image;
         texture.source.dataReady = true;
         texture.needsUpdate = true;
-        this._uploadQueue.push({ texture, resolve: () => {} });
+        this._uploadQueue.push({ texture, resolve: () => {}, row: 0 });
       }).catch((err) => console.warn(`[assets] texture "${texture.name}" failed to reload`, err));
     }
     this._released.clear();

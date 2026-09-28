@@ -1,6 +1,6 @@
 /**
  * Short clicks and blips for the headset. A controller answers a press with a
- * buzz; a bare hand has nothing to feel, so a sound is what says a press
+ * buzz. A bare hand has nothing to feel, so a sound tells you the press
  * landed. Each one is a tone or two synthesised on the spot: nothing to
  * download, and nothing that plays outside VR.
  *
@@ -12,7 +12,7 @@
 const SOUNDS = {
   // A panel button.
   press: [{ from: 1250, to: 1100, at: 0, length: 0.045, gain: 0.07 }],
-  // Something in the scene, chosen.
+  // Choosing something in the scene.
   select: [
     { from: 660, to: 660, at: 0, length: 0.07, gain: 0.06 },
     { from: 990, to: 990, at: 0.055, length: 0.09, gain: 0.05 },
@@ -37,7 +37,7 @@ export class VRSounds {
       this.context ??= new AudioContext();
       if (this.context.state === 'suspended') this.context.resume().catch(() => {});
     } catch {
-      // No audio is no loss; every sound here has a visible counterpart.
+      // Fine without audio, since every sound here has a visible counterpart.
       this.context = null;
     }
   }
@@ -57,7 +57,7 @@ export class VRSounds {
       oscillator.type = 'sine';
       oscillator.frequency.setValueAtTime(tone.from, at);
       if (tone.to !== tone.from) oscillator.frequency.exponentialRampToValueAtTime(tone.to, at + tone.length);
-      // A few milliseconds' attack, or the start clicks; then an exponential fall.
+      // Ramp up over a few milliseconds or the start clicks, then fall off exponentially.
       const gain = context.createGain();
       gain.gain.setValueAtTime(0.0001, at);
       gain.gain.exponentialRampToValueAtTime(tone.gain, at + 0.005);

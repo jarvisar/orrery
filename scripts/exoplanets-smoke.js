@@ -18,7 +18,7 @@ try {
   await page.setViewport({ width: 1440, height: 900 });
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  // Offline, repeatable test; live proxy integration is checked separately.
+  // Offline and repeatable. The live proxy is checked separately.
   await page.setRequestInterception(true);
   page.on('request', (r) => {
     if (!LIVE && r.url().includes('cors-proxy-phi.vercel.app')) return r.respond({ status: 503, contentType: 'application/json', body: '{}' });
@@ -147,7 +147,7 @@ try {
       await page.screenshot({ path: `node_modules/.cache/exoplanets/${name.replaceAll(' ', '-')}.png` });
     }
   }
-  // Follow the home navigation and ensure ordinary Solar System behavior returns.
+  // Follow the home navigation and make sure the normal Solar System comes back.
   await page.click('.systems-button');
   await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), page.click('.systems__home')]);
   await waitForApp(page);

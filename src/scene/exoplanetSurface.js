@@ -2,7 +2,7 @@
  * Materials for other stars' worlds, painted by worldTextures.js from the
  * descriptions in src/data/worlds.js. Planets use the same Phong material as
  * the Solar System's, reading bump, shine and heat from one packed data map
- * (see worldTextures.js for the channels); stars get their own photosphere.
+ * (see worldTextures.js for the channels). Stars get their own photosphere.
  */
 
 import * as THREE from 'three';
@@ -25,7 +25,7 @@ export function exoplanetSurface(material, look, maps, radius) {
     material.bumpScale = look.bump * radius * 0.65;
   }
   if (look.specular) {
-    // Seas and ice glint; land and cloud stay matte.
+    // Seas and ice glint. Land and cloud stay matte.
     material.specularMap = maps.data;
     material.shininess = 32;
     material.specular.set(0x2a2a2a);
@@ -59,7 +59,7 @@ export function exoplanetSurface(material, look, maps, radius) {
 
 /**
  * A star's colour as drawn, in linear light. The Sun is graded warmer than a
- * pure blackbody (see sunSurface in shading.js); a Sun-like star gets the same
+ * pure blackbody (see sunSurface in shading.js). A Sun-like star gets the same
  * grade so it matches, fading out toward hotter stars (pure blue-white) and
  * cooler ones (pure orange).
  */
@@ -89,7 +89,7 @@ const PLAIN = (() => {
  * cooler gas. Taking Planck's law at red, green and blue wavelengths gives
  * both the darkening (about a third of the centre's brightness at the Sun's
  * limb, as observed) and the reddening, weaker for hotter stars. Granulation,
- * spots and faculae come from the baked data map; spots are darkened by the
+ * spots and faculae come from the baked data map. Spots are darkened by the
  * blackbody ratio at their lower temperature.
  *
  * @param {object} look From starLook() in src/data/worlds.js.

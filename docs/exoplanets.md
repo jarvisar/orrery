@@ -15,7 +15,7 @@ Planet and star data comes from the [NASA Exoplanet Archive](https://exoplanetar
 
 Binary and multiple star systems use data from the [Open Exoplanet Catalogue](https://github.com/OpenExoplanetCatalogue/open_exoplanet_catalogue) (MIT license). Only planets that are in the NASA data are shown, and NASA's count of stars in each system is the one used. If the catalogue lists more stars than NASA (usually a brown dwarf that NASA counts as a planet), its data isn't used for that system.
 
-Companion star masses that aren't reported are estimated from temperature or spectral type using the main-sequence table from [Pecaut & Mamajek (2013)](https://www.pas.rochester.edu/~emamajek/EEM_dwarf_UBVIJHK_colors_Teff.txt). White dwarfs use a typical 0.6 M☉. Giant stars aren't estimated.
+Companion star masses that aren't reported are estimated from temperature or spectral type using the main-sequence table from [Pecaut & Mamajek (2013)](https://www.pas.rochester.edu/~emamajek/EEM_dwarf_UBVIJHK_colors_Teff.txt). White dwarfs use a typical 0.6 solar masses. Giant stars aren't estimated.
 
 `scripts/update-stellar-systems.js` has a short list of corrections for known mistakes in the catalogue, like a period entered in years instead of days. Each one only applies while the catalogue still has the wrong value.
 
@@ -32,7 +32,7 @@ Both scripts check the new data before saving it. If the download fails, the dat
 
 The deploy workflow runs both scripts on every push to `main` and every Monday. The desktop app includes whichever files are committed, so update them before a release.
 
-The site checks NASA for new planets when its copy is more than a week old, or when you click **Refresh from NASA**. NASA's archive doesn't allow requests from other websites, so these go through my [CORS proxy](https://github.com/jarvisar/cors-proxy) (`PROXY_URL` in `src/core/ExoplanetCatalogue.js`). The planet names are downloaded first, then the rest of the data in pages of 700. If any page fails or doesn't match, the refresh is canceled and the saved data is kept. Updated data is saved in IndexedDB for offline use. Binary star data is only updated with each release.
+The site checks NASA for new planets when its copy is more than a week old, or when you click `Refresh from NASA`. NASA's archive doesn't allow requests from other websites, so these go through my [CORS proxy](https://github.com/jarvisar/cors-proxy) (`PROXY_URL` in `src/core/ExoplanetCatalogue.js`). The planet names are downloaded first, then the rest of the data in pages of 700. If any page fails or doesn't match, the refresh is canceled and the saved data is kept. Updated data is saved in IndexedDB for offline use. Binary star data is only updated with each release.
 
 ## How Systems Are Modeled
 
@@ -55,7 +55,7 @@ Every estimate is labeled in the info panel, along with the reported values, err
 Very few exoplanets have been seen as more than a dot, so their appearance is a best guess from what has been measured: size, mass and how much light each planet gets. `src/data/worlds.js` makes the guess, and the info panel shows the reasoning behind it ("Drawn as").
 
 - Each planet's equilibrium temperature is estimated from its star's luminosity and its orbit, averaged over an eccentric orbit. It is shown as "Model temperature".
-- Planets are sorted by size: rocky below 1.6 R⊕, then sub-Neptunes, Neptunes and giants. Density is used when both mass and radius are measured. Planets with only a mass limit use it to pick a kind, although their drawn size stays a placeholder.
+- Planets are sorted by size: rocky below 1.6 Earth radii, then sub-Neptunes, Neptunes and giants. Density is used when both mass and radius are measured. Planets with only a mass limit use it to pick a kind, although their drawn size stays a placeholder.
 - Giant planets follow the classes of [Sudarsky et al. (2003)](https://doi.org/10.1086/374331):
   - ammonia clouds below about 150 K
   - white water clouds up to 350 K
@@ -74,12 +74,12 @@ Very few exoplanets have been seen as more than a dot, so their appearance is a 
   - A tidally locked temperate planet around a red dwarf is drawn as an "eyeball" world: frozen except under its star.
 - Planets close enough to their star are drawn tidally locked. Hot ones have a day side hotter than their night side, following [Cowan & Agol (2011)](https://doi.org/10.1088/0004-637X/729/1/54), with the hottest point a little east of noon.
 - About 40% of cold giants get illustrative rings, and the info panel says so. No ring has been detected around an exoplanet.
-- Stars are colored by temperature and darken toward the edge by the Eddington–Barbier relation. Granules are larger on giants, and spots are more common on cooler stars. White dwarfs, pulsars and brown dwarfs are drawn as what they are.
+- Stars are colored by temperature and darken toward the edge by the Eddington-Barbier relation. Granules are larger on giants, and spots are more common on cooler stars. White dwarfs, pulsars and brown dwarfs are drawn as what they are.
 - Light from another star is shifted halfway to white, as eyes adapt, so an M dwarf's planets are not all orange.
 
 About 25 planets have been observed well enough to override the guess, such as the deep blue of HD 189733 b, the bare rock of TRAPPIST-1 b and the dust of the HR 8799 planets. They are listed with their papers in `src/data/appearances.js`.
 
-Dust disks are shown only where their edges have been measured, around 14 stars including β Pictoris, ε Eridani, HR 8799, PDS 70 and TWA 7. They are listed with their papers in `src/data/disks.js`. The **Belts** setting shows or hides them.
+Dust disks are shown only where their edges have been measured, around 14 stars including Beta Pictoris, Epsilon Eridani, HR 8799, PDS 70 and TWA 7. They are listed with their papers in `src/data/disks.js`. The `Belts` setting shows or hides them.
 
 Nothing is downloaded for any of this. When a system opens, `src/scene/worldTextures.js` paints each planet's and star's maps on the GPU from 3D noise. The maps are 2048 pixels wide, 1024 on phones and 512 without a GPU. Planets then use the same materials, lights, clouds and atmosphere glow as the solar system.
 

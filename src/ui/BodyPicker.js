@@ -1,7 +1,7 @@
 /**
  * The body selector: a custom list box rather than a `<select>`, since browsers
- * honour `hidden` on options inconsistently. Bodies are grouped by kind, and a
- * group is hidden whole when its category is switched off.
+ * honour `hidden` on options inconsistently. Bodies are grouped by kind, and the
+ * whole group is hidden when its category is switched off.
  */
 
 import { el, icon } from './dom.js';
@@ -153,9 +153,9 @@ export class BodyPicker {
   }
 
   /**
-   * Shows `id` as the current body. `display` names things the catalogue does
-   * not - the whole-system view, or something that is not a body at all.
-   * `display.option` picks which overview option is marked; '@overview' if not given.
+   * Shows `id` as the current body. `display` names things the catalogue doesn't
+   * have, like the whole-system view or something that isn't a body at all.
+   * `display.option` picks which overview option is marked, '@overview' if not given.
    */
   select(id, display = id ? this.catalogue.byId.get(id) : null) {
     this._options.get(this.selectedId)?.setAttribute('aria-selected', 'false');
@@ -221,7 +221,7 @@ export class BodyPicker {
       // shortcut pausing time.
       event.stopPropagation();
     } else if (/^[a-z]$/i.test(event.key)) {
-      // Type-ahead, as a native list box has.
+      // Type-ahead, like a native list box.
       event.stopPropagation();
       const now = performance.now();
       this._typed = (now - this._typedAt < 700 ? this._typed : '') + event.key.toLowerCase();

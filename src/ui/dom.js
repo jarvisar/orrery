@@ -6,8 +6,8 @@
 
 /**
  * @param {string} tag
- * @param {object} [props] Attributes; `class`, `text`, `html` and `on*` handlers
- *   are treated specially, everything else is set as an attribute.
+ * @param {object} [props] Attributes. `class`, `text`, `html` and `on*` handlers
+ *   are treated specially, and everything else is set as an attribute.
  * @param {Array<Node|string|null|undefined>} [children]
  */
 export function el(tag, props = {}, children = []) {

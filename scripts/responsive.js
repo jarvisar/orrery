@@ -4,18 +4,18 @@
  * layout that would get in their way, or on an accessibility violation.
  *
  * For every size, in the resting state and with each panel open:
- *   - nothing the interface draws runs off the screen;
- *   - the top bar, info panel and time bar never overlap one another;
- *   - an open menu or panel is not covered by anything else;
- *   - whatever scrolls inside an open panel gets at least 40% of it to be
- *     read in, rather than a sliver between a pinned header and footer;
+ *   - nothing the interface draws runs off the screen
+ *   - the top bar, info panel and time bar never overlap one another
+ *   - an open menu or panel is not covered by anything else
+ *   - whatever scrolls inside an open panel gets at least 40% of it, not a
+ *     sliver between a pinned header and footer
  *   - no panel scrolls sideways, no label wraps or is cut short, and no text is
- *     set below 10px;
- *   - text on the solid plates has at least 4.5:1 contrast (WCAG 1.4.3);
+ *     set below 10px
+ *   - text on the solid plates has at least 4.5:1 contrast (WCAG 1.4.3)
  *   - every control is at least 24px square (WCAG 2.5.8), and on touch
- *     screens the primary controls are the full 44px (WCAG 2.5.5);
+ *     screens the primary controls are the full 44px (WCAG 2.5.5)
  *   - Tab reaches the controls in order and every stop shows a focus ring,
- *     and inside a dialog no stop is hidden behind anything pinned (WCAG 2.4.11).
+ *     and inside a dialog no stop is hidden behind anything pinned (WCAG 2.4.11)
  * At one phone and one desktop size it also runs axe-core against WCAG 2.2 AA
  * with each panel open.
  *
@@ -35,9 +35,9 @@ const args = process.argv.slice(2);
 const STRICT = args.includes('--strict');
 const SHOTS = args.find((a) => a.startsWith('--shots='))?.slice(8);
 const ONLY = args.find((a) => a.startsWith('--only='))?.slice(7).split(',');
-/** The least share of an open panel that what scrolls inside it must get. */
+/** The smallest share of an open panel that its scrolling content must get. */
 const ROOM = Number(process.env.RESPONSIVE_ROOM) || 0.4;
-/** SwiftShader is single-threaded per page; a few pages at once is the sweet spot. */
+/** SwiftShader is single-threaded per page, so a few pages at once works best. */
 const CONCURRENCY = Number(process.env.RESPONSIVE_CONCURRENCY) || 3;
 
 const touch = { isMobile: true, hasTouch: true, deviceScaleFactor: 2 };
@@ -66,7 +66,7 @@ const SIZES = [
 /**
  * The states worth checking. Each opens something from rest, names the
  * surface that should then be on screen, and is closed again with Escape.
- * `ready` is what to wait for before looking; `keyboard` tabs through the
+ * `ready` is what to wait for before looking, and `keyboard` tabs through the
  * surface as well.
  */
 const STATES = [
@@ -170,7 +170,7 @@ async function checkSize(browser, size) {
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/${size.name}-${state.name}.png` });
 
     if (state.open) {
-      // The info panel toggles; everything else closes on Escape.
+      // The info panel toggles. Everything else closes on Escape.
       if (state.name === 'info') await page.$eval(state.open, (node) => node.click());
       else await page.keyboard.press('Escape');
       await settle(page);
@@ -389,7 +389,7 @@ function inspect({ surface, coarse, ROOM }) {
   }
 
   // 8. Targets are big enough to hit. Inline text links are exempt under
-  //    WCAG 2.5.8; the switch draws small but widens its hit area with ::before.
+  //    WCAG 2.5.8. The switch draws small but widens its hit area with ::before.
   const controls = document.querySelectorAll('button, input, select, a[href], [role="option"]');
   for (const node of controls) {
     if (!visible(node) || node.disabled) continue;
@@ -449,9 +449,10 @@ async function checkKeyboard(page) {
 }
 
 /**
- * Tabs forward through an open dialog, then back again (which is when a pinned
- * header can land over the stop just scrolled to): every stop inside it must
- * show a ring, be on screen, and have nothing drawn over it (WCAG 2.4.11).
+ * Tabs forward through an open dialog, then back again, since going back is
+ * when a pinned header can land over the stop just scrolled to. Every stop
+ * inside it must show a ring, be on screen, and have nothing drawn over it
+ * (WCAG 2.4.11).
  */
 async function checkDialogKeyboard(page, surface) {
   const problems = new Set();
@@ -484,7 +485,7 @@ async function checkDialogKeyboard(page, surface) {
     if (back) await page.keyboard.down('Shift');
     await page.keyboard.press('Tab');
     if (back) await page.keyboard.up('Shift');
-    // Focusing scrolls; let it land.
+    // Focusing scrolls, so let it land.
     await sleep(60);
     const stop = await look();
     if (!stop) continue;
@@ -502,7 +503,7 @@ async function runAxe() {
   const result = await window.axe.run(document, {
     runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] },
     // A 3D scene has no background colour axe can read, so it cannot judge
-    // contrast over it; the plates' own contrast is set in style.css.
+    // contrast over it. The plates' own contrast is set in style.css.
     rules: { 'color-contrast': { enabled: false } },
   });
   return result.violations.flatMap((v) =>

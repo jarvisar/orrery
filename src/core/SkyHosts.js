@@ -2,9 +2,9 @@
  * The stars in the sky that have planets, so a click on one can take you there.
  *
  * public/data/sky-hosts.json lists the exoplanet hosts bright enough to see
- * (the importer writes it; see skyHosts() in src/data/exoplanets.js). Each is
- * tied to the star the sky actually draws for it, and one the sky does not
- * draw is left out, so every target is a point you can see.
+ * (the importer writes it with skyHosts() in src/data/exoplanets.js). Each is
+ * tied to the star the sky actually draws for it. Hosts the sky does not draw
+ * are left out, so every target is a point you can see.
  *
  * Stars are drawn at infinity, where a raycast cannot reach them, so they are
  * picked by angle: the host nearest the pointer's direction, within a few
@@ -16,8 +16,9 @@ import { equatorialToScene } from '../sim/frames.js';
 
 /**
  * How far a host's archive position may sit from the star drawn for it, in
- * radians: 3′. The two catalogues' epochs differ by up to a few decades of
- * proper motion, which for these stars is at most about a minute of arc.
+ * radians (3 arcminutes). The two catalogues' epochs are up to a few decades
+ * apart, and over that time these stars' proper motion is at most about an
+ * arcminute.
  */
 const MATCH_ANGLE = (3 / 60) * (Math.PI / 180);
 /** How far their magnitudes may differ: the drawn one can be a blended pair. */
@@ -94,13 +95,13 @@ export function hostSummary({ planets, distance }) {
  */
 export function matchDrawnStars(hosts, { positions, magnitudes }) {
   // Slices of equal height in y are also equal in area, so each holds about
-  // the same share of the sky's stars; a host need only search its own.
+  // the same share of the sky's stars. A host only has to search its own.
   const bands = Array.from({ length: BANDS }, () => []);
   for (let i = 0; i < magnitudes.length; i++) bands[band(positions[i * 3 + 1])].push(i);
 
   const matched = [];
   const place = { x: 0, y: 0, z: 0 };
-  // Stored directions are quantized, so a little off unit length; this margin covers it.
+  // Stored directions are quantized, so a little off unit length. This margin covers it.
   const reach = 2 * MATCH_ANGLE;
   for (const [name, ra, dec, magnitude, planets, distance] of hosts) {
     equatorialToScene(ra, dec, place);

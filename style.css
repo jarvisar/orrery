@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Orrery — interface styles
+   Orrery interface styles
 
    Styled as an instrument: hairline rules, graduated scales, dotted leaders,
    near-square plates. The one accent marks only what is live or chosen.
@@ -7,7 +7,7 @@
    ========================================================================== */
 
 /* Self-hosted, so the page loads nothing from a third party. Inter for the
-   interface; Jost for names, titles and headline figures. */
+   interface and Jost for names, titles and headline figures. */
 @font-face {
   font-family: "Inter";
   src: url("public/fonts/inter.woff2") format("woff2");
@@ -104,8 +104,8 @@ sup {
 .ui > * { pointer-events: auto; }
 .ui[hidden] { display: none; }
 
-/* The top and bottom controls sit straight on the scene, not on plates; a
-   soft fall-off at each edge is all they need to stay legible. */
+/* The top and bottom controls sit straight on the scene, not on plates. A
+   soft fade at each edge is all they need to stay legible. */
 .ui::before {
   content: "";
   position: fixed;
@@ -183,7 +183,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 
 /* A controller moves focus from across the room, so its ring is heavier and
    glows. Matched on :focus, since focus moved by script is not always
-   :focus-visible; any other input takes the class away again. */
+   :focus-visible. Any other input takes the class away again. */
 .is-gamepad :where(button, a, input, [tabindex]):focus {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -289,7 +289,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
   font-weight: 500;
   letter-spacing: 0.5em;
   text-transform: uppercase;
-  /* Letter-spacing trails the last glyph; this keeps the word optically centred. */
+  /* Letter-spacing trails the last glyph. This keeps the word optically centred. */
   margin-right: -0.5em;
 }
 .loading__track {
@@ -337,7 +337,8 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 
 /* Star-system atlas. */
 .systems-button { gap: 8px; white-space: nowrap; }
-/* Only there when a headset is, and then named: in a headset's browser it is the way in. */
+/* Only shown when a headset is available. It has a label because in a
+   headset's browser it's the way in. */
 .topbar__vr { padding: 0 10px 0 8px; gap: 8px; }
 .systems {
   color: var(--text); background: var(--plate-solid);
@@ -413,9 +414,9 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
   .systems__home > span:last-child { display: none; }
 }
 /* A short screen (a phone on its side, a laptop window, a zoomed page) cannot
-   spare a fixed header and footer: pinned, they left the list a sliver. The
-   whole atlas scrolls instead, and only the title, the search and the way out
-   stay put, in one compact bar. */
+   spare a fixed header and footer. Pinned, they left the list only a sliver.
+   So the whole atlas scrolls, and only the title, the search and the close
+   button stay put, in one compact bar. */
 @media (max-height: 700px) {
   .systems { height: calc(100dvh - 16px); scroll-padding-top: 84px; }
   .systems[open] { display: block; overflow-y: auto; overscroll-behavior: contain; }
@@ -432,7 +433,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
   .systems h2 { font-size: 22px; line-height: 1.15; white-space: nowrap; }
   .systems__count { margin: 2px 0 0; white-space: nowrap; }
   .systems__tools { grid-area: tools; padding: 0; border: 0; flex-wrap: wrap; gap: 8px; }
-  /* The search takes the spare width; the menu fills a line only when it wraps onto its own. */
+  /* The search takes the spare width, and the menu fills a line only when it wraps onto its own. */
   .systems__tools input { flex: 1000 1 150px; }
   .systems__tools select { flex: 1 0 auto; width: auto; }
   .systems__scroll { overflow: visible; padding: 14px 16px; }
@@ -443,7 +444,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 @media (max-height: 700px) and (min-width: 560px) {
   .systems__list { grid-template-columns: 1fr 1fr; }
 }
-/* Too narrow for all of it on one line: the title and the way out, then the tools. */
+/* Too narrow for all of it on one line: the title and the close button, then the tools. */
 @media (max-height: 700px) and (max-width: 639px) {
   .systems { scroll-padding-top: 180px; }
   .systems__top { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "title close" "tools tools"; }
@@ -1020,7 +1021,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 }
 .hud__autopilot { width: 100%; border-top: 1px solid var(--line); border-radius: 0; }
 
-/* The destination, bracketed when it is in view... */
+/* The destination, bracketed when it is in view. */
 .hud__bracket {
   position: absolute;
   left: 0;
@@ -1043,7 +1044,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
   white-space: nowrap;
 }
-/* ...and otherwise an arrow round the reticle, pointing the way to turn. */
+/* When the destination is out of view, an arrow round the reticle points the way to turn. */
 .hud__pointer {
   position: absolute;
   left: 0;
@@ -1135,7 +1136,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 }
 /* Without motion there is no fade, so the hint just stays. */
 body.reduce-motion .hud.is-active .hud__hint { animation: none; opacity: 1; }
-/* The mouse's instructions, while a controller is flying; its legend says the rest. */
+/* Hide the mouse's instructions while a controller is flying. Its legend says the rest. */
 .is-gamepad .hud__hint,
 .is-gamepad .hud__prompt { display: none; }
 @media (prefers-reduced-motion: reduce) {
@@ -1159,7 +1160,7 @@ body.reduce-motion .hud.is-active .hud__hint { animation: none; opacity: 1; }
   display: flex;
   align-items: center;
   gap: 7px;
-  /* The transform positions the marker; this keeps the dot on the body. */
+  /* The transform positions the marker, and the margin keeps the dot on the body. */
   margin: -9px 0 0 -9px;
   padding: 3px 8px 3px 3px;
   pointer-events: auto;
@@ -1187,7 +1188,7 @@ body.reduce-motion .hud.is-active .hud__hint { animation: none; opacity: 1; }
 }
 .marker:hover .marker__label { color: var(--text); }
 
-/* Decluttered: the dot still marks and still clicks, the name steps aside. */
+/* Decluttered: the name is hidden, but the dot still marks the body and can be clicked. */
 .marker.is-crowded .marker__label { display: none; }
 .marker.is-crowded:hover .marker__label { display: inline; }
 
@@ -1285,7 +1286,7 @@ body.reduce-motion .hud.is-active .hud__hint { animation: none; opacity: 1; }
   border: 1px solid var(--line-strong);
   transition: border-color 0.18s var(--ease), background 0.18s var(--ease);
 }
-/* An 18px switch is too small a target on its own; this widens the hit area. */
+/* An 18px switch is too small a target on its own, so this widens the hit area. */
 .switch::before { content: ""; position: absolute; inset: -13px -8px; }
 .switch::after {
   content: "";
@@ -1397,7 +1398,7 @@ input[type="range"]::-moz-range-thumb {
   scrollbar-width: thin;
 }
 .help__body > div { break-inside: avoid; }
-/* Margins vanish at a column break; padding does not, so both columns start level. */
+/* Margins vanish at a column break but padding does not, so both columns start level. */
 .help__body .section-title { margin: 0; padding: 14px 0 6px; }
 .keyrow {
   display: flex;
@@ -1425,7 +1426,7 @@ kbd {
 }
 
 /* Controller buttons: face buttons and sticks are round, as they are in the
-   hand; the D-pad is drawn rather than spelled. See src/ui/padGlyphs.js. */
+   hand. The D-pad is drawn rather than spelled. See src/ui/padGlyphs.js. */
 .pad { display: inline-flex; align-items: center; justify-content: center; gap: 0; }
 .pad--face,
 .pad--stick {
@@ -1610,8 +1611,8 @@ kbd {
 .toast__install:hover { color: var(--sun); }
 .toast__install svg { width: 15px; height: 15px; }
 .toast__close svg { width: 16px; height: 16px; }
-/* On a phone both share the top of the screen with the menus; a menu, once
-   opened, is what is being read, so they step aside until it closes. */
+/* On a phone both share the top of the screen with the menus. An open menu is
+   what is being read, so they hide until it closes. */
 body:has(.picker.is-open, .timebar.is-open) :is(.toast, .hint) {
   opacity: 0;
   visibility: hidden;
@@ -1619,7 +1620,7 @@ body:has(.picker.is-open, .timebar.is-open) :is(.toast, .hint) {
 
 /* --- controller legend --------------------------------------------------- */
 
-/* Which buttons do what, down the right-hand side under the top bar: words on
+/* Which buttons do what, down the right-hand side under the top bar. Words on
    the sky like the first-visit hint, each line ending in its buttons. */
 .padbar {
   position: fixed;
@@ -1660,7 +1661,7 @@ body:has(.picker.is-open, .timebar.is-open) :is(.toast, .hint) {
   min-height: 24px;
   white-space: nowrap;
 }
-/* Over the scene there is no plate behind them; the glyphs bring their own. */
+/* Over the scene there is no plate behind them, so the glyphs bring their own. */
 .padbar .pad { background: rgba(8, 9, 13, 0.55); text-shadow: none; }
 .padbar .pad--dpad { background: none; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.9)); }
 /* In flight the right-hand side is the destination's, so the legend takes
@@ -1682,8 +1683,8 @@ body:has(.picker.is-open, .timebar.is-open) :is(.toast, .hint) {
 .padbar.is-flight .padbar__title { flex-basis: 100%; text-align: center; }
 /* Buttons first when they read across in a row. */
 .padbar.is-flight .padbar__row { flex-direction: row-reverse; gap: 7px; }
-/* A phone on its side has the destination panel just below: one line of the
-   essentials, and the rest are in the controls list. */
+/* A phone on its side has the destination panel just below, so only one line
+   of the essentials shows. The rest are in the controls list. */
 @media (max-height: 500px) {
   .padbar.is-flight { max-width: calc(100vw - 2 * var(--edge)); flex-wrap: nowrap; }
   .padbar.is-flight .padbar__title,
@@ -1733,7 +1734,7 @@ body:has(.picker.is-open, .timebar.is-open) :is(.toast, .hint) {
   .info__kind { padding: 4px 16px 12px; }
   .info__title { font-size: 24px; }
   .info__body { padding: 0 16px 14px; }
-  /* Down here the panel opens upward, as a sheet: the chevron says which way. */
+  /* Down here the panel opens upward as a sheet, and the chevron shows which way. */
   .info.is-collapsed .info__toggle svg { transform: rotate(180deg); }
   .topbar__vr-label { display: none; }
   .topbar__vr { padding: 0; width: 36px; }
@@ -1767,19 +1768,19 @@ body:has(.picker.is-open, .timebar.is-open) :is(.toast, .hint) {
   .hud__hint { white-space: normal; }
   .padbar { top: calc(max(var(--edge), env(safe-area-inset-top)) + 52px); }
   .padbar.is-flight { top: calc(max(var(--edge), env(safe-area-inset-top)) + 52px); }
-  /* Clear of the reticle; the info panel that lives down here is hidden in flight. */
+  /* Clear of the reticle. The info panel that lives down here is hidden in flight. */
   .hud__dest { top: auto; bottom: 76px; transform: none; }
 }
 
 @media (max-width: 420px) {
   .timebar__date-sub { display: none; }
-  /* The date on a line of its own; the time and Go share the next. */
+  /* The date on a line of its own, and the time and Go share the next. */
   .when__form { flex-wrap: wrap; }
   .when__input { flex: 1 1 100%; }
   .when__input--time { flex: 1 1 auto; }
 }
-/* Four touch targets and the body's name are all a phone's top bar can hold;
-   Controls moves into Settings (and ? still opens it). */
+/* Four touch targets and the body's name are all a phone's top bar can hold,
+   so Controls moves into Settings (and ? still opens it). */
 @media (max-width: 400px) {
   .topbar__help { display: none; }
   .drawer__controls { display: inline-flex; }
@@ -1794,8 +1795,8 @@ body:has(.picker.is-open, .timebar.is-open) :is(.toast, .hint) {
   .picker__label { font-size: 15px; }
 }
 
-/* Fingers are blunter than pointers: on a touch screen every control gets the
-   full 44px (WCAG 2.5.5), whatever it draws. */
+/* Fingers are blunter than pointers, so on a touch screen every control gets
+   the full 44px (WCAG 2.5.5), whatever it draws. */
 @media (pointer: coarse) {
   .btn { min-height: 44px; min-width: 44px; }
   .hud__boost { display: inline-flex; height: 56px; }

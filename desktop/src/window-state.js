@@ -60,7 +60,7 @@ export function trackWindowState(win) {
   }
   win.webContents.on('zoom-changed', later);
   win.on('close', save);
-  /** `save` soon, after a burst of changes; `flush` now. */
+  /** `save` waits for a burst of changes to settle. `flush` saves now. */
   return { save: later, flush: save };
 }
 

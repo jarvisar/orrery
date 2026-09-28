@@ -13,7 +13,7 @@
  * Under the buttons, a few lines of text: the controls when a session starts,
  * then whatever is in focus.
  *
- * The header - the date, and what is being pointed at - changes several times
+ * The header (the date, and what is being pointed at) changes several times
  * a second while time runs, and the buttons hardly ever. So the header is a
  * strip of its own over the top of the panel, and a running clock uploads
  * only that strip rather than the whole panel.
@@ -45,7 +45,7 @@ const FOOT_HEIGHT = HEIGHT - PAD - FOOT_TOP;
 const SIDE_HEIGHT = (FOOT_HEIGHT - GRID_GAP) / 2;
 const TEXT_WIDTH = BUTTON_WIDTH * 3 + GRID_GAP * 2;
 
-/** Redraws are cheap but not free; the date only changes this often anyway. */
+/** Redraws are cheap but not free. The date only changes this often anyway. */
 const REDRAW_MS = 200;
 /** How long a pressed button stays lit: a fingertip gets no click, so this is the click. */
 const FLASH_MS = 180;
@@ -107,7 +107,7 @@ const BESIDE_PALM_M = 0.05;
 /**
  * How far the summoning hand can wander before the panel follows it, and how
  * quickly it then glides over, per second. Within that it holds still, so the
- * hand's tremor never becomes the panel's.
+ * hand's tremor does not shake the panel.
  */
 const PALM_SLACK_M = 0.1;
 const GLIDE_RATE = 14;
@@ -165,7 +165,7 @@ export class VRPanel {
     this._fonts = null;
   }
 
-  /** Floats it above a controller; see {@link VRPanel#follow}. */
+  /** Floats it above a controller. See {@link VRPanel#follow}. */
   attach(rig, holder) {
     rig.add(this.mesh);
     this.holder = holder;
@@ -247,7 +247,7 @@ export class VRPanel {
     this.holder = null;
     this._hover = null;
     this._armed = null;
-    // By input slot, so there can be gaps; forEach steps over them.
+    // Indexed by input slot, so there can be gaps. forEach skips them.
     this._cursors.forEach((cursor) => { cursor.visible = false; });
   }
 
@@ -328,8 +328,8 @@ export class VRPanel {
   /**
    * The ring under a fingertip as it comes in to press: it closes up as the
    * finger nears the face, and fills once it touches. `local` is in the
-   * panel's frame (see toLocal), or null to hide it; `approach` runs from 1,
-   * just come into range, to 0, touching.
+   * panel's frame (see toLocal), or null to hide it. `approach` runs from 1
+   * (just come into range) to 0 (touching).
    */
   setCursor(slot, local, approach = 1, touching = false) {
     let cursor = this._cursors[slot];
@@ -550,7 +550,7 @@ export class VRPanel {
 
 /**
  * The controls, for whichever is in use. The off hand holds the panel and
- * flies; its face buttons step between bodies, the other's pause and zoom out.
+ * flies. Its face buttons step between bodies, the other's pause and zoom out.
  * Short enough to set at full size: squeezed text is hard to read in a headset.
  */
 function legend({ hands, offHand }) {

@@ -1,15 +1,15 @@
 /**
- * The NASA exoplanet catalogue in the browser: the copy bundled with the site
- * or a newer one saved from an earlier refresh, whichever is newer, and a
- * refresh straight from the archive (through a CORS proxy) when it is stale or
- * asked for. Subscribers hear of every change of data or status.
+ * The NASA exoplanet catalogue in the browser. Uses the copy bundled with the
+ * site or one saved from an earlier refresh, whichever is newer, and refreshes
+ * straight from the archive (through a CORS proxy) when it's stale or when
+ * asked. Subscribers hear of every change of data or status.
  */
 
 import {
   CATALOGUE_PATH, archiveQuery, hostQuery, NAME_QUERY, QUERY_URL, catalogueFromArchive, validateCatalogue, groupSystems,
 } from '../data/exoplanets.js';
 
-// jarvisar/cors-proxy accepts the full upstream URL in this header at /proxy.
+// jarvisar/cors-proxy accepts the full upstream URL in a Target-URL header at /proxy.
 export const PROXY_URL = 'https://cors-proxy-phi.vercel.app/proxy';
 /** The archive adds planets about weekly, and the deploy refreshes the bundled copy as often. */
 const MAX_AGE = 7 * 24 * 60 * 60 * 1000;
@@ -37,12 +37,16 @@ export class ExoplanetCatalogue {
     for (const fn of this.listeners) fn();
   }
 
+  /**
+   * Makes `data` the catalogue. Both callers have already passed it through
+   * validateCatalogue(), which on a phone takes about a tenth of a second.
+   */
   accept(data) {
-    this.data = validateCatalogue(data);
+    this.data = data;
     this.systems = groupSystems(data);
   }
 
-  /** The newer of the saved and bundled copies, or NASA's when there is neither. Shared by every caller; retried after a failure. */
+  /** The newer of the saved and bundled copies, or NASA's when there is neither. Shared by every caller and retried after a failure. */
   load() {
     return this._load ??= this._loadInitial().catch((error) => {
       this._load = null;
@@ -99,7 +103,7 @@ export class ExoplanetCatalogue {
     }
   }
 
-  /** Fetches the whole catalogue from NASA; concurrent calls share one refresh. Resolves to whether it worked. */
+  /** Fetches the whole catalogue from NASA. Concurrent calls share one refresh. Resolves to whether it worked. */
   refresh() {
     return this._refresh ??= this._refreshLive().finally(() => {
       this._refresh = null;
@@ -113,8 +117,8 @@ export class ExoplanetCatalogue {
     this.emit();
     try {
       const rows = [];
-      // NASA applies TOP before ORDER BY. First obtain its complete name order,
-      // then request bounded ranges without TOP, checking each page's membership.
+      // NASA applies TOP before ORDER BY. So first get every name in order, then
+      // request ranges by name without TOP and check each page has the right names.
       const names = (await this.request(NAME_QUERY)).map((row) => row?.pl_name);
       if (names.length < 1000 || names.length > 70000 || names.some((n) => typeof n !== 'string' || !n) ||
           new Set(names).size !== names.length) {
@@ -149,7 +153,7 @@ export class ExoplanetCatalogue {
     }
   }
 
-  /** One archive query, through the proxy; the rows it returns. */
+  /** Runs one archive query through the proxy and resolves to its rows. */
   async request(query) {
     const upstream = new URL(QUERY_URL);
     upstream.searchParams.set('query', query);

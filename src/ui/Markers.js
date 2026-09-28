@@ -14,7 +14,7 @@ import { smoothstep } from '../core/math.js';
 const HIDE_ABOVE = 7;
 const SHOW_BELOW = 2.5;
 
-/** Markers closer to the screen edge than this are dropped rather than clipped. */
+/** Markers more than this many pixels off screen are hidden. Ones within it still show, partly clipped. */
 const EDGE_PADDING = 8;
 
 /** Label box geometry, used for decluttering without touching the DOM. */

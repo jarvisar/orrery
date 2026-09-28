@@ -19,7 +19,7 @@ permissions:
 
 concurrency:
   group: desktop-${{ github.ref }}
-  # A newer push supersedes a build in progress; a release never is.
+  # A newer push cancels a build in progress, but a release build never is.
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
@@ -30,8 +30,8 @@ jobs:
       matrix:
         include:
           # gl: how the launch test gets WebGL. The Windows and Linux runners
-          # have no GPU, so SwiftShader; the Mac runner's virtual GPU does
-          # Metal, and SwiftShader will not start there.
+          # have no GPU, so they use SwiftShader. The Mac runner's virtual GPU
+          # does Metal, and SwiftShader will not start there.
           - name: Windows
             os: windows-latest
             platform: win
@@ -55,7 +55,7 @@ jobs:
           cache-dependency-path: desktop/package-lock.json
 
       - name: Check the site
-        # The same checks the Pages deploy runs; they need no install.
+        # The same checks the Pages deploy runs. They need no install.
         run: npm run check
 
       - name: Check the desktop app is in step with the site
@@ -68,7 +68,7 @@ jobs:
         run: npm run build --prefix desktop -- --${{ matrix.platform }}
         env:
           # All optional. Without them the Windows build is unsigned and the
-          # Mac build is ad-hoc signed; see desktop/README.md, "Signing".
+          # Mac build is ad-hoc signed (see "Signing" in desktop/README.md).
           CSC_LINK: ${{ matrix.platform == 'mac' && secrets.MAC_CERTIFICATE || '' }}
           CSC_KEY_PASSWORD: ${{ matrix.platform == 'mac' && secrets.MAC_CERTIFICATE_PASSWORD || '' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -80,7 +80,7 @@ jobs:
       - name: Prepare to run the app
         # Ubuntu 24.04 stops unprivileged programs creating the user
         # namespaces Chromium's sandbox is built on, unless an AppArmor profile
-        # allows it. The .deb installs one; this runner runs the unpacked build.
+        # allows it. The .deb installs one, but this runner runs the unpacked build.
         # Xvfb stands in for a display.
         if: runner.os == 'Linux'
         run: |
@@ -154,7 +154,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls -la release
-          # Installed copies update from these; a release without them would
+          # Installed copies update from these. A release without them would
           # strand every Windows install and AppImage on this version.
           for feed in latest.yml latest-linux.yml; do
             test -f "release/$feed" || { echo "::error::release/$feed is missing"; exit 1; }

@@ -62,7 +62,7 @@ console.log(`vendor    three@${vendored}`);
 const html = await readFile(join(ROOT, 'index.html'), 'utf8');
 const importMap = JSON.parse(html.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]);
 for (const [specifier, target] of Object.entries(importMap.imports)) {
-  // Directory mappings end in a slash; spot-check the directory itself.
+  // Directory mappings end in a slash, so just check the directory itself.
   const path = target.replace(/^\.\//, '');
   if (!(await exists(path))) fail(`import map: "${specifier}" -> ${target} does not exist`);
 }
@@ -115,7 +115,7 @@ for (const path of new Set(linked)) {
 console.log(`links     ${new Set(linked).size} files the page and stylesheet name`);
 
 // ------------------------------------------ 7. what installing the app needs
-// Browsers do not report a broken manifest; the install option just never
+// Browsers do not report a broken manifest. The install option just never
 // appears. These are the parts of it that decide whether it does.
 const webManifest = JSON.parse(await readFile(join(ROOT, 'site.webmanifest'), 'utf8'));
 for (const key of ['name', 'short_name', 'start_url', 'display', 'icons']) {
@@ -145,9 +145,9 @@ else if (stars.length % 8 !== 0) fail(`public/data/stars.bin is ${stars.length} 
 else console.log(`stars     ${stars.length / 8} in the catalogue`);
 
 // ------------------------- 9. every top-level file is either shipped or not
-// Pages and the desktop app are both staged from scripts/lib/served.js, so a
-// new top-level file the page needs, but which is missing from that list,
-// would work under `npm run dev` and 404 everywhere else.
+// Pages and the desktop app are both staged from scripts/lib/served.js. So if
+// the page needs a new top-level file that's missing from that list, it works
+// under `npm run dev` and 404s everywhere else.
 const tracked = await run('git', ['ls-files'], { cwd: ROOT }).then(
   ({ stdout }) => new Set(stdout.split('\n').filter(Boolean).map((path) => path.split('/')[0])),
   () => null

@@ -2,7 +2,7 @@
  * Playback controls for the simulation clock.
  *
  * The rate slider is on a log scale, since the useful range runs from real
- * time to ten years a second - eight orders of magnitude. The named presets
+ * time to ten years a second (eight orders of magnitude). The named presets
  * are detents on it, and the , and . keys step between them.
  *
  * The date opens a panel for jumping to any date or a listed moment, and for
@@ -166,7 +166,7 @@ export class TimeBar {
       'form',
       {
         class: 'when__form',
-        // A date cannot be typed with a controller; it gets the moments.
+        // A date cannot be typed with a controller, so the D-pad skips to the moments.
         'data-gamepad-skip': true,
         onsubmit: (event) => {
           event.preventDefault();
@@ -272,8 +272,8 @@ export class TimeBar {
     if (restoreFocus) this.dateButton.focus();
   }
 
-  // Each says what it did, since from a key or a controller nothing that has
-  // focus changes to say it.
+  // Each announces what it did. When called from a key or a controller,
+  // nothing with focus changes for a screen reader to read out.
   jumpToNow() {
     if (this.hooks.onNow) this.hooks.onNow();
     else this.clock.jumpToNow();
@@ -339,7 +339,7 @@ export class TimeBar {
     this.rateLabel.textContent = description;
     this.rateBubble.textContent = description;
     this.rateSlider.setAttribute('aria-valuetext', spoken(description));
-    // Leave the thumb where the pointer is mid-drag; only snap it for detents
+    // Leave the thumb where the pointer is mid-drag. Only snap it for detents
     // and keyboard steps, where there is no pointer to fight.
     const position = toSlider(this.clock.daysPerSecond);
     if (!fromSlider || PRESET_POSITIONS.includes(position)) this.rateSlider.value = position;
@@ -348,7 +348,7 @@ export class TimeBar {
     this.tick();
   }
 
-  /** Refreshes the date readout; cheap enough to call a few times a second. */
+  /** Refreshes the date readout. Cheap enough to call a few times a second. */
   tick() {
     const date = this.clock.formatDate();
     if (this.dateMain.textContent !== date) this.dateMain.textContent = date;

@@ -8,29 +8,26 @@ Visit the [GitHub Pages site](https://jarvisar.github.io/orrery/) to access the 
 
 ## Usage
 
-Click on a planet or moon to focus on it. Drag to rotate the camera and scroll to zoom. Click on the date to change it, or press Space to pause.
+Click on a planet or moon to focus on it. Drag to rotate the camera and scroll to zoom. Click on the date to change it, or press `Space` to pause.
 
-- **Star systems** lets you search for and explore exoplanet systems. In the whole-system view (**H**), stars with planets are ringed, and you can click one to travel there.
-- **G** switches to flight mode. Click to capture the mouse, use W/S for the throttle, A/D to roll and Shift to boost. Press Esc to exit.
-- **H** returns to the overview.
-- **?** shows the full list of controls.
+- Click on `Star systems` to search for exoplanet systems. In the whole system view (`H`), stars with planets have a ring around them. Click one to travel there.
+- Press `G` to switch to flight mode, then click to capture the mouse. Use `W`/`S` for the throttle, `A`/`D` to roll and `Shift` to boost. Press `Esc` to exit.
+- Press `H` to return to the overview.
+- Press `?` to see the full list of controls.
 
 Game controllers and VR headsets are also supported. See [controls](docs/controls.md) for the full list.
 
-Positions and rotations use real orbital data, but sizes and distances are compressed so everything is easier to see. Positions are most accurate between 1800 and 2050. Exoplanet systems are built from the available measurements, so their orbital positions and surfaces are only illustrative. See the [accuracy notes](docs/development.md#accuracy) and [exoplanet notes](docs/exoplanets.md) for more details.
+Positions and rotations use real orbital data, but sizes and distances are compressed so everything is easier to see. Positions are most accurate between 1800 and 2050. Exoplanet systems are built from whatever has been measured, so their orbital positions and surfaces are only illustrative. See the [accuracy notes](docs/development.md#accuracy) and [exoplanet notes](docs/exoplanets.md) for more details.
 
 ## Local Installation
 
-Node.js and npm are required. Clone the repository, then run:
+Node.js and npm are required.
 
-```sh
-npm install
-npm run dev
-```
+1. Clone the repository.
+2. Run `npm install`.
+3. Run `npm run dev` and open [localhost:5173](http://localhost:5173).
 
-Open [localhost:5173](http://localhost:5173). There is no build step.
-
-To run the checks:
+There is no build step. To run the checks:
 
 ```sh
 npm run check

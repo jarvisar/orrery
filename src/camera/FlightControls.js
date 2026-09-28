@@ -2,17 +2,17 @@
  * Free-flight camera controls: arcade flying, not a simulator.
  *
  *   - Speed follows altitude: full throttle covers roughly your height above the
- *     nearest surface each second, so one throttle setting crosses a planetary
- *     gap in seconds yet still creeps up to a moon.
+ *     nearest surface each second, so one throttle setting crosses the gap
+ *     between planets in seconds but still creeps up to a moon.
  *   - Near a body you move with it.
- *   - Surfaces are solid; fly into one and you skim along it.
+ *   - Surfaces are solid. Fly into one and you skim along it.
  *
  * An optional autopilot turns towards a destination, flies there and parks a
  * few radii out. Touching the controls takes over at once.
  *
  * Steering is a virtual stick. A captured mouse pushes it and it drifts back to
- * centre; a finger (or an uncaptured mouse) deflects it from where the drag
- * started; a controller's left stick adds straight in.
+ * centre. A finger (or an uncaptured mouse) deflects it from where the drag
+ * started. A controller's left stick adds straight in.
  *
  * Listeners are attached only while enabled.
  */
@@ -119,9 +119,10 @@ export class FlightControls {
     return document.pointerLockElement === this.domElement;
   }
 
-  /** Whether this device steers by capturing the mouse. */
+  /** Whether this device steers by capturing the mouse. The HUD checks this every frame. */
   get usesCapture() {
-    return 'requestPointerLock' in this.domElement && window.matchMedia('(pointer: fine)').matches;
+    this._finePointer ??= window.matchMedia('(pointer: fine)');
+    return 'requestPointerLock' in this.domElement && this._finePointer.matches;
   }
 
   /** Captures the mouse for steering. Needs a user gesture to succeed. */
@@ -129,7 +130,7 @@ export class FlightControls {
     if (!this.enabled || this.captured || !this.usesCapture) return;
     try {
       // Newer browsers return a promise that rejects, e.g. when asked again
-      // too soon after the user pressed Esc; that is not an error worth logging.
+      // too soon after the user pressed Esc. That's not an error worth logging.
       this.domElement.requestPointerLock()?.catch?.(() => {});
     } catch { /* unsupported: steering falls back to dragging */ }
   }
@@ -173,8 +174,8 @@ export class FlightControls {
 
   /**
    * This frame's input from a game controller, or null for none. Steering and
-   * roll run -1 to 1 (right and down positive, as the sticks report them);
-   * throttle -1 to 1 moves the lever down or up at the rate W and S do.
+   * roll run -1 to 1 (right and down positive, as the sticks report them).
+   * Throttle (-1 to 1) moves the lever down or up at the rate W and S do.
    */
   setPadInput(input) {
     const pad = this._pad;
@@ -204,7 +205,7 @@ export class FlightControls {
       this.capture();
       return;
     }
-    // One steering finger at a time; the others are free for the throttle.
+    // One steering finger at a time. The others are free for the throttle.
     if (this._drag) return;
     this._drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
     this.domElement.setPointerCapture?.(event.pointerId);
@@ -301,7 +302,7 @@ export class FlightControls {
     const maxSpeed = heliocentricDistance(this.system.catalogue.edgeAU, this.system.scaleExponent) * 0.05;
     const cruise = THREE.MathUtils.clamp(this.altitude * APPROACH, MIN_SPEED, maxSpeed);
     const target = this.throttle * cruise * (this.boosting ? this.boostFactor : 1);
-    // Speeding up takes a moment; slowing down near a planet should not.
+    // Speeding up takes a moment, but slowing down near a planet shouldn't.
     const rate = Math.abs(target) < Math.abs(this.speed) ? 4 : 2;
     this.speed += (target - this.speed) * (1 - Math.exp(-rate * step));
     this.camera.translateZ(-this.speed * step);
@@ -356,7 +357,7 @@ export class FlightControls {
 
   /**
    * Moves the camera by however far the body it is near has moved. Close to
-   * the destination that body is the destination, so a small moon whipping
+   * the destination, that body is the destination, so a small moon whipping
    * past cannot drag you off round the planet you came to see.
    */
   _carryAlong() {
@@ -432,8 +433,8 @@ export class FlightControls {
 }
 
 /**
- * Dead zone plus a squared response. Small deflections stay small, which is
- * what makes it possible to line up on a planet instead of wobbling past it.
+ * Dead zone plus a squared response. Small deflections stay small, so you can
+ * line up on a planet instead of wobbling past it.
  */
 function applyCurve(value) {
   const magnitude = Math.abs(value);

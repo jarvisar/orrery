@@ -2,11 +2,11 @@
  * "Update available", in the desktop app only.
  *
  * The desktop app (desktop/src/updates.js) updates itself where it can. Where
- * it cannot - the portable Windows build, macOS, the Linux .deb and .tar.gz -
+ * it cannot (the portable Windows build, macOS, the Linux .deb and .tar.gz),
  * it says so here, once per new version, and the button opens the release
  * page. In a browser window.orreryDesktop is undefined and this never shows.
  *
- * Shares the install toast's styling and corner; the two never coexist.
+ * Shares the install toast's styling and corner. The two never show together.
  */
 
 import { el, icon } from './dom.js';

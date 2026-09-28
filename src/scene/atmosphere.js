@@ -3,7 +3,7 @@
  *
  * One transparent shell, slightly larger than the planet. Its back faces show
  * only between the planet's edge and the shell's, drawing the halo off the
- * limb; its front faces cover the disc, drawing haze that thickens toward the
+ * limb. Its front faces cover the disc, drawing haze that thickens toward the
  * edge. Both fade across the terminator, with some forward-scattered light
  * carried onto the night side (a crescent Earth's blue rim).
  *
@@ -37,7 +37,7 @@ const fragmentShader = /* glsl */ `
   // Where the light comes from: the origin for the Sun, anywhere for another star.
   uniform vec3 uStarPosition;
   // cos of the angle, seen from the shell's own centre, at which the planet's
-  // limb sits - where the shell's back faces stop being hidden behind it.
+  // limb sits (where the shell's back faces stop being hidden behind it).
   uniform float uLimb;
 
   varying vec3 vWorldNormal;

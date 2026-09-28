@@ -1,7 +1,7 @@
 /**
  * The simulation clock.
  *
- * Everything in the scene is a pure function of `days` - the simulated time in
+ * Everything in the scene is a pure function of `days`, the simulated time in
  * days since J2000. Nothing accumulates rotation frame by frame, so pausing,
  * reversing or jumping to a date all work without the system drifting out of
  * alignment, and the same date always produces the same sky.
@@ -11,8 +11,8 @@ import { daysSinceJ2000, dateFromDays } from './kepler.js';
 
 /**
  * Simulated days per real-world second at the named stops. The rate itself is
- * continuous - the time bar's slider covers everything between the first and
- * last of these - but these are where the slider detents and what the , and .
+ * continuous (the time bar's slider covers everything between the first and
+ * last of these), but these are where the slider detents and what the , and .
  * keys step between.
  */
 export const RATE_PRESETS = [
@@ -50,7 +50,7 @@ const RATE_UNITS = [
 
 /**
  * The time bar's formats, built once. toLocaleDateString with options builds a
- * fresh Intl.DateTimeFormat - locale data and all - on every call, and during a
+ * fresh Intl.DateTimeFormat (locale data and all) on every call, and during a
  * jump through time the date is redrawn every frame.
  */
 const DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
@@ -72,7 +72,7 @@ export class Clock {
     this.daysPerSecond = RATE_PRESETS[DEFAULT_RATE_INDEX].daysPerSecond;
     this.direction = 1;
     this.paused = false;
-    /** Set while an animated jump is under way; see travelTo(). */
+    /** Set while an animated jump is under way. See travelTo(). */
     this._travel = null;
   }
 
@@ -95,7 +95,7 @@ export class Clock {
   /**
    * Moves to another moment over a second or two instead of cutting to it, so
    * the planets visibly sweep round to where they were. A jump of a day takes
-   * under a second; a century takes a little over two.
+   * under a second, and a century takes a little over two.
    */
   travelTo(days, { instant = false } = {}) {
     if (instant || !Number.isFinite(days)) {
@@ -128,7 +128,7 @@ export class Clock {
 
   /**
    * The current rate for display. A rate on a preset uses its label ("1 month/s",
-   * not "4.3 weeks/s"); anything else uses the largest unit that keeps it at or
+   * not "4.3 weeks/s"). Anything else uses the largest unit that keeps it at or
    * above one.
    */
   describeRate() {
@@ -147,8 +147,8 @@ export class Clock {
   /** Formats the simulated date the way the time bar shows it. */
   formatDate() {
     const date = this.date;
-    // Dates beyond the Gregorian range the formatter handles gracefully are
-    // reachable at 10 years/s within a couple of minutes of scrubbing.
+    // Past about year 275,760 the Date is invalid and the formatter throws. That
+    // takes over 7 hours at 10 years/s, but it can happen.
     if (Number.isNaN(date.getTime())) return '—';
     return DATE_FORMAT.format(date);
   }

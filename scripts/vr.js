@@ -6,7 +6,7 @@
  * hand, recentring, swapped hands, one controller, and leaving.
  *
  * Requests to the CDN the controller and hand models come from are refused,
- * which keeps the run hermetic and exercises the offline stand-ins.
+ * so the run doesn't depend on the network and tests the offline stand-ins.
  *
  *   npm run vr               # skips cleanly if no Chrome is installed
  *   npm run vr -- --strict   # missing Chrome is a failure (used by CI)
@@ -33,7 +33,7 @@ try {
 
   page.on('pageerror', (e) => problems.push(`uncaught: ${e.message}`));
   page.on('console', (m) => {
-    // The refused CDN requests below are expected; anything else is not.
+    // The refused CDN requests below are expected. Anything else is not.
     if (m.type() === 'error' && !/ERR_FAILED|ERR_BLOCKED/.test(m.text())) problems.push(`console.error: ${m.text()}`);
   });
   await page.setRequestInterception(true);
@@ -121,7 +121,7 @@ try {
   s = await pressButton('reverse');
   assert(!s.reversed, 'a second Reverse did not run time forwards again');
 
-  // Exit VR wants a second press; anything else in between calls it off.
+  // Exit VR wants a second press. Anything else in between calls it off.
   s = await pressButton('exit');
   assert(s.active && s.armed === 'exit', `one press of Exit VR left active ${s.active}, armed ${s.armed}`);
   await shot('exit-armed');
@@ -297,7 +297,7 @@ try {
   s = await state();
   assert(s.scale < handScale * 0.8, `two-handed pinch left the scale at ${s.scale} (was ${handScale})`);
 
-  // The left palm turned to the eyes brings the panel over; lowering it leaves it there.
+  // The left palm turned to the eyes brings the panel over, and lowering it leaves it there.
   await page.evaluate(() => T.resetHands());
   await frames(3);
   const summoned = await page.evaluate(() => T.showPalm('left'));
@@ -380,7 +380,7 @@ try {
   /* --- another star -------------------------------------------------------- */
 
   // Proxima's planets are lost in its 13,000 AU orbit round Alpha Centauri, so
-  // the table is set around Proxima itself, and follows it; Whole system
+  // the table is set around Proxima itself and follows it. Whole system
   // re-centres on the barycentre.
   await page.goto(`${ORIGIN}/?debug&system=Proxima%20Cen`, { waitUntil: 'load', timeout: 60_000 });
   await waitForApp(page);
@@ -434,8 +434,8 @@ function distance(a, b) {
 
 /**
  * window.T: the emulated headset's controls, in the terms the checks need.
- * Positions given to the emulator are in the rig's own space, in metres;
- * anything aimed at lives in the scene, and is converted.
+ * Positions given to the emulator are in the rig's own space, in metres.
+ * Anything aimed at is in the scene, and gets converted.
  */
 function installHelpers(page) {
   return page.evaluate(() => {

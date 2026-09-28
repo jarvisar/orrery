@@ -13,7 +13,7 @@
 <style>
 /* ==========================================================================
    Tetris, reached from the orrery with the Konami code. Same materials as
-   the main app; the pieces take the planet swatches.
+   the main app, and the pieces take the planet swatches.
    ========================================================================== */
 
 @font-face {
@@ -55,7 +55,7 @@
   --side-w: 176px;
   --well-pad: 8px;
 
-  /* The board size is set from script; the well and side column follow it. */
+  /* The board size is set from script, and the well and side column follow it. */
   --board-w: 300px;
   --board-h: 600px;
   --well-w: calc(var(--board-w) + 2 * var(--well-pad) + 2px);
@@ -69,7 +69,7 @@ html, body {
   height: 100%;
   overflow: hidden;
 }
-/* Only the root paints the background; a body background would cover the sky. */
+/* Only the root paints the background. A body background would cover the sky. */
 html { background: var(--bg); }
 
 body {
@@ -95,7 +95,7 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Drawn once per resize; sits behind everything. */
+/* Drawn once per resize, and sits behind everything. */
 .sky {
   position: fixed;
   inset: 0;
@@ -528,7 +528,7 @@ body[data-state="over"] .pause-btn { visibility: hidden; }
   }
 }
 
-/* Where space is short the title steps aside, but stays for screen readers. */
+/* Where space is short the title is hidden, but stays for screen readers. */
 @media (max-width: 699px), (min-width: 700px) and (max-height: 600px), (pointer: coarse) {
   .title {
     position: absolute;
@@ -721,8 +721,8 @@ const COLORS = {
   L: '#d9b982', // Venus
 };
 
-// SRS wall kicks for a clockwise turn, indexed by the rotation state being
-// left (0, R, 2, L). Offsets are [columns, rows], rows counting down.
+// SRS wall kicks for a clockwise turn, indexed by the rotation state the piece
+// is turning from (0, R, 2, L). Offsets are [columns, rows], rows counting down.
 const KICKS = {
   JLSTZ: [
     [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
@@ -744,7 +744,7 @@ const LOCK_DELAY = 500;  // ms a piece may rest on the stack before it locks
 const LOCK_RESETS = 15;  // moves that may restart that wait, per row reached
 const DAS = 150;         // ms a direction is held before it repeats
 const ARR = 40;          // ms between repeats
-const MAX_CELL = 34;     // px; the board stops growing past this
+const MAX_CELL = 34;     // px, the board stops growing past this
 
 const BEST_KEY = 'orrery:tetris:best';
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -803,7 +803,7 @@ function fits(matrix, row, col) {
   return true;
 }
 
-// Rotates an N×N matrix 90° clockwise. @see https://codereview.stackexchange.com/a/186834
+// Rotates an NxN matrix 90 degrees clockwise. @see https://codereview.stackexchange.com/a/186834
 function rotateMatrix(matrix) {
   const n = matrix.length - 1;
   return matrix.map((line, i) => line.map((_, j) => matrix[n - j][i]));
@@ -831,7 +831,7 @@ function spawn() {
     matrix,
     turn: 0,
     // Every piece starts in the two hidden rows (guideline rows 21 and 22),
-    // I and O centred, the others one column left of centre...
+    // I and O centred, the others one column left of centre.
     row: -2,
     col: COLS / 2 - Math.ceil(matrix[0].length / 2),
   };
@@ -841,7 +841,7 @@ function spawn() {
   lowestRow = piece.row;
   drawNext();
   if (!fits(piece.matrix, piece.row, piece.col)) return endGame();
-  // ...then drops one row at once if it can, so its lowest row shows straight away.
+  // Then it drops one row at once if it can, so its lowest row shows straight away.
   move(1, 0);
 }
 
@@ -1086,7 +1086,7 @@ function press(action) {
     shiftHeld = 0;
     shiftRepeat = 0;
   }
-  // Holds still register during a line clear; single presses do not.
+  // Holds still register during a line clear, but single presses do not.
   if (!piece || clearing) return;
 
   switch (action) {

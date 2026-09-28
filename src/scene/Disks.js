@@ -137,7 +137,7 @@ export function createDisk(disk, light, exponent) {
       root.position.copy(centre);
       for (const m of materials) {
         m.uniforms.uStar.value.copy(centre);
-        // Round at the orbital rate of the belt's middle (for a Sun-mass star).
+        // Turns at the orbital rate of the belt's middle (for a Sun-mass star).
         const mean = (m.uniforms.uBelt.value.x + m.uniforms.uBelt.value.y) / 2;
         m.uniforms.uSpin.value = (tDays / (365.25 * mean ** 1.5)) * Math.PI * 2;
       }
@@ -150,7 +150,7 @@ export function createDisk(disk, light, exponent) {
   };
 }
 
-/** A grid in radius (AU) and angle, repeated for each layer; positions are made in the shader. */
+/** A grid in radius (AU) and angle, repeated for each layer. Positions are made in the shader. */
 function annulus(inner, outer) {
   const radial = 40, around = 160;
   const margin = (outer - inner) * 0.2;

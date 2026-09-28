@@ -10,7 +10,7 @@
  *            install a second copy), macOS (unsigned builds cannot self-update),
  *            and the .deb and .tar.gz. These only check for a newer version and
  *            hand it to the page, which shows a small "Update available" toast
- *            (src/ui/UpdateToast.js) whose button opens the release page.
+ *            (src/ui/UpdateToast.js). Its button opens the release page.
  *
  * Only published releases count: a draft is invisible to both. Nothing runs
  * in development, in a self-test, or with --no-updates, and no failure here is
@@ -71,7 +71,7 @@ function installer(feed) {
     if (!updater) {
       const { default: electronUpdater } = await import('electron-updater');
       updater = electronUpdater.autoUpdater;
-      // Its own errors arrive through the 'error' event below; only warnings
+      // Its own errors arrive through the 'error' event below. Only warnings
       // (a fallback to a full download, say) are worth passing on.
       updater.logger = { info: () => {}, warn: (m) => log(m), error: () => {}, debug: () => {} };
       updater.autoDownload = true;
@@ -86,8 +86,8 @@ function installer(feed) {
       updater.on('update-not-available', () => log(`${app.getVersion()} is the latest`));
       updater.on('update-downloaded', (info) => log(`${info.version} downloaded; it installs when the app quits`));
     }
-    // A failed check or download has already been reported through 'error';
-    // the download's promise would otherwise reject with nothing to catch it.
+    // A failed check or download has already been reported through 'error'.
+    // Without these catches the download's promise would reject unhandled.
     const result = await updater.checkForUpdates().catch(() => null);
     result?.downloadPromise?.catch(() => {});
   };

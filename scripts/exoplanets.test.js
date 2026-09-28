@@ -1,8 +1,8 @@
 /**
  * The exoplanet model, importers and refresh. Named systems (Kepler-16,
  * Proxima Cen...) are checked against the committed catalogues, so CI is
- * repeatable; the weekly refresh is checked by the data-independent
- * `npm run exoplanets:verify` instead, which new discoveries cannot break.
+ * repeatable. The weekly refresh is checked by `npm run exoplanets:verify`
+ * instead, which doesn't depend on the data, so new discoveries can't break it.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -163,7 +163,7 @@ test('a planet’s look follows its size and the light it gets', () => {
   assert.equal(planetLook({ name: 'Test h', radius: 1, mass: 1, aAU: 3 }, sun).type, 'ice');
   // The same planet always looks the same, in the browser and here.
   assert.deepEqual(planetLook({ name: 'Test c', radius: 11, mass: 318, aAU: 5.2 }, sun), planetLook({ name: 'Test c', radius: 11, mass: 318, aAU: 5.2 }, sun));
-  // A pulsar gives no usable light; its planets are drawn as bare rock.
+  // A pulsar gives no usable light, so its planets are drawn as bare rock.
   assert.equal(planetLook({ name: 'Test i', radius: 1, aAU: 0.4 }, { luminosity: null, type: 'neutron' }).label, 'Pulsar planet');
 });
 
@@ -268,11 +268,11 @@ test('NASA decides what is a star; a supplement listing fewer is drawn with the 
 });
 
 test('stellar orbits trust the period when the catalogue’s size disagrees with it', () => {
-  // OEC gives one star's orbit about the centre of mass as the pair's; Welsh et al. (2012) give 0.2288 AU.
+  // OEC gives one star's orbit about the centre of mass as the pair's. Welsh et al. (2012) give 0.2288 AU.
   const kepler34 = model('Kepler-34');
   const a = kepler34.bodies.find((b) => b.kind === 'star' && b.orbit).orbit.aAU;
   assert.ok(Math.abs(a - 0.2288) < 0.001, `${a}`);
-  // Gliese 667 AB's 42.15-year orbit, entered in days, is corrected on import while the slip stands.
+  // Gliese 667 AB's 42.15-year orbit, entered in days, is corrected on import until OEC fixes it.
   const gliese = model('GJ 667 C').bodies.find((b) => b.name === 'Gliese 667 A');
   assert.ok(Math.abs(gliese.orbit.periodDays / 365.25 - 42.15) < 0.01);
 });
@@ -366,7 +366,7 @@ test('the companion importer reads the catalogue’s XML strictly', () => {
   assert.equal(b.values.st_spectype, 'M2 V');
   assert.throws(() => validateStellarCatalogue({ ...supplement, systems: [{ name: 'bad', tree: { kind: 'binary' } }] }));
 
-  // Separations are kept by unit, and a known slip is fixed only while it stands.
+  // Separations are kept by unit, and a known slip is left alone once upstream fixes it.
   const gliese = (period) => convertSystems(`<systems><system><name>Gliese 667</name><binary>
     <separation unit="arcsec">32.70</separation><separation errorplus="3" errorminus="3" unit="AU">228</separation>
     <binary><period>${period}</period><star><name>Gliese 667 A</name></star><star><name>Gliese 667 B</name></star></binary>
@@ -560,7 +560,7 @@ test('a star is picked by the angle to it, within the tolerance and no farther',
   assert.equal(sky.get('sky:tau Cet').planets, committedSky.hosts.find(([name]) => name === 'tau Cet')[4]);
   assert.equal(sky.get('tau Cet'), undefined);
 
-  // The system already on screen is not offered, and nothing is without a drawn sky.
+  // The system already on screen is not offered, and nothing is offered without a drawn sky.
   const there = await new SkyHosts().load(drawnStars, { except: 'tau Cet', fetcher: async () => ({ ok: true, json: async () => committedSky }) });
   assert.notEqual(there.nearest(at(0), 8 * pixel)?.name, 'tau Cet');
   const blank = await new SkyHosts().load(null, { fetcher: async () => ({ ok: true, json: async () => committedSky }) });

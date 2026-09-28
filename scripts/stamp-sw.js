@@ -5,8 +5,8 @@
  * The committed sw.js ships with an empty list, which is what development
  * wants. The deploy workflow runs this against _site/ once the served files
  * have been copied there, so the list is exactly what Pages will serve, each
- * with a content hash for a revision. BUILD becomes a hash of all of them, so
- * any change to any file is a new worker, and no change at all is not.
+ * with a content hash as its revision. BUILD becomes a hash of all of them, so
+ * any change to any file means a new worker, and no change means no new worker.
  *
  *   node scripts/stamp-sw.js _site
  */

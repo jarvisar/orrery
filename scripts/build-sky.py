@@ -4,26 +4,25 @@
 
 The Milky Way map. The source art (8k_stars_milky_way.jpg, in the git history
 under public/) is an all-sky map in galactic coordinates, stored south-up, with
-several thousand stars painted into it. Used directly it has three problems:
-it is not aligned with anything else in the scene, its painted stars are
-soft blobs that smear when the camera zooms, and those stars are not the real
-ones. So this script removes the point sources, keeping only the diffuse glow
-and the dust lanes, and reprojects what is left into the scene's own frame -
-the J2000 ecliptic, in three.js axes - so that it can be used as a plain
-equirectangular background with no rotation. It is written out at 2048x1024:
-with the stars gone there is no detail left that needs more.
+several thousand stars painted into it. Used as is it has three problems. It
+isn't aligned with anything else in the scene, its painted stars are soft blobs
+that smear when the camera zooms, and they aren't the real stars. So this
+script removes the point sources, keeping only the glow and the dust lanes, and
+reprojects the rest into the scene's own frame (the J2000 ecliptic, in three.js
+axes). That way it works as a plain equirectangular background with no
+rotation. It's saved at 2048x1024, since there's no detail left that needs more
+once the stars are gone.
 
 The stars. Real ones, from the Yale Bright Star Catalogue (5th revised ed.,
-Hoffleit & Warren 1991; bsc5.dat from http://tdc-www.harvard.edu/catalogs/bsc5.html):
-every star to magnitude 6.5, which is everything visible to the eye from a
-dark site. Below that, a few thousand fainter stars are drawn from the glow map
-itself, so the band keeps its texture where it is densest. Each star is 8 bytes:
+Hoffleit & Warren 1991, bsc5.dat from http://tdc-www.harvard.edu/catalogs/bsc5.html).
+That's every star down to magnitude 6.5, which is everything visible to the eye
+from a dark site. Below that, a few thousand fainter stars are drawn from the
+glow map itself, so the band keeps its texture where it's densest. Each star is
+8 bytes, brightest first, in public/data/stars.bin:
 
     int16 x, y, z    unit direction in scene axes, x 32767
     uint8 magnitude  (V + 1.5) x 25
     int8  colour     (B - V) x 60
-
-brightest first, in public/data/stars.bin.
 """
 import json, os, struct, sys
 import numpy as np
@@ -36,13 +35,13 @@ OUT_STARS = "public/data/stars.bin"
 MANIFEST = "public/textures/manifest.json"
 
 OBLIQUITY = np.radians(23.4392911)
-# Equatorial J2000 -> galactic (Hipparcos, ESA 1997, vol. 1, sec. 1.5.3).
+# Equatorial J2000 to galactic (Hipparcos, ESA 1997, vol. 1, sec. 1.5.3).
 EQ_TO_GAL = np.array([
     [-0.0548755604, -0.8734370902, -0.4838350155],
     [+0.4941094279, -0.4448296300, +0.7469822445],
     [-0.8676661490, -0.1980763734, +0.4559837762],
 ])
-# Ecliptic -> equatorial: rotate back about the equinox direction.
+# Ecliptic to equatorial: rotate back about the equinox direction.
 ECL_TO_EQ = np.array([
     [1, 0, 0],
     [0, np.cos(OBLIQUITY), -np.sin(OBLIQUITY)],
@@ -51,7 +50,7 @@ ECL_TO_EQ = np.array([
 
 
 def scene_to_ecliptic(d):
-    """three.js (x, y, z) -> ecliptic (x, -z, y); the inverse of perifocalToWorld's mapping."""
+    """Maps three.js (x, y, z) to ecliptic (x, -z, y), the inverse of perifocalToWorld's mapping."""
     return np.stack([d[..., 0], -d[..., 2], d[..., 1]], axis=-1)
 
 
@@ -61,7 +60,7 @@ def ecliptic_to_scene(d):
 
 def equatorial_to_scene(ra, dec):
     eq = np.stack([np.cos(dec) * np.cos(ra), np.cos(dec) * np.sin(ra), np.sin(dec)], axis=-1)
-    return ecliptic_to_scene(eq @ ECL_TO_EQ)   # row vectors: eq -> ecl is ECL_TO_EQ transposed
+    return ecliptic_to_scene(eq @ ECL_TO_EQ)   # row vectors, so eq to ecl is ECL_TO_EQ transposed
 
 
 def build_glow(source_path, width=2048):
@@ -71,7 +70,7 @@ def build_glow(source_path, width=2048):
     src = np.asarray(image, dtype=np.float32) / 255.0
     h, w = src.shape[:2]
 
-    # Stars are a few pixels across; the band's structure is tens. A grey
+    # Stars are a few pixels across and the band's structure is tens. A grey
     # opening removes anything smaller than its footprint and leaves the rest.
     # Two passes of increasing size catch the brighter, wider stars as well.
     luminance = src @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
@@ -110,7 +109,7 @@ def build_glow(source_path, width=2048):
     # Grade, on brightness alone so the hue survives. Take out the painted noise
     # floor so empty sky is black, lift what is left, and keep only a hint of
     # the source's colour. Then warm the bulge the way it looks in long
-    # exposures - the centre of the galaxy is older, redder stars - and let the
+    # exposures (the centre of the galaxy is older, redder stars) and let the
     # arms fall off toward a cool grey.
     lum = luminance_of(out)
     chroma = out / np.maximum(lum, 1e-4)[..., None]

@@ -3,8 +3,8 @@
  * Copies the served files (scripts/lib/served.js) into a directory, as they
  * are, and nothing else. Both deployments start from this:
  *
- *   node scripts/stage.js _site          # GitHub Pages; the deploy then stamps sw.js
- *   node scripts/stage.js desktop/web    # the desktop app; desktop/scripts/build.js runs it
+ *   node scripts/stage.js _site          # GitHub Pages, then the deploy stamps sw.js
+ *   node scripts/stage.js desktop/web    # the desktop app, run by desktop/scripts/build.js
  *
  * The target is emptied first, so a file deleted from the repository does not
  * linger in the next build.

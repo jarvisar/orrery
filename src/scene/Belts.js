@@ -24,7 +24,7 @@ export class Belts {
 
     this.clouds = [];
     this.density = 1;
-    // A soft round dot; square points read as pixel noise at these sizes.
+    // A soft round dot. Square points read as pixel noise at these sizes.
     this._sprite = makeGlowTexture(32, [[0, 1], [0.45, 0.75], [1, 0]]);
   }
 
@@ -42,7 +42,46 @@ export class Belts {
     for (const spec of specs) this.clouds.push(this._createCloud(spec, density));
   }
 
+  /**
+   * Regenerates the particles in the existing clouds. The materials are kept,
+   * since new ones would make three compile the same program again. The dust
+   * disk itself has no particles, so it's left alone.
+   */
+  setDensity(density) {
+    this.density = density;
+    for (const cloud of this.clouds) {
+      cloud.geometry.dispose();
+      Object.assign(cloud, this._scatter(cloud.spec, density));
+      cloud.points.geometry = cloud.geometry;
+      this._writePositions(cloud);
+    }
+  }
+
   _createCloud(spec, density) {
+    const particles = this._scatter(spec, density);
+    const material = new THREE.PointsMaterial({
+      size: spec.size,
+      map: this._sprite,
+      vertexColors: true,
+      sizeAttenuation: false,
+      transparent: true,
+      opacity: 0.75,
+      depthWrite: false,
+      alphaTest: 0.04,
+    });
+
+    const points = new THREE.Points(particles.geometry, material);
+    points.name = spec.id;
+    points.frustumCulled = false;
+    this.root.add(points);
+
+    const cloud = { spec, points, material, ...particles };
+    this._writePositions(cloud);
+    return cloud;
+  }
+
+  /** A cloud's particles: where each is in AU, and a geometry to draw them with. */
+  _scatter(spec, density) {
     const count = Math.max(0, Math.round(spec.count * density));
     const au = new Float32Array(count);
     const direction = new Float32Array(count * 3);
@@ -80,26 +119,7 @@ export class Belts {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-    const material = new THREE.PointsMaterial({
-      size: spec.size,
-      map: this._sprite,
-      vertexColors: true,
-      sizeAttenuation: false,
-      transparent: true,
-      opacity: 0.75,
-      depthWrite: false,
-      alphaTest: 0.04,
-    });
-
-    const points = new THREE.Points(geometry, material);
-    points.name = spec.id;
-    points.frustumCulled = false;
-    this.root.add(points);
-
-    const cloud = { spec, points, geometry, material, au, direction, count };
-    this._writePositions(cloud);
-    return cloud;
+    return { geometry, au, direction, count };
   }
 
   /** Recomputes scene-space positions from the stored AU radii. */
@@ -125,7 +145,7 @@ export class Belts {
       cloud.points.rotation.y = -(tDays / periodDays) * Math.PI * 2;
     }
     if (this.disk) {
-      // Centred on its star, which in a multiple system moves.
+      // Centred on its star, which moves in a multiple system.
       const centre = this.system.bodies.get(this.system.catalogue.disk.starId)?.group.position;
       if (centre) {
         this.disk.update(centre, tDays);

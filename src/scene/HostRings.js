@@ -81,7 +81,7 @@ export class HostRings {
 
   setPixelRatio(ratio) { this.material.uniforms.uSize.value = SIZE * ratio; }
 
-  /** Eases toward shown or hidden; `instant` for reduced motion. */
+  /** Eases toward shown or hidden. Pass `instant` for reduced motion. */
   update(dt, { instant = false } = {}) {
     const opacity = this.material.uniforms.uOpacity;
     const target = this.shown ? 1 : 0;

@@ -1,6 +1,6 @@
 /**
  * Game controllers, through the Gamepad API. The API only offers a snapshot, so
- * this is polled from the frame loop and turns it into presses, auto-repeat and
+ * this polls it from the frame loop and turns it into presses, auto-repeat and
  * dead-zoned sticks.
  *
  * Connections are found by diffing snapshots, since some browsers fire
@@ -9,7 +9,7 @@
  * several connected, only the last one used is read (summing them would add up
  * every stick's drift).
  *
- * Names are positions in the standard mapping (w3c.github.io/gamepad/#remapping);
+ * Names are positions in the standard mapping (w3c.github.io/gamepad/#remapping).
  * src/ui/padGlyphs.js has what each make prints on them.
  */
 
@@ -24,7 +24,7 @@ export const BUTTONS = {
 /** The left stick, read as four more direction buttons for moving round menus. */
 const STICK_DIRECTIONS = ['stickUp', 'stickDown', 'stickLeft', 'stickRight'];
 
-/** Stick travel ignored at rest; worn sticks drift to about a tenth. */
+/** Stick travel ignored at rest. Worn sticks drift to about a tenth. */
 const STICK_DEAD_ZONE = 0.16;
 const TRIGGER_DEAD_ZONE = 0.06;
 /** How far a trigger has to go down to count as a press. */
@@ -42,7 +42,7 @@ export class GamepadInput {
   constructor() {
     /** @type {Gamepad|null} The controller being listened to. */
     this.pad = null;
-    /** 'xbox', 'playstation', 'nintendo' or 'generic'; decides the glyphs. */
+    /** 'xbox', 'playstation', 'nintendo' or 'generic'. Decides the glyphs. */
     this.family = 'generic';
     /** Sticks, -1 to 1, with the dead zone taken out. +y is down, as the API reports it. */
     this.left = { x: 0, y: 0 };

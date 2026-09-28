@@ -29,12 +29,12 @@ export const DEFAULTS = {
   // Single-key shortcuts, which speech input can set off by accident (WCAG 2.1.4).
   keyShortcuts: true,
 
-  // Pushing up looks up, as in most games; inverted is the flight-sim way.
+  // Pushing up looks up, as in most games. Inverted is the flight-sim way.
   padInvertY: false,
   padSensitivity: 1,
   padRumble: true,
 
-  // The hand that points in a headset; the other holds the panel and flies.
+  // The hand that points in a headset. The other holds the panel and flies.
   vrHand: 'right',
   vrVignette: true,
   vrSounds: true,
@@ -89,6 +89,6 @@ function save(values) {
     const changed = Object.entries(values).filter(([key, value]) => value !== DEFAULTS[key]);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.fromEntries(changed)));
   } catch {
-    // Private browsing, full quota or storage disabled; persistence is optional.
+    // Fails in private browsing or when storage is full or disabled. Saving is optional.
   }
 }

@@ -2,7 +2,7 @@
  * Composable edits to three's built-in materials.
  *
  * A material has a single `onBeforeCompile` hook, so each edit registers a
- * named patch; they run in order and the program cache key names them all, so
+ * named patch. They run in order and the program cache key names them all, so
  * materials with the same set of patches share one compiled program. Anything
  * that differs between bodies must be a uniform, never a baked-in constant.
  */
@@ -49,7 +49,7 @@ export function softTerminator(material, wrap) {
 
 /**
  * Restricts an emissive map (Earth's city lights) to the night side, since
- * emissive otherwise ignores lighting. Assumes the Sun is point light 0; the
+ * emissive otherwise ignores lighting. Assumes the Sun is point light 0. The
  * fade starts just before sunset.
  */
 export function nightSideEmissive(material) {
@@ -96,7 +96,7 @@ export function sunSurface(material, intensity = 1.4) {
         /* glsl */ `
         #include <map_fragment>
         float mu = saturate( dot( normalize( vSunNormal ), normalize( vSunView ) ) );
-        // Colour and brightness come from mu; the texture supplies only fine
+        // Colour and brightness come from mu. The texture supplies only fine
         // grain. The source art has broad bright blotches the real photosphere
         // lacks, so a heavily blurred sample of the same map is subtracted out.
         vec3 luma = vec3( 0.2126, 0.7152, 0.0722 );

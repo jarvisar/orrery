@@ -1,4 +1,4 @@
-/** Companion hierarchy supplement. Planet admission always comes from NASA. */
+/** Companion hierarchy supplement. The planet list always comes from NASA. */
 export const STELLAR_PATH = 'public/data/stellar-systems.json';
 export const OEC = 'https://github.com/OpenExoplanetCatalogue/open_exoplanet_catalogue';
 const numericKeys = /^(st_(mass|rad|teff)|pl_(orbsmax|orbper|orbeccen)|sep_(au|arcsec))(err1|err2|lim)?$/;
@@ -64,7 +64,7 @@ export function loadStellarCatalogue(fetcher = (...args) => fetch(...args)) {
 /**
  * A companion's mass: reported, else estimated from its temperature or
  * spectral type as a main-sequence star. Giants and subgiants are not
- * estimated; a white dwarf takes the typical 0.6 M☉.
+ * estimated. A white dwarf takes the typical 0.6 M☉.
  */
 export function stellarMassEstimate(values) {
   const reported = value(values, 'st_mass');
@@ -107,7 +107,7 @@ export function dwarfTemperature({ spectype, mass } = {}) {
   return null;
 }
 
-/** Log-linear interpolation through [x, mass] points sorted by x. */
+/** Log-linear interpolation through [x, y] points sorted by x. Used for both masses and temperatures. */
 function interpolate(points, x) {
   const i = Math.max(1, points.findIndex(([px]) => px >= x));
   const [x0, m0] = points[i - 1], [x1, m1] = points[i];
@@ -150,7 +150,7 @@ function rowsByPlanet(data) {
 /**
  * Largest reconstructable subtree containing this host's planets. A stellar
  * orbit comes from its reported size or period, else from the pair's
- * separation on the sky; a companion's position is never guessed.
+ * separation on the sky. A companion's position is never guessed.
  */
 export function stellarLayout(entry, data, supplement) {
   if (!supplement || entry.stars < 2) return null;
@@ -175,7 +175,7 @@ export function stellarLayout(entry, data, supplement) {
     const hostBindings = entry.planets.map((row) => bindings.get(alias(row.pl_name))).filter(Boolean);
     if (!hostBindings.length) continue;
     // NASA is the authority on what is a star. A supplement that lists more
-    // (usually a brown dwarf the archive counts as a planet) is not used; one
+    // (usually a brown dwarf the archive counts as a planet) is not used. One
     // that lists fewer is drawn with the rest reported missing.
     const stars = nodes.filter((n) => n.kind === 'star');
     if (stars.length > entry.stars || stars.some((n) => n.names.some((name) => rows.has(alias(name))))) continue;
@@ -214,7 +214,7 @@ export function stellarLayout(entry, data, supplement) {
         }
       }
       // A size that disagrees with the period and masses is usually one star's
-      // orbit about the centre of mass entered as the pair's; the period is
+      // orbit about the centre of mass, entered as the pair's. The period is
       // almost always the better measured of the two.
       if (positive(a) && positive(period) && node.mass) {
         const kepler = Math.cbrt(node.mass * (period / 365.25) ** 2);

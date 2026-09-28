@@ -12,7 +12,7 @@ npm run desktop -- --debug   # run with ?debug and the dev tools open
 
 ## Features
 
-- Its own window that remembers its size, position, full screen and zoom. F11 toggles full screen and Ctrl +/-/0 changes the zoom. Opening the app again brings the existing window forward.
+- Its own window that remembers its size, position, full screen and zoom. `F11` toggles full screen and `Ctrl` with `+`, `-` or `0` changes the zoom. Opening the app again brings the existing window forward.
 - Uses the dedicated GPU on laptops with two GPUs. Use `--low-power-gpu` to stay on the integrated one.
 - The controller's View button goes full screen right away, without needing a click or key press first.
 - Falls back to software rendering if WebGL isn't available on the GPU or the page keeps crashing.
@@ -142,20 +142,28 @@ The release is published once every platform's build has passed its launch test,
 
 ## Installing
 
-**Windows:** Run the setup `.exe`. It installs for your user only, so it doesn't need administrator rights, and it updates itself. The portable `.exe` can be kept anywhere and shows a message when there's an update. Both are unsigned, so SmartScreen shows a warning the first time. Click *More info → Run anyway*.
+### Windows
 
-**Steam Deck:** In Desktop Mode:
+Run the setup `.exe`. It installs for your user only, so it doesn't need administrator rights, and it updates itself. The portable `.exe` can be kept anywhere and shows a message when there's an update. Both are unsigned, so SmartScreen shows a warning the first time. Click `More info`, then `Run anyway`.
+
+### Steam Deck
+
+In Desktop Mode:
 
 1. Download the `.AppImage` somewhere permanent, like `~/Applications`.
-2. Right-click it, go to *Properties → Permissions* and check *Is executable*. Or run `chmod +x Orrery-*.AppImage`.
-3. In Steam, go to *Games → Add a Non-Steam Game to My Library* and add the AppImage.
-4. In Game Mode it's in your library under *Non-Steam*. It starts full screen and the default controller layout works.
+2. Right-click it, go to `Properties` > `Permissions` and check `Is executable`. Or run `chmod +x Orrery-*.AppImage`.
+3. In Steam, go to `Games` > `Add a Non-Steam Game to My Library` and add the AppImage.
+4. In Game Mode it's in your library under `Non-Steam`. It starts full screen and the default controller layout works.
 
-If the screen stays black in Game Mode, add `--ozone-platform=x11` to the launch options in Steam (*Properties → Launch Options*). If WebGL uses the wrong GPU, run the AppImage with `--self-test` from Konsole to see which GPU it found.
+If the screen stays black in Game Mode, add `--ozone-platform=x11` to the launch options in Steam (`Properties` > `Launch Options`). If WebGL uses the wrong GPU, run the AppImage with `--self-test` from Konsole to see which GPU it found.
 
-**Other Linux:** The AppImage works on most distributions. On Ubuntu 24.04 and later, AppArmor blocks it. Install the `.deb` instead (`sudo apt install ./Orrery-*.deb`), or run the AppImage with `--no-sandbox`.
+### Other Linux
 
-**macOS:** Open the DMG for your Mac (arm64 for Apple silicon, x64 for Intel) and drag Orrery to Applications. The app isn't notarized, so macOS blocks it the first time. On macOS 15 and later, try to open it, then go to *System Settings → Privacy & Security → Open Anyway*. On older versions, right-click the app and choose *Open*. Or run:
+The AppImage works on most distributions. On Ubuntu 24.04 and later, AppArmor blocks it. Install the `.deb` instead (`sudo apt install ./Orrery-*.deb`), or run the AppImage with `--no-sandbox`.
+
+### macOS
+
+Open the DMG for your Mac (arm64 for Apple silicon, x64 for Intel) and drag Orrery to Applications. The app isn't notarized, so macOS blocks it the first time. On macOS 15 and later, try to open it, then go to `System Settings` > `Privacy & Security` > `Open Anyway`. On older versions, right-click the app and choose `Open`. Or run:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/Orrery.app
@@ -167,7 +175,7 @@ The workflow signs the builds if these repository secrets are set:
 
 | Secret | For |
 | --- | --- |
-| `MAC_CERTIFICATE`, `MAC_CERTIFICATE_PASSWORD` | a *Developer ID Application* certificate as a base64 `.p12`, and its password |
+| `MAC_CERTIFICATE`, `MAC_CERTIFICATE_PASSWORD` | a Developer ID Application certificate as a base64 `.p12`, and its password |
 | `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` | notarization, so macOS opens the app without a warning |
 | `WIN_CERTIFICATE`, `WIN_CERTIFICATE_PASSWORD` | a Windows code signing certificate as a base64 `.pfx` |
 

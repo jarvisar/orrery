@@ -518,7 +518,7 @@ function overlaps(context) {
   }
   const shown = (node) => {
     if (!node || node.closest('[hidden]')) return false;
-    // The flight HUD fades out when flight ends; mid-fade is not a collision.
+    // The flight HUD fades out when flight ends. Mid-fade is not a collision.
     if (node.closest('.hud') && !node.closest('.hud.is-active')) return false;
     for (let n = node; n; n = n.parentElement) {
       const style = getComputedStyle(n);

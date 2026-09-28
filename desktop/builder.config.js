@@ -16,7 +16,7 @@ import { APP_ID, PRODUCT_NAME } from './src/identity.js';
  * @param {string} options.version From the root package.json.
  * @param {boolean} options.macSigning A Developer ID certificate is available
  *   (CSC_LINK / CSC_NAME). Without one the Mac app is ad-hoc signed, which is
- *   what lets it open at all on Apple silicon; see desktop/README.md.
+ *   what lets it open at all on Apple silicon (see desktop/README.md).
  * @returns {import('electron-builder').Configuration}
  */
 export default function config({ version, macSigning }) {
@@ -41,7 +41,7 @@ export default function config({ version, macSigning }) {
 
     // Where auto-updates come from (src/updates.js). electron-builder bakes
     // this into the app as app-update.yml and writes the latest*.yml files
-    // the updater reads; the release workflow uploads those alongside the
+    // the updater reads. The release workflow uploads those with the
     // installers. Builds never publish by themselves (publish: 'never').
     publish: [{ provider: 'github', owner: 'jarvisar', repo: 'orrery', releaseType: 'release' }],
 
@@ -95,7 +95,7 @@ export default function config({ version, macSigning }) {
       darkModeSupport: true,
       target: [{ target: 'dmg', arch: ['arm64', 'x64'] }],
       // Signed and notarized when the certificate and Apple ID secrets are
-      // there; ad-hoc signed ('-') otherwise.
+      // there, and ad-hoc signed ('-') otherwise.
       identity: macSigning ? undefined : '-',
       hardenedRuntime: macSigning,
       notarize: macSigning ? undefined : false,

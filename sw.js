@@ -4,7 +4,7 @@
  * Deployed, every file the site serves is precached as one versioned snapshot
  * and served cache-first, so an installed copy starts without the network and
  * never mixes modules from two releases. The deploy workflow fills in BUILD and
- * PRECACHE below (scripts/stamp-sw.js); a new release changes BUILD, which is
+ * PRECACHE below (scripts/stamp-sw.js). A new release changes BUILD, which is
  * what tells the browser there is a new worker to install.
  *
  * Installing copies across any file whose revision has not changed from the
@@ -12,7 +12,7 @@
  * ten megabytes of textures.
  *
  * In development PRECACHE is empty and everything goes to the network first,
- * falling back to whatever was cached on the way past. `npm run dev` therefore
+ * falling back to whatever was cached from earlier responses. So `npm run dev`
  * always serves the working tree, and still works offline once it has loaded.
  */
 
@@ -56,7 +56,7 @@ async function precache() {
   const previous = await previousSnapshot();
 
   // Any failure rejects the install, and the worker already running stays in
-  // charge until the next attempt: a half-filled snapshot is never served.
+  // charge until the next attempt, so a half-filled snapshot is never served.
   await Promise.all(PRECACHE.map(async ([path, revision]) => {
     const url = absolute(path);
     if (previous && previous.revisions[path] === revision) {

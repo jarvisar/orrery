@@ -6,8 +6,8 @@
  *
  * The bloom is added in the final pass rather than by the bloom pass itself.
  * UnrealBloomPass would blend into the 4x multisampled scene target, which then
- * needs a second resolve; folding the add into the final pass saves two
- * full-screen passes, which matters on bandwidth-limited phones.
+ * needs a second resolve. Adding it in the final pass saves two full-screen
+ * passes, which matters on bandwidth-limited phones.
  */
 
 import * as THREE from 'three';
@@ -34,7 +34,7 @@ export class Post {
     const target = new THREE.WebGLRenderTarget(size.x, size.y, {
       type: THREE.HalfFloatType,
       // The canvas's antialiasing does not apply offscreen. Whether this target
-      // is multisampled is the resolution controller's call; see setSize() and
+      // is multisampled is the resolution controller's call. See setSize() and
       // src/core/Viewport.js.
       samples: MULTISAMPLES,
       // Nothing reads the depth buffer once the scene is drawn, so the
@@ -57,6 +57,16 @@ export class Post {
     // targets, keeping two multisampled HDR buffers allocated where one does.
     this.finish.needsSwap = false;
     this.composer.addPass(this.finish);
+
+    // Stand-ins for the passes' full-screen quads, so compileAsync() can compile
+    // them. They share the quads' own geometry, because the attributes a
+    // geometry has are part of the program.
+    const quad = this.bloom._fsQuad._mesh.geometry;
+    this._bloomQuads = new THREE.Group();
+    for (const material of [this.bloom.materialHighPassFilter, ...this.bloom.separableBlurMaterials, this.bloom.compositeMaterial]) {
+      this._bloomQuads.add(new THREE.Mesh(quad, material));
+    }
+    this._finishQuad = new THREE.Mesh(quad, this.finish.material);
   }
 
   setEnabled(enabled) {
@@ -64,8 +74,22 @@ export class Post {
   }
 
   /**
-   * Follows the canvas. `pixelRatio` is the renderer's, render scale included;
-   * `multisample` is whether the scene target is to be multisampled.
+   * Frees the HDR scene target and the bloom's. three allocates them again the
+   * next time each is drawn to. Called when a headset session starts, since VR
+   * never uses them. Multisampled and half-float at a desktop's size, they take
+   * up to about 100MB that a standalone headset can put to better use.
+   */
+  releaseTargets() {
+    const { composer, bloom } = this;
+    for (const target of [
+      composer.renderTarget1, composer.renderTarget2, bloom.renderTargetBright,
+      ...bloom.renderTargetsHorizontal, ...bloom.renderTargetsVertical,
+    ]) target.dispose();
+  }
+
+  /**
+   * Follows the canvas. `pixelRatio` is the renderer's, render scale included.
+   * `multisample` is whether the scene target should be multisampled.
    */
   setSize(width, height, pixelRatio, multisample = true) {
     const samples = multisample ? MULTISAMPLES : 0;
@@ -95,21 +119,24 @@ export class Post {
    *
    * @param {object} [options]
    * @param {boolean} [options.screen] The screen's variant rather than the one
-   *   in use now; a headset draws with those.
+   *   in use now. A headset draws with those.
    */
   async compileAsync({ screen = !this.enabled || this.renderer.xr.isPresenting } = {}) {
     const { renderer } = this;
     const previous = renderer.getRenderTarget();
     renderer.setRenderTarget(screen ? null : this.composer.readBuffer);
-    const ready = renderer.compileAsync(this.scene, this.camera);
-    renderer.setRenderTarget(previous);
-    await ready;
-    // The first draw with a program also looks up its uniforms and
-    // attributes, each a round trip to the browser's GPU process. Now, too.
-    for (const program of renderer.info.programs ?? []) {
-      program.getUniforms();
-      program.getAttributes();
+    const ready = [renderer.compileAsync(this.scene, this.camera)];
+    if (!screen) {
+      // The composer's own passes too, or they compile in the first frame with
+      // effects on. Any render target works for the bloom's.
+      ready.push(renderer.compileAsync(this._bloomQuads, this.camera));
+      renderer.setRenderTarget(null);
+      this.finish.matchToneMapping(renderer);
+      ready.push(renderer.compileAsync(this._finishQuad, this.camera));
     }
+    renderer.setRenderTarget(previous);
+    await Promise.all(ready);
+    await programsReady(renderer);
   }
 
   dispose() {
@@ -117,6 +144,39 @@ export class Post {
     this.bloom.dispose();
     this.finish.dispose();
   }
+}
+
+/** Programs whose uniforms and attributes have been looked up. See programsReady(). */
+const primed = new WeakSet();
+
+/**
+ * Waits for every shader program to finish linking, then looks up each new
+ * one's uniforms and attributes.
+ *
+ * three's compileAsync can resolve too early. It only checks the program each
+ * material used last, and the running frame loop keeps switching a material
+ * back to the variant it draws with, which was ready long ago. Asking a
+ * program anything while it's still linking blocks until it's done, which
+ * freezes a frame. The first draw with a program also looks up its uniforms and
+ * attributes, each a round trip to the browser's GPU process. So that happens
+ * here, one program per task, instead of all at once in one frame.
+ */
+export async function programsReady(renderer) {
+  const programs = () => renderer.info.programs ?? [];
+  const lost = () => renderer.getContext().isContextLost();
+  while (!lost() && !programs().every((program) => program.isReady())) await wait(10);
+  for (const program of [...programs()]) {
+    if (lost()) return;
+    if (primed.has(program) || !programs().includes(program)) continue;
+    primed.add(program);
+    program.getUniforms();
+    program.getAttributes();
+    await wait(0);
+  }
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** The scene pass, which lets a tiled (phone) GPU drop the depth buffer once the scene is drawn. */
@@ -135,7 +195,7 @@ class ScenePass extends RenderPass {
 /**
  * three's bloom without the final blend: the glow is left in
  * {@link Bloom#texture} for FinishPass to add. Otherwise mirrors
- * UnrealBloomPass.render in the vendored three.js - keep the two in step when
+ * UnrealBloomPass.render in the vendored three.js. Keep the two in step when
  * three is upgraded.
  */
 class Bloom extends UnrealBloomPass {
@@ -196,7 +256,7 @@ class Bloom extends UnrealBloomPass {
 
 /** Tone mapping and colour-space conversion as in three's OutputPass, plus bloom, vignette and dither. */
 class FinishPass extends Pass {
-  /** @param {Bloom} bloom Whose glow to add; see the note at the top of this file. */
+  /** @param {Bloom} bloom Whose glow to add. See the note at the top of this file. */
   constructor(bloom) {
     super();
     this.bloom = bloom;
@@ -209,7 +269,7 @@ class FinishPass extends Pass {
     };
     this.material = new THREE.RawShaderMaterial({
       name: 'FinishPass',
-      // Covers the whole screen; nothing to test against or keep.
+      // Covers the whole screen, so there's nothing to test against or keep.
       depthTest: false,
       depthWrite: false,
       uniforms: this.uniforms,
@@ -285,21 +345,24 @@ class FinishPass extends Pass {
     this.uniforms.tBloom.value = this.bloom.texture;
     this.uniforms.toneMappingExposure.value = renderer.toneMappingExposure;
     this.uniforms.uSeed.value = (this.uniforms.uSeed.value + 0.618) % 1;
-
-    if (this._toneMapping !== renderer.toneMapping) {
-      this._toneMapping = renderer.toneMapping;
-      const define = {
-        [THREE.ACESFilmicToneMapping]: 'ACES_FILMIC_TONE_MAPPING',
-        [THREE.AgXToneMapping]: 'AGX_TONE_MAPPING',
-        [THREE.NeutralToneMapping]: 'NEUTRAL_TONE_MAPPING',
-        [THREE.LinearToneMapping]: 'LINEAR_TONE_MAPPING',
-      }[renderer.toneMapping];
-      this.material.defines = define ? { [define]: '' } : {};
-      this.material.needsUpdate = true;
-    }
+    this.matchToneMapping(renderer);
 
     renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
     this._quad.render(renderer);
+  }
+
+  /** Sets the shader up for the renderer's tone mapping. Post#compileAsync calls it before the first frame. */
+  matchToneMapping(renderer) {
+    if (this._toneMapping === renderer.toneMapping) return;
+    this._toneMapping = renderer.toneMapping;
+    const define = {
+      [THREE.ACESFilmicToneMapping]: 'ACES_FILMIC_TONE_MAPPING',
+      [THREE.AgXToneMapping]: 'AGX_TONE_MAPPING',
+      [THREE.NeutralToneMapping]: 'NEUTRAL_TONE_MAPPING',
+      [THREE.LinearToneMapping]: 'LINEAR_TONE_MAPPING',
+    }[renderer.toneMapping];
+    this.material.defines = define ? { [define]: '' } : {};
+    this.material.needsUpdate = true;
   }
 
   dispose() {

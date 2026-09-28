@@ -5,9 +5,9 @@
  * units, roughly ten texels across the planet: shadow acne and nothing else.
  * Both shadows are exactly solvable instead:
  *
- *   Rings onto planet - intersect the ray to the Sun with the ring plane and
+ *   Rings onto planet: intersect the ray to the Sun with the ring plane and
  *     look up the ring's opacity at that radius.
- *   Planet onto rings - a ray/sphere test from the ring point toward the Sun.
+ *   Planet onto rings: a ray/sphere test from the ring point toward the Sun.
  */
 
 import * as THREE from 'three';

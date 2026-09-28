@@ -4,11 +4,11 @@
  * Spatial rather than in Tab order: pressing right goes to whatever is to the
  * right on screen, as on a television.
  *
- * Movement stays inside a scope - the whole page, or whichever menu, drawer or
- * dialog is open - so the D-pad cannot wander into the controls underneath.
+ * Movement stays inside a scope (the whole page, or whichever menu, drawer or
+ * dialog is open), so the D-pad cannot wander into the controls underneath.
  * The scope is re-read on every call.
  *
- * Nothing here listens to the controller; src/main.js calls in.
+ * Nothing here listens to the controller. src/main.js calls in.
  */
 
 const FOCUSABLE = [
@@ -112,7 +112,7 @@ export class FocusNavigator {
   activate() {
     const node = this.ensure();
     if (!node || isRange(node)) return;
-    // A list's own drop-down cannot be driven from a controller; A steps
+    // A list's own drop-down cannot be driven from a controller, so A steps
     // through its choices instead, as left and right do.
     if (isSelect(node)) {
       this.adjust(1, { wrap: true });
@@ -120,7 +120,7 @@ export class FocusNavigator {
     }
     node.click();
     // Some buttons let go of focus once pressed (the flight HUD's, so Space
-    // does not press them again); a controller still needs somewhere to be.
+    // does not press them again). A controller still needs somewhere to be.
     if (document.activeElement === document.body && isNavigable(node)) focus(node);
   }
 
@@ -223,7 +223,7 @@ export function isNavigable(node) {
   const rect = node.getBoundingClientRect();
   if (rect.width === 0 || rect.height === 0) return false;
   if (rect.bottom < 0 || rect.right < 0 || rect.top > innerHeight || rect.left > innerWidth) {
-    // Off screen is fine inside a scrolling list; focusing it scrolls it in.
+    // Off screen is fine inside a scrolling list, since focusing it scrolls it into view.
     if (!node.parentElement?.closest('[role="listbox"], [role="menu"], .drawer__body, .help__body, .info__body, .when, .systems')) {
       return false;
     }
@@ -255,7 +255,7 @@ function canScroll(node, sign) {
     : node.scrollTop > 0;
 }
 
-/** Focusing scrolls a list to bring the control into view; focusVisible asks for the ring. */
+/** Focusing scrolls a list to bring the control into view, and focusVisible asks for the ring. */
 function focus(node) {
   node.focus({ focusVisible: true });
 }

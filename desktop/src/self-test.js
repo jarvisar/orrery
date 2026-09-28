@@ -2,7 +2,7 @@
  * `--self-test`: loads the app, checks it came up, and exits 0 or 1.
  *
  * The desktop counterpart of scripts/smoke.js. Run against the packaged app,
- * it also proves the packaging: every file is in the build, served with the
+ * it also checks the packaging: every file is in the build, served with the
  * right type, the preload ran and the CSP lets everything through. On a Steam
  * Deck it is a quick way to see what GPU WebGL landed on.
  *
@@ -95,8 +95,8 @@ export async function selfTest(win, report, startUrl, screenshot) {
       log(`updater: ${updater ? 'packaged' : 'MISSING'}, feed: ${feed ? 'app-update.yml' : 'MISSING'}`);
     }
 
-    // The same renderer with a downloaded system: also exercises app:// navigation
-    // and ensures the packaged offline NASA catalogue is actually shipped.
+    // The same renderer with a downloaded system. Also tests app:// navigation
+    // and checks that the offline NASA catalogue made it into the package.
     await contents.loadURL(`${ORIGIN}/?system=TRAPPIST-1&body=planet%3ATRAPPIST-1%20e`);
     while (await contents.executeJavaScript('Boolean(document.getElementById("loading"))')) await sleep(500);
     const exoplanet = await contents.executeJavaScript(`({
@@ -147,7 +147,7 @@ export async function selfTest(win, report, startUrl, screenshot) {
   }
 }
 
-/** Read from the page; kept to plain DOM so it survives most refactors. */
+/** Read from the page. Plain DOM only, so it survives most refactors. */
 const PROBE = `(async () => {
   const shown = (id) => { const el = document.getElementById(id); return Boolean(el && !el.hidden); };
   const canvas = document.getElementById('viewport');

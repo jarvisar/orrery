@@ -3,10 +3,10 @@
  * Refreshes public/data/exoplanets.json from the NASA Exoplanet Archive, and
  * public/data/sky-hosts.json, the hosts bright enough to click in the sky.
  *
- * Atomic: the new copies replace the old only once the catalogue has been
+ * Atomic. The new copies only replace the old ones once the catalogue has been
  * normalized, validated, found no more than 5% smaller, and built into a finite
- * model for every system (with the current companion supplement), and the sky
- * list has been validated and found no more than 5% shorter. Any failure exits
+ * model for every system (with the current companion supplement). The sky list
+ * also has to validate and be no more than 5% shorter. Any failure exits
  * non-zero and leaves both committed copies exactly as they were.
  *
  *   npm run exoplanets:update
