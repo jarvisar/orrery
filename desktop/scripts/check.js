@@ -19,7 +19,7 @@ import { basename, dirname, extname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { SERVED } from '../../scripts/lib/served.js';
-import { LINK_ORIGINS, REMOTE_ORIGINS } from '../src/csp.js';
+import { LINK_ORIGINS, REMOTE_ORIGINS, WEB_ONLY_ORIGINS } from '../src/csp.js';
 import { MIME, MIME_BY_NAME } from '../src/mime.js';
 
 const run = promisify(execFile);
@@ -83,7 +83,7 @@ console.log(`types     ${served.length} served files, all with a content type`);
 // Only quoted URLs count: a URL in a comment is not something the page loads.
 // XML namespaces and the JSON-LD vocabulary look like URLs but are never fetched.
 const NAMESPACES = ['http://www.w3.org', 'https://schema.org'];
-const allowed = new Set([...REMOTE_ORIGINS, ...LINK_ORIGINS, ...NAMESPACES]);
+const allowed = new Set([...REMOTE_ORIGINS, ...LINK_ORIGINS, ...WEB_ONLY_ORIGINS, ...NAMESPACES]);
 const code = served.filter((file) => /\.(js|html|css)$/.test(file) && !rel(file).startsWith('vendor/'));
 const origins = new Map();
 for (const file of code) {
