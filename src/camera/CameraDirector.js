@@ -69,9 +69,6 @@ export class CameraDirector {
     this._lastFocusPosition = new THREE.Vector3();
     this._transition = null;
     this._scaleExponent = system.scaleExponent;
-    this._lastDistance = null;
-    /** Called with the new distance whenever the user zooms out. main.js uses it to hand over to a wider view. */
-    this.onZoomOut = null;
     // The wheel and a pinch apply their zoom inside the event, before update()
     // could see it, so they claim it here instead.
     this.controls.addEventListener('start', () => {
@@ -152,20 +149,14 @@ export class CameraDirector {
    * its surroundings instead (a star's planets, in a system of several stars)
    * and follows it as it moves.
    */
-  overview(radiusAU = this.system.catalogue.overviewAU, { instant = false, duration = 2.2, centre = null, keepDistance = false } = {}) {
+  overview(radiusAU = this.system.catalogue.overviewAU, { instant = false, duration = 2.2, centre = null } = {}) {
     const target = centre ? centre.group.position.clone() : new THREE.Vector3();
     const bearing = Math.atan2(this.camera.position.x - target.x, this.camera.position.z - target.z);
-    // Zoomed out to here from below the planets' plane, stay below it rather
-    // than swing up through it.
-    const below = keepDistance && this.camera.position.y < this.controls.target.y;
-    const elevation = below ? -OVERVIEW_ELEVATION : OVERVIEW_ELEVATION;
     _offset.set(
-      Math.sin(bearing) * Math.cos(elevation),
-      Math.sin(elevation),
-      Math.cos(bearing) * Math.cos(elevation)
-    ).multiplyScalar(keepDistance ? this.camera.position.distanceTo(this.controls.target) : this.overviewDistance(radiusAU));
-    // Instantly, only re-centre. Tilting as well would be a second jump.
-    if (keepDistance && instant) _offset.copy(this.camera.position).sub(this.controls.target);
+      Math.sin(bearing) * Math.cos(OVERVIEW_ELEVATION),
+      Math.sin(OVERVIEW_ELEVATION),
+      Math.cos(bearing) * Math.cos(OVERVIEW_ELEVATION)
+    ).multiplyScalar(this.overviewDistance(radiusAU));
 
     this.focus = null;
     this.anchor = centre;
@@ -185,12 +176,10 @@ export class CameraDirector {
       // A moving centre is tracked all the way there, like a focused body.
       toTarget: centre ? null : target,
     });
-    // The user is mid-zoom, so how far out they are stays theirs.
-    if (keepDistance) this._claim('zoom');
   }
 
   /** How far out {@link overview} stands to frame `radiusAU`. */
-  overviewDistance(radiusAU) {
+  overviewDistance(radiusAU = this.system.catalogue.overviewAU) {
     const radius = heliocentricDistance(radiusAU, this._scaleExponent);
     const halfHeight = THREE.MathUtils.degToRad(this.camera.fov) / 2;
     const halfWidth = Math.atan(Math.tan(halfHeight) * this.camera.aspect);
@@ -243,21 +232,6 @@ export class CameraDirector {
 
     this.controls.update(dt);
     this._updateClipping();
-    this._watchZoom();
-  }
-
-  /**
-   * The wheel and a pinch zoom inside their events, so this compares with the
-   * last frame. Only zooming counts: following keeps the distance, and a
-   * transition only changes it when the user has taken the zoom.
-   */
-  _watchZoom() {
-    const distance = this.camera.position.distanceTo(this.controls.target);
-    const previous = this._lastDistance;
-    this._lastDistance = distance;
-    if (previous === null || distance <= previous * 1.0001) return;
-    if (this._transition && !this._transition.claimed.zoom) return;
-    this.onZoomOut?.(distance);
   }
 
   /**

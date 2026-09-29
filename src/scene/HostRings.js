@@ -1,7 +1,7 @@
 /**
  * A faint ring round each star in the sky that has planets, so the ones worth
- * clicking can be found. Shown only in the whole-system view (main.js decides),
- * fading in and out.
+ * clicking can be found. Shown in the whole-system view or zoomed far out
+ * (main.js decides), fading in and out.
  *
  * Drawn the way Sky.js draws the stars: at infinity, a fixed size in pixels,
  * opaque and early, so the planets paint over any ring behind them.

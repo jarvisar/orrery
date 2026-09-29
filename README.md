@@ -10,7 +10,7 @@ Visit the [live site](https://orrery.jarvisar.com/) to access the latest deploym
 
 Click on a planet or moon to focus on it. Drag to rotate the camera and scroll to zoom. Click on the date to change it, or press `Space` to pause.
 
-- Click on `Star systems` to search for exoplanet systems. In the whole system view (`H`), stars with planets have a ring around them. Click one to travel there.
+- Click on `Star systems` to search for exoplanet systems. In the whole system view (`H`), or zoomed far out, stars with planets have a ring around them. Click one to travel there.
 - Press `G` to switch to flight mode, then click to capture the mouse. Use `W`/`S` for the throttle, `A`/`D` to roll and `Shift` to boost. Press `Esc` to exit.
 - Press `H` to return to the overview.
 - Press `?` to see the full list of controls.

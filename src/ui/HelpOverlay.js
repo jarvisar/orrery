@@ -17,7 +17,7 @@ export const SHORTCUTS = [
       { keys: ['Scroll'], touch: ['Pinch'], desc: 'Zoom in and out' },
       { keys: ['Right-drag'], touch: ['Two-finger drag'], desc: 'Pan' },
       { keys: ['Click'], touch: ['Tap'], desc: 'Focus a body' },
-      { keys: ['Click a ringed star'], touch: ['Tap a ringed star'], desc: 'Travel there (whole system view)' },
+      { keys: ['Click a ringed star'], touch: ['Tap a ringed star'], desc: 'Travel there (whole system view, or zoomed far out)' },
       { keys: ['H'], desc: 'The whole system' },
       { keys: ['Esc'], desc: 'Free view, or exit flight' },
       { keys: ['[', ']'], desc: 'Previous or next body' },
