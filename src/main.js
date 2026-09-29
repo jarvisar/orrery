@@ -1240,9 +1240,6 @@ async function buildVisitor(assets, scene, system) {
       name: 'Unidentified',
       kind: 'visitor',
       color: '#8fe3b0',
-      blurb:
-        'Not in any catalogue. It has been in this model since the first version, and ' +
-        'nobody has managed to explain it. Lately it has taken an interest in the Moon.',
       facts: {
         Designation: 'None',
         Origin: 'Unknown',

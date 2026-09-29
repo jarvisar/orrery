@@ -71,9 +71,6 @@ export const BODIES = [
     spin: { periodHours: 609.119878, pole: { ra: 286.13, dec: 63.87 }, meridianDeg: 84.176 },
     textures: { map: 'sun' },
     color: '#ffcc55',
-    blurb:
-      'A G-type main-sequence star holding 99.86% of the mass of the solar system. ' +
-      'Every other object here orbits it because of that one fact.',
     facts: {
       'Mean radius': '696,340 km',
       Mass: '1.989 × 10³⁰ kg',
@@ -100,9 +97,6 @@ export const BODIES = [
     textures: { map: 'mercury', bumpMap: 'mercury_bump' },
     bumpScale: 0.012,
     color: '#a8a19a',
-    blurb:
-      'The smallest planet and the fastest, rounding the Sun every 88 days. It has almost ' +
-      'no atmosphere, so its surface swings between 427 °C in daylight and −173 °C at night.',
     facts: {
       'Mean radius': '2,439.7 km',
       Mass: '3.285 × 10²³ kg (0.055 Earths)',
@@ -130,10 +124,6 @@ export const BODIES = [
     color: '#d9b982',
     glow: { color: '#f3dcae', intensity: 0.9, height: 0.045 },
     terminator: 0.22,
-    blurb:
-      'Almost Earth’s twin in size, and nothing like it otherwise. A runaway greenhouse ' +
-      'effect keeps the surface at 464 °C under 92 atmospheres of carbon dioxide. It also ' +
-      'spins backwards, and slower than it orbits.',
     facts: {
       'Mean radius': '6,051.8 km',
       Mass: '4.867 × 10²⁴ kg (0.815 Earths)',
@@ -168,10 +158,6 @@ export const BODIES = [
     color: '#4b8fd6',
     glow: { color: '#5f9dff', intensity: 1.0, height: 0.035 },
     terminator: 0.06,
-    blurb:
-      'The only place in the catalogue with liquid water on its surface, plate tectonics, ' +
-      'and an oxygen atmosphere. Its unusually large moon stabilises its axial tilt, which ' +
-      'keeps the seasons from wandering.',
     facts: {
       'Mean radius': '6,371 km',
       Mass: '5.972 × 10²⁴ kg',
@@ -199,10 +185,6 @@ export const BODIES = [
     textures: { map: 'moon', bumpMap: 'moon_bump' },
     bumpScale: 0.015,
     color: '#b9b4ad',
-    blurb:
-      'Large enough relative to Earth that the pair is nearly a double planet. It is tidally ' +
-      'locked, so the same hemisphere has faced us for billions of years, and it drifts ' +
-      'about 3.8 cm further away each year.',
     facts: {
       'Mean radius': '1,737.4 km',
       Mass: '7.342 × 10²² kg',
@@ -229,10 +211,6 @@ export const BODIES = [
     color: '#c1603f',
     glow: { color: '#e9b48d', intensity: 0.45, height: 0.022 },
     terminator: 0.03,
-    blurb:
-      'Half Earth’s diameter, with a day only 40 minutes longer. It carries the tallest ' +
-      'volcano in the solar system, Olympus Mons, and a canyon system that would span the ' +
-      'continental United States.',
     facts: {
       'Mean radius': '3,389.5 km',
       Mass: '6.417 × 10²³ kg (0.107 Earths)',
@@ -254,10 +232,6 @@ export const BODIES = [
     tidallyLocked: true,
     model: 'phobos',
     color: '#8c8177',
-    blurb:
-      'A 22-kilometre rubble pile orbiting closer to its planet than any other moon in the ' +
-      'solar system. Tidal forces are dragging it inward; in roughly 50 million years it ' +
-      'will either strike Mars or be torn into a ring.',
     facts: {
       'Mean radius': '11.3 km',
       Mass: '1.066 × 10¹⁶ kg',
@@ -278,9 +252,6 @@ export const BODIES = [
     tidallyLocked: true,
     model: 'deimos',
     color: '#9a8f83',
-    blurb:
-      'The smaller and more distant of Mars’s two moons, barely 12 km across. Its escape ' +
-      'velocity is about 5.6 m/s - a determined person could jump off it.',
     facts: {
       'Mean radius': '6.2 km',
       Mass: '1.476 × 10¹⁵ kg',
@@ -307,10 +278,6 @@ export const BODIES = [
     color: '#c8a07a',
     glow: { color: '#f0dcc0', intensity: 0.4, height: 0.02 },
     terminator: 0.14,
-    blurb:
-      'More massive than every other planet combined. It has no surface to land on - the ' +
-      'atmosphere simply gets denser until it becomes a metallic hydrogen ocean. A day ' +
-      'lasts under ten hours.',
     facts: {
       'Mean radius': '69,911 km (11.2 Earths)',
       Mass: '1.898 × 10²⁷ kg (318 Earths)',
@@ -333,10 +300,6 @@ export const BODIES = [
     textures: { map: 'io', bumpMap: 'io_bump' },
     bumpScale: 0.015,
     color: '#d8c56a',
-    blurb:
-      'The most volcanically active world known. Jupiter’s tides knead its interior hard ' +
-      'enough to keep hundreds of volcanoes erupting, resurfacing it faster than craters ' +
-      'can accumulate.',
     facts: {
       'Mean radius': '1,821.6 km',
       Mass: '8.932 × 10²² kg',
@@ -358,10 +321,6 @@ export const BODIES = [
     textures: { map: 'europa', bumpMap: 'europa_bump' },
     bumpScale: 0.008,
     color: '#cbb89b',
-    blurb:
-      'A shell of water ice over a saltwater ocean that probably holds twice as much water ' +
-      'as all of Earth’s. That ocean makes it one of the best places in the solar system ' +
-      'to look for life.',
     facts: {
       'Mean radius': '1,560.8 km',
       Mass: '4.800 × 10²² kg',
@@ -383,9 +342,6 @@ export const BODIES = [
     textures: { map: 'ganymede', bumpMap: 'ganymede_bump' },
     bumpScale: 0.015,
     color: '#9c8e7d',
-    blurb:
-      'The largest moon in the solar system - bigger than Mercury - and the only one with ' +
-      'its own magnetic field, generated by a liquid iron core.',
     facts: {
       'Mean radius': '2,634.1 km',
       Mass: '1.482 × 10²³ kg',
@@ -407,10 +363,6 @@ export const BODIES = [
     textures: { map: 'callisto', bumpMap: 'callisto_bump' },
     bumpScale: 0.018,
     color: '#7d7167',
-    blurb:
-      'The most heavily cratered object known - its surface has gone essentially unchanged ' +
-      'for four billion years. It orbits far enough out to sit outside Jupiter’s worst ' +
-      'radiation belts.',
     facts: {
       'Mean radius': '2,410.3 km',
       Mass: '1.076 × 10²³ kg',
@@ -438,10 +390,6 @@ export const BODIES = [
     color: '#e0c48c',
     glow: { color: '#f1e0b4', intensity: 0.4, height: 0.02 },
     terminator: 0.14,
-    blurb:
-      'Less dense than water, and circled by a ring system only about ten metres thick but ' +
-      '280,000 km wide. The rings are almost pure water ice, and may be younger than the ' +
-      'dinosaurs.',
     facts: {
       'Mean radius': '58,232 km (9.1 Earths)',
       Mass: '5.683 × 10²⁶ kg (95 Earths)',
@@ -467,10 +415,6 @@ export const BODIES = [
     color: '#d9a968',
     glow: { color: '#f0ae57', intensity: 1.1, height: 0.07 },
     terminator: 0.3,
-    blurb:
-      'The only moon with a substantial atmosphere - denser at the surface than Earth’s - ' +
-      'and the only other body known to have standing liquid on its surface, in the form of ' +
-      'methane lakes near its poles.',
     facts: {
       'Mean radius': '2,574.7 km',
       Mass: '1.345 × 10²³ kg',
@@ -493,10 +437,6 @@ export const BODIES = [
     textures: { map: 'enceladus', bumpMap: 'enceladus_bump' },
     bumpScale: 0.006,
     color: '#e8eef0',
-    blurb:
-      'A 500-kilometre ice moon venting plumes of salty water from its south pole straight ' +
-      'into space. Those plumes supply Saturn’s E ring, and they come from a global ocean ' +
-      'under the ice.',
     facts: {
       'Mean radius': '252.1 km',
       Mass: '1.080 × 10²⁰ kg',
@@ -518,10 +458,6 @@ export const BODIES = [
     textures: { map: 'iapetus', bumpMap: 'iapetus_bump' },
     bumpScale: 0.02,
     color: '#8f8171',
-    blurb:
-      'Two-toned: one hemisphere is as bright as snow, the other as dark as coal. It also ' +
-      'has a 13-kilometre-high ridge running almost exactly along its equator, and nobody ' +
-      'is certain why.',
     facts: {
       'Mean radius': '734.5 km',
       Mass: '1.806 × 10²¹ kg',
@@ -548,10 +484,6 @@ export const BODIES = [
     color: '#9fd8e0',
     glow: { color: '#a6eef6', intensity: 0.75, height: 0.03 },
     terminator: 0.16,
-    blurb:
-      'Tipped over on its side, almost certainly by an ancient collision. Each pole spends ' +
-      '42 years in continuous sunlight and then 42 years in darkness. Methane in the upper ' +
-      'atmosphere gives it its colour.',
     facts: {
       'Mean radius': '25,362 km (4.0 Earths)',
       Mass: '8.681 × 10²⁵ kg (14.5 Earths)',
@@ -578,10 +510,6 @@ export const BODIES = [
     color: '#4a6fd4',
     glow: { color: '#7b9dff', intensity: 0.75, height: 0.03 },
     terminator: 0.16,
-    blurb:
-      'The windiest planet, with storms clocked above 2,000 km/h. It was the first planet ' +
-      'found by mathematics rather than observation - its position was predicted from ' +
-      'irregularities in Uranus’s orbit.',
     facts: {
       'Mean radius': '24,622 km (3.9 Earths)',
       Mass: '1.024 × 10²⁶ kg (17.1 Earths)',
@@ -605,10 +533,6 @@ export const BODIES = [
     textures: { map: 'triton', bumpMap: 'triton_bump' },
     bumpScale: 0.012,
     color: '#c7bdb4',
-    blurb:
-      'The only large moon that orbits backwards, which means Neptune captured it rather ' +
-      'than forming it. That orbit is decaying, and in a few billion years Neptune will ' +
-      'tear it into a ring system.',
     facts: {
       'Mean radius': '1,353.4 km',
       Mass: '2.139 × 10²² kg',
@@ -635,10 +559,6 @@ export const BODIES = [
     textures: { map: 'ceres', bumpMap: 'ceres_bump' },
     bumpScale: 0.01,
     color: '#94897d',
-    blurb:
-      'The largest object in the asteroid belt and the only dwarf planet inside Neptune’s ' +
-      'orbit. It holds about a quarter of the belt’s total mass, and bright salt deposits ' +
-      'in Occator crater suggest briny water reached the surface recently.',
     facts: {
       'Mean radius': '473 km',
       Mass: '9.39 × 10²⁰ kg',
@@ -664,10 +584,6 @@ export const BODIES = [
     bumpScale: 0.012,
     color: '#c9a98c',
     glow: { color: '#a8c4ff', intensity: 0.35, height: 0.02 },
-    blurb:
-      'Its orbit is eccentric and steeply inclined enough that for twenty years of each ' +
-      '248-year circuit it is closer to the Sun than Neptune - as it was from 1979 to 1999. ' +
-      'A 3:2 resonance with Neptune keeps the two from ever meeting.',
     facts: {
       'Mean radius': '1,188.3 km',
       Mass: '1.303 × 10²² kg',
@@ -692,9 +608,6 @@ export const BODIES = [
     spin: { periodHours: 22.826, tiltDeg: 0 },
     textures: { map: 'makemake' },
     color: '#b08a72',
-    blurb:
-      'A Kuiper belt dwarf planet named for the creator deity of Rapa Nui, discovered just ' +
-      'after Easter 2005. Its surface is covered in methane and ethane ice.',
     facts: {
       'Mean radius': '715 km',
       Mass: '≈ 3.1 × 10²¹ kg',
@@ -720,10 +633,6 @@ export const BODIES = [
     textures: { map: 'eris', bumpMap: 'eris_bump' },
     bumpScale: 0.01,
     color: '#cfc9c0',
-    blurb:
-      'Slightly smaller than Pluto but about 27% more massive. Its discovery in 2005 is ' +
-      'what forced astronomers to define "planet" precisely - and what reclassified Pluto ' +
-      'in the process.',
     facts: {
       'Mean radius': '1,163 km',
       Mass: '1.64 × 10²² kg',

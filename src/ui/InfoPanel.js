@@ -107,6 +107,7 @@ export class InfoPanel {
     this.root.style.setProperty('--body-color', body.color ?? '#ffffff');
     this.kind.replaceChildren(...this._describeKind(body));
     this.blurb.textContent = body.blurb ?? '';
+    this.blurb.hidden = !body.blurb;
 
     this.facts.replaceChildren(
       ...Object.entries(body.facts ?? {}).map(([term, value]) =>
