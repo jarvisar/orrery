@@ -59,6 +59,9 @@ const KM_PER_UNIT = EARTH_RADIUS_KM / EARTH_RADIUS_UNITS;
 /** The one thing in the scene that is not in the catalogue. */
 const VISITOR_ID = 'visitor';
 
+/** Zooming out past this share of the overview's distance switches to it. */
+const ZOOM_OUT_HANDOVER = 0.6;
+
 /** Keys flight mode takes over from the rest of the interface. */
 const FLIGHT_KEYS = [
   'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'Space', 'ShiftLeft', 'ShiftRight',
@@ -509,7 +512,7 @@ function buildInterface(ctx) {
   }
 
   /** The whole system. With `centreId`, one body and what orbits it, followed as it moves. */
-  function showOverview(radiusAU = catalogue.overviewAU, { instant = false, centreId = null, quietSky = false } = {}) {
+  function showOverview(radiusAU = catalogue.overviewAU, { instant = false, centreId = null, quietSky = false, keepDistance = false } = {}) {
     if (state.flying) setFlight(false, { refocus: false });
     state.focusedId = null;
     state.inOverview = true;
@@ -518,13 +521,41 @@ function buildInterface(ctx) {
     const centre = centreId ? lookup(centreId) ?? null : null;
     state.overview = { radiusAU, centre };
     if (vr.active) vr.overview(radiusAU, { instant, centre });
-    else director.overview(radiusAU, { instant: instant || reduceMotion(), centre });
+    else director.overview(radiusAU, { instant: instant || reduceMotion(), centre, keepDistance });
     bodyPicker.select(null, centre ? { name: `Planets of ${centre.name}`, option: '@home' } : { name: 'Whole system' });
     if (!instant) announce(centre ? `Planets of ${centre.name}` : 'Whole system');
     infoPanel.show(catalogue.isExoplanet ? centre ?? system.bodies.get(catalogue.starId) : null);
     orbits.setFocus(null);
     markers.setFocus(null);
     setUrlBody(null);
+  }
+
+  // Zooming out far enough lets go of the body for the whole system. Where the
+  // host's own planets have their own view (catalogue.home), that comes first.
+  director.onZoomOut = (distance) => {
+    const wider = widerView();
+    if (wider && distance >= wider.distance) {
+      showOverview(wider.radiusAU, { centreId: wider.centreId, keepDistance: true });
+    }
+  };
+
+  /** The next view out from the current one, and how far out it takes over. */
+  function widerView() {
+    const home = catalogue.home;
+    const whole = { radiusAU: catalogue.overviewAU, centreId: null };
+    const view = state.focusedId ? lookup(state.focusedId) : null;
+    if (view) {
+      const inHome = home && (view.body.id === home.centreId || view.body.parent === home.centreId);
+      const next = inHome ? home : whole;
+      // A big star close in can already be framed from about that far, so it
+      // takes a real zoom out, not the first scroll.
+      const distance = Math.max(director.overviewDistance(next.radiusAU) * ZOOM_OUT_HANDOVER, director.framingDistance(view) * 2);
+      return { ...next, distance };
+    }
+    if (state.inOverview && state.overview.centre) {
+      return { ...whole, distance: director.overviewDistance(whole.radiusAU) * ZOOM_OUT_HANDOVER };
+    }
+    return null;
   }
 
   /** The host's own planets, for a system that has that view (catalogue.home). */
