@@ -31,6 +31,15 @@ export const LINK_ORIGINS = [
   'https://orrery.jarvisar.com',
 ];
 
+/**
+ * Origins only the website loads. index.html checks the hostname first, so the
+ * desktop app never requests them and the policy does not need them.
+ */
+export const WEB_ONLY_ORIGINS = [
+  // Cloudflare Web Analytics beacon.
+  'https://static.cloudflareinsights.com',
+];
+
 const remote = REMOTE_ORIGINS.join(' ');
 
 export const CSP = [
