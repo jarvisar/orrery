@@ -50,6 +50,8 @@ const CLEAR_OF_PATH = 0.3;
 
 const _point = { x: 0, y: 0, z: 0 };
 const _centre = new THREE.Vector3();
+const _local = new THREE.Vector3();
+const _inverse = new THREE.Quaternion();
 
 export class Orbits {
   /**
@@ -121,7 +123,8 @@ export class Orbits {
       view,
       parentId: this.system.catalogue.isExoplanet ? view.body.parent : heliocentric ? null : view.body.parent,
       width,
-      radius: meanRadius(positions),
+      positions,
+      ...pathRadii(positions),
       targetOpacity: base,
       allowed: true,
       head,
@@ -178,8 +181,8 @@ export class Orbits {
 
       const distance = Math.max(cameraPosition.distanceTo(_centre), 1e-3);
       const span = smoothstep(SPAN_OUT, SPAN_IN, entry.radius / distance);
-      const offPath = entry.radius > 0
-        ? smoothstep(NEAR_PATH, CLEAR_OF_PATH, Math.abs(distance - entry.radius) / entry.radius)
+      const offPath = entry.radius > 0 && span > 0
+        ? smoothstep(NEAR_PATH, CLEAR_OF_PATH, distanceToPath(entry, cameraPosition, distance) / entry.radius)
         : 1;
       const opacity = entry.targetOpacity * span * offPath;
 
@@ -236,7 +239,8 @@ export class Orbits {
       const segments = entry.view.elements.heliocentric ? HELIOCENTRIC_SEGMENTS : SATELLITE_SEGMENTS;
       const positions = this._pathPositions(entry.view, segments);
       entry.line.geometry.setPositions(positions);
-      entry.radius = meanRadius(positions);
+      entry.positions = positions;
+      Object.assign(entry, pathRadii(positions));
     }
   }
 
@@ -306,12 +310,40 @@ function applyTrail(material, head, smooth) {
   });
 }
 
-/** Mean distance of a sampled path from its own centre, in scene units. */
-function meanRadius(positions) {
+/** Mean, nearest and farthest distance of a sampled path from its own centre, in scene units. */
+function pathRadii(positions) {
   const count = positions.length / 3;
-  let total = 0;
+  let total = 0, minRadius = Infinity, maxRadius = 0;
   for (let i = 0; i < count; i++) {
-    total += Math.hypot(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+    const r = Math.hypot(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+    total += r;
+    minRadius = Math.min(minRadius, r);
+    maxRadius = Math.max(maxRadius, r);
   }
-  return count ? total / count : 0;
+  return { radius: count ? total / count : 0, minRadius, maxRadius };
+}
+
+/**
+ * How far the camera is from the nearest vertex of a path. Comparing the
+ * camera's distance from the centre with the mean radius only works for round
+ * orbits. Eris sits around 20% outside its mean radius right now, so its path
+ * never faded when it was focused.
+ *
+ * @param {number} distance The camera's distance from the path's centre.
+ */
+function distanceToPath(entry, cameraPosition, distance) {
+  // Can't be any closer than this, which rules out most paths without the loop.
+  const bound = Math.max(entry.minRadius - distance, distance - entry.maxRadius, 0);
+  if (bound >= entry.radius * CLEAR_OF_PATH) return bound;
+
+  _local.copy(cameraPosition).sub(_centre);
+  if (entry.view.elements.equatorial) _local.applyQuaternion(_inverse.copy(entry.line.quaternion).invert());
+
+  const p = entry.positions;
+  let best = Infinity;
+  for (let i = 0; i < p.length; i += 3) {
+    const dx = p[i] - _local.x, dy = p[i + 1] - _local.y, dz = p[i + 2] - _local.z;
+    best = Math.min(best, dx * dx + dy * dy + dz * dz);
+  }
+  return Math.sqrt(best);
 }
