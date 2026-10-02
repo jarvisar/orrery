@@ -2,14 +2,17 @@
 /**
  * Dependency-free static server for local development. There is no build
  * step, so this serves byte-for-byte what GitHub Pages serves.
+ *
+ *   node scripts/serve.js          # the working tree
+ *   node scripts/serve.js _site    # a staged copy, e.g. to preview scripts/pages.js
  */
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import { dirname, extname, join, normalize, sep } from 'node:path';
+import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = process.argv[2] ? resolve(process.argv[2]) : join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5173;
 
 const TYPES = {

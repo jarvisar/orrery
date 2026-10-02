@@ -165,16 +165,26 @@ export class HelpOverlay {
           : 'Positions come from J2000 orbital elements and poles from the IAU; sizes and ' +
             'distances are compressed. Stars from the Yale Bright Star Catalogue.',
       }),
-      el(
-        'a',
-        {
-          class: 'btn help__source',
-          href: 'https://github.com/jarvisar/orrery',
+      el('div', { class: 'help__links' }, [
+        el('a', {
+          class: 'btn help__link',
+          // The desktop app has no about page of its own, so it opens the live one.
+          href: new URL('about/', window.orreryDesktop?.webUrl ?? window.location.href).href,
           target: '_blank',
           rel: 'noopener',
-        },
-        [icon('github', 16), el('span', { text: 'Source' })]
-      ),
+          text: 'About',
+        }),
+        el(
+          'a',
+          {
+            class: 'btn help__link',
+            href: 'https://github.com/jarvisar/orrery',
+            target: '_blank',
+            rel: 'noopener',
+          },
+          [icon('github', 16), el('span', { text: 'Source' })]
+        ),
+      ]),
     ]);
 
     this.card = el('div', { class: 'help__card panel' }, [

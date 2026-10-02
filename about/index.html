@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About Orrery | Interactive 3D Solar System</title>
+<meta name="description" content="Orrery is a free 3D model of the solar system that runs in the browser. See the planets on any date, fly around, and explore thousands of exoplanet systems from NASA data.">
+<meta name="author" content="Adam Jarvis">
+<link rel="canonical" href="https://orrery.jarvisar.com/about/">
+<meta name="theme-color" content="#05070f">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Orrery">
+<meta property="og:url" content="https://orrery.jarvisar.com/about/">
+<meta property="og:title" content="About Orrery | Interactive 3D Solar System">
+<meta property="og:description" content="A free 3D model of the solar system that runs in the browser, with real orbits, the real sky and exoplanet systems.">
+<meta property="og:image" content="https://orrery.jarvisar.com/public/screenshots/wide.webp">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/svg+xml" href="../public/icon/orrery.svg">
+<link rel="stylesheet" href="../public/pages.css">
+</head>
+<body>
+<nav class="nav"><a class="brand" href="../">Orrery</a><a href="../systems/">Exoplanet systems</a><a href="./">About</a></nav>
+<main>
+<h1>Orrery</h1>
+<p>An interactive 3D model of the solar system that runs in the browser, built with <a href="https://threejs.org/">three.js</a>. It also has thousands of planetary systems around other stars, built from the <a href="https://exoplanetarchive.ipac.caltech.edu/">NASA Exoplanet Archive</a>.</p>
+<a class="open" href="../">Open Orrery</a>
+
+<figure>
+  <img src="../public/screenshots/wide.webp" width="1600" height="1000" alt="The whole solar system, with every orbit drawn">
+</figure>
+
+<h2>Features</h2>
+<ul>
+  <li>The Sun, planets, dwarf planets and their major moons, where they really are on any date. Positions are most accurate between 1800 and 2050.</li>
+  <li>Jump to any date, or to moments like the 2020 great conjunction. Time can be sped up, slowed down or run backwards.</li>
+  <li>A flight mode for flying around the solar system yourself.</li>
+  <li>About 4,800 <a href="../systems/">exoplanet systems</a>, updated every week. Search them under <code>Star systems</code>, or click a ringed star in the sky to go there.</li>
+  <li>The night sky from the Yale Bright Star Catalogue.</li>
+  <li>Game controllers and VR headsets, including hand tracking.</li>
+  <li>Installs from the browser and works offline. There is also a <a href="https://github.com/jarvisar/orrery/releases">desktop app</a> for Windows, macOS and Linux.</li>
+</ul>
+
+<h2>Controls</h2>
+<p>Drag to rotate and scroll to zoom. Click on a planet or moon to focus on it. Click on the date to change it.</p>
+<ul>
+  <li>Press <kbd>H</kbd> to see the whole system.</li>
+  <li>Press <kbd>Space</kbd> to pause. Use <kbd>,</kbd> and <kbd>.</kbd> to slow down or speed up time.</li>
+  <li>Press <kbd>G</kbd> for flight mode, then click to capture the mouse. Use <kbd>W</kbd>/<kbd>S</kbd> for the throttle, <kbd>A</kbd>/<kbd>D</kbd> to roll and <kbd>Shift</kbd> to boost. Press <kbd>Esc</kbd> to exit.</li>
+  <li>Press <kbd>?</kbd> to see every control, including the ones for controllers and VR.</li>
+</ul>
+
+<h2>How It Works</h2>
+<p>Planet positions come from JPL's approximate orbital elements, and each planet's tilt and spin from the IAU, so the seasons and the day side are right. Sizes and distances are compressed so everything is big enough to see. The <code>Scale</code> setting changes how much.</p>
+<p>Exoplanet systems are built from whatever has been measured: orbital periods, orbit sizes, planet radii and masses, and the star's temperature. Missing values are estimated, and the info panel says which ones. Where each planet sits along its orbit is made up, and most surfaces are generated from the planet's size and temperature.</p>
+<p>It's plain JavaScript with no build step. The source is on <a href="https://github.com/jarvisar/orrery">GitHub</a>.</p>
+
+<h2>Screenshots</h2>
+<figure>
+  <img src="../public/screenshots/saturn.webp" width="1600" height="1000" alt="Saturn and its rings, with the info panel open" loading="lazy">
+</figure>
+<figure>
+  <img src="../public/screenshots/trappist-1.webp" width="1600" height="1000" alt="TRAPPIST-1 e, one of the seven planets around TRAPPIST-1" loading="lazy">
+</figure>
+
+<p class="note">Made by <a href="https://github.com/jarvisar">Adam Jarvis</a>.</p>
+</main>
+</body>
+</html>

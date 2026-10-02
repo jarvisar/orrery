@@ -1,0 +1,103 @@
+/* The plain text pages (about/ and the generated systems/ pages). Same colors
+   and fonts as the app, but a normal scrolling document. */
+@font-face {
+  font-family: "Inter";
+  src: url("fonts/inter.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("fonts/jost.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --bg: #04050a;
+  --line: rgba(255, 255, 255, 0.1);
+  --text: #eeece6;
+  --text-dim: rgba(238, 236, 230, 0.68);
+  --accent: #f3bd6e;
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --display: Jost, var(--font);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+main, .nav { max-width: 860px; margin: 0 auto; padding: 0 16px; }
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  align-items: center;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  font-size: 14px;
+}
+.nav a { color: var(--text-dim); text-decoration: none; }
+.nav a:hover { color: var(--text); }
+.nav .brand {
+  margin-right: auto;
+  color: var(--text);
+  font-family: var(--display);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+main { padding-bottom: 64px; }
+
+h1, h2 { font-family: var(--display); font-weight: 400; line-height: 1.2; }
+h1 { font-size: 40px; margin: 24px 0 12px; }
+h2 { font-size: 24px; margin: 40px 0 12px; }
+p, li { color: var(--text-dim); }
+p { margin: 0 0 12px; }
+ul { padding-left: 20px; }
+a { color: var(--accent); }
+.aka { margin-top: -8px; color: var(--text-dim); }
+
+.open {
+  display: inline-block;
+  margin: 8px 0 4px;
+  padding: 10px 18px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.open:hover { background: rgba(243, 189, 110, 0.12); }
+
+figure { margin: 24px 0; }
+figure img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: 3px; }
+figcaption { margin-top: 6px; font-size: 14px; color: var(--text-dim); }
+
+kbd, code {
+  font-family: var(--font);
+  font-size: 13px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--text);
+}
+
+/* Tables scroll sideways on a phone instead of squashing. */
+.table { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 12px 8px 0; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+th { font-weight: 500; color: var(--text-dim); }
+td:first-child a { color: var(--text); }
+
+.note { font-size: 14px; }

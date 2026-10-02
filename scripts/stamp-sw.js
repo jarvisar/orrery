@@ -20,8 +20,11 @@ if (!process.argv[2]) {
   process.exit(1);
 }
 
-/** Served, but never needed offline: the worker itself, and the install-prompt art. */
-const SKIP = [/^sw\.js$/, /^\.nojekyll$/, /^public\/screenshots\//];
+/**
+ * Served, but never needed offline: the worker itself, the screenshots, and the
+ * generated exoplanet pages (scripts/pages.js), which are only there for search engines.
+ */
+const SKIP = [/^sw\.js$/, /^\.nojekyll$/, /^public\/screenshots\//, /^systems\//];
 
 async function files(dir) {
   const found = [];

@@ -42,6 +42,22 @@ const PATTERN = new RegExp(
   'g'
 );
 
+const invert = (map) => Object.fromEntries(Object.entries(map).map(([full, short]) => [short, full]));
+// The short Greek letters NASA already writes in full.
+const LETTERS = { ...invert(GREEK), ...Object.fromEntries(['eta', 'mu', 'nu', 'xi', 'pi', 'rho', 'tau', 'phi', 'chi', 'psi'].map((l) => [l, l])) };
+const CONSTELLATIONS = invert(GENITIVES);
+const title = (text) => text.replace(/\b[a-z]/g, (c) => c.toUpperCase());
+
+/** "tau Cet" as people say it ("Tau Ceti"), or null for a name that isn't Bayer or Flamsteed. */
+export function fullStarName(name) {
+  const match = /^(?:([a-z]{2,3})(\d?)|(\d{1,3})) ([A-Z][A-Za-z]{2})( .*)?$/.exec(name);
+  if (!match) return null;
+  const [, letter, index, number, constellation, rest = ''] = match;
+  const genitive = CONSTELLATIONS[constellation.toLowerCase()];
+  if (!genitive || (letter && !LETTERS[letter])) return null;
+  return `${number ?? title(LETTERS[letter]) + index} ${title(genitive)}${rest}`;
+}
+
 /** Lower case, accents dropped, whitespace collapsed, and full names abbreviated as NASA writes them. */
 export function searchKey(text) {
   return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()

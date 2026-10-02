@@ -53,6 +53,8 @@ See [desktop/README.md](../desktop/README.md) for more details.
 
 `.github/workflows/deploy.yml` deploys to GitHub Pages on every push to `main` and every Monday. It runs the checks, downloads the latest exoplanet data, copies the files listed in `scripts/lib/served.js` and uploads them.
 
+`scripts/pages.js` writes a plain HTML page for each exoplanet system into `systems/` and adds them to the sitemap. The app is one WebGL canvas, so these are mostly there for search engines. Only systems with more than one planet, or within 50 light years, or visible to the naked eye get a page (about 1,250). They're only generated on deploy, so they aren't committed and the desktop app doesn't have them. To preview them, run `node scripts/stage.js _site && node scripts/pages.js _site && node scripts/serve.js _site`.
+
 `scripts/stamp-sw.js` adds every deployed file and its hash to `sw.js`. The service worker uses that list to cache the site for offline use, and only downloads changed files after an update. The committed `sw.js` has an empty list, so `npm run dev` always loads the latest files.
 
 The first time, go to `Settings` > `Pages` in the repository and set `Source` to `GitHub Actions`.

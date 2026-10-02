@@ -11,6 +11,7 @@
 /** Served to visitors, and packaged into the desktop app. */
 export const SERVED = [
   'index.html',
+  'about',
   'style.css',
   'site.webmanifest',
   'favicon.ico',

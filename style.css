@@ -1461,7 +1461,13 @@ kbd {
   border-top: 1px solid var(--line);
 }
 .help__note { font-size: 12px; color: var(--text-faint); line-height: 1.45; }
-.help__source { margin-left: auto; flex: none; text-decoration: none; }
+.help__links { margin-left: auto; flex: none; display: flex; gap: 8px; }
+.help__link { text-decoration: none; }
+/* Two buttons beside the note squeeze it into a tall column on a small phone. */
+@media (max-width: 480px) {
+  .help__footer { flex-wrap: wrap; row-gap: 4px; }
+  .help__note { flex-basis: 100%; }
+}
 
 /* --- stats readout ------------------------------------------------------- */
 
@@ -1719,6 +1725,7 @@ body:has(.picker.is-open, .timebar.is-open) :is(.toast, .hint) {
 }
 .fallback p { margin: 4px 0; color: var(--text-dim); max-width: 42ch; }
 .fallback__hint { font-size: 13px; color: var(--text-faint); }
+.fallback a { color: var(--accent); }
 
 /* --- responsive ---------------------------------------------------------- */
 
