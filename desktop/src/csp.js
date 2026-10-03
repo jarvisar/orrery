@@ -30,6 +30,8 @@ export const LINK_ORIGINS = [
   'https://arxiv.org',
   // The live site, named in index.html's canonical and link preview tags.
   'https://orrery.jarvisar.com',
+  // The credit on the about page.
+  'https://jarvisar.com',
 ];
 
 /**

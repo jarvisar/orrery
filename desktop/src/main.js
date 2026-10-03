@@ -147,7 +147,7 @@ async function start() {
     applicationName: PRODUCT_NAME,
     applicationVersion: app.getVersion(),
     website: WEB_URL,
-    copyright: 'Team Jarvis',
+    copyright: 'Team Jarvisar',
   });
 
   createWindow();
