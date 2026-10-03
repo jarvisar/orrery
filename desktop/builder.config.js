@@ -23,7 +23,7 @@ export default function config({ version, macSigning }) {
   return {
     appId: APP_ID,
     productName: PRODUCT_NAME,
-    copyright: `Copyright © ${new Date().getFullYear()} Team Jarvisar`,
+    copyright: `Copyright © ${new Date().getFullYear()} jarvisar`,
     extraMetadata: { version },
 
     directories: { output: 'dist', buildResources: 'build' },
