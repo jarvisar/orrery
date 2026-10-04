@@ -1,13 +1,13 @@
 /**
- * Colours of hot things: stars, and the night sides of planets hot enough to
+ * Colors of hot things: stars, and the night sides of planets hot enough to
  * glow. Shared by the importer, the browser and the renderer.
  */
 
 /**
- * The sRGB colour of a blackbody at `temperature` kelvin, brightest channel at
+ * The sRGB color of a blackbody at `temperature` kelvin, brightest channel at
  * full: Planck's law through the CIE 1931 observer (Wyman, Sloan & Shirley 2013
  * fit) into sRGB. Stars are not perfect blackbodies, but at a glance this is
- * the colour their temperature gives them.
+ * the color their temperature gives them.
  */
 export function stellarColor(temperature) {
   if (!(Number.isFinite(temperature) && temperature > 0)) return '#fff1e0';

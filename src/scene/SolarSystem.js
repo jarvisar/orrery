@@ -1,5 +1,5 @@
 /**
- * Builds and drives the scene graph from the catalogue.
+ * Builds and drives the scene graph from the catalog.
  *
  * Every body follows the same three-node structure:
  *
@@ -39,7 +39,7 @@ const STAR_LIGHT = 3.2;
 /** Corona sprite size, in solar radii. */
 const CORONA_RADII = 6;
 
-/** Scales the catalogue's bump scales down. At full strength crater rims cast hard black edges. */
+/** Scales the catalog's bump scales down. At full strength crater rims cast hard black edges. */
 const BUMP_SOFTENING = 0.65;
 
 /**
@@ -243,7 +243,7 @@ export class SolarSystem {
     if (body.look?.clouds) this._attachExoClouds(view, body.look, radius);
     if (body.glow) {
       const air = createAtmosphere(radius, body.glow);
-      // Scattered starlight takes the star's colour.
+      // Scattered starlight takes the star's color.
       if (body.look) air.material.uniforms.uColor.value.multiply((this.starLights.get(body.parent) ?? this.sunLight).color);
       air.userData.bodyId = body.id;
       view.tilt.add(air);
@@ -345,7 +345,7 @@ export class SolarSystem {
   }
 
   /**
-   * Points every declared map slot at a placeholder of the right colour space,
+   * Points every declared map slot at a placeholder of the right color space,
    * so the program compiled now is the one used once real textures arrive.
    */
   _claimSlots(material, body, isStar, radius) {
@@ -371,7 +371,7 @@ export class SolarSystem {
     for (const [slot, name] of Object.entries(body.textures ?? {})) {
       this.assets.texture(name, slot, priority).then((texture) => {
         material[slot] = texture;
-        // The catalogue colour only stands in until the map arrives.
+        // The catalog color only stands in until the map arrives.
         if (slot === 'map') material.color.set(0xffffff);
       });
     }
@@ -573,7 +573,7 @@ export class SolarSystem {
     const coronaTexture = makeGlowTexture(256, [
       [0.0, 1.0], [0.1, 0.62], [0.2, 0.3], [0.35, 0.11], [0.55, 0.035], [0.8, 0.008], [1.0, 0],
     ]);
-    // Another star's glow takes its own colour, scaled as the Sun's is.
+    // Another star's glow takes its own color, scaled as the Sun's is.
     const look = sun.body.look;
     const tint = look ? starDisplayColor(look.teff) : null;
     if (tint) tint.multiplyScalar(1 / Math.max(tint.r, tint.g, tint.b));
@@ -588,7 +588,7 @@ export class SolarSystem {
     corona.scale.setScalar(sun.radius * CORONA_RADII);
     corona.renderOrder = -1;
     // A sprite's size is in view units, not world units. In a headset the view
-    // is scaled down to metres, so size it against the camera's own scale.
+    // is scaled down to meters, so size it against the camera's own scale.
     corona.onBeforeRender = (renderer, scene, camera) => {
       const viewScale = _vec.setFromMatrixColumn(camera.matrixWorldInverse, 0).length();
       corona.scale.setScalar(sun.radius * CORONA_RADII * viewScale);
@@ -969,7 +969,7 @@ const WHITE = new THREE.Color(1, 1, 1);
  * Another star's light, about halfway to white. Eyes adapt to the light they
  * are in, as they do to a warm room, so under a red dwarf ice still looks
  * white-ish rather than the orange a daylight-balanced camera would record.
- * Enough of the star's colour is kept that its planets are visibly lit by it.
+ * Enough of the star's color is kept that its planets are visibly lit by it.
  */
 function adaptedLight(color) {
   return new THREE.Color(color).lerp(WHITE, 0.5);
@@ -1035,7 +1035,7 @@ function fitToRadius(object, radius) {
   const longest = Math.max(size.x, size.y, size.z) / 2 || 1;
   object.scale.setScalar(radius / longest);
 
-  // Re-centre so it spins about itself.
+  // Re-center so it spins about itself.
   const centre = new THREE.Box3().setFromObject(object).getCenter(new THREE.Vector3());
   object.position.sub(centre);
 }

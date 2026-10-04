@@ -5,7 +5,7 @@
  * itself is one WebGL canvas, so these are what search engines can actually
  * read. Each one links into the 3D view with ?system=.
  *
- * Runs in the deploy after the catalogue refresh, so the pages always match the
+ * Runs in the deploy after the catalog refresh, so the pages always match the
  * data that ships. Nothing is committed and the desktop app doesn't get them.
  *
  *   node scripts/stage.js _site && node scripts/pages.js _site

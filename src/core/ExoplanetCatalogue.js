@@ -1,5 +1,5 @@
 /**
- * The NASA exoplanet catalogue in the browser. Uses the copy bundled with the
+ * The NASA exoplanet catalog in the browser. Uses the copy bundled with the
  * site or one saved from an earlier refresh, whichever is newer, and refreshes
  * straight from the archive (through a CORS proxy) when it's stale or when
  * asked. Subscribers hear of every change of data or status.
@@ -38,7 +38,7 @@ export class ExoplanetCatalogue {
   }
 
   /**
-   * Makes `data` the catalogue. Both callers have already passed it through
+   * Makes `data` the catalog. Both callers have already passed it through
    * validateCatalogue(), which on a phone takes about a tenth of a second.
    */
   accept(data) {
@@ -58,7 +58,7 @@ export class ExoplanetCatalogue {
     const [stored, bundled] = await Promise.allSettled([
       this.storage.read(),
       this.fetcher(CATALOGUE_PATH, { signal: AbortSignal.timeout(15000) }).then(async (r) => {
-        if (!r.ok) throw new Error('Bundled catalogue unavailable.');
+        if (!r.ok) throw new Error('Bundled catalog unavailable.');
         return r.json();
       }),
     ]);
@@ -73,13 +73,13 @@ export class ExoplanetCatalogue {
     const shipped = valid(bundled);
     const newest = [saved, shipped].filter(Boolean).sort((a, b) => Date.parse(b.fetchedAt) - Date.parse(a.fetchedAt))[0];
     // A release has overtaken the saved refresh (or it is from an older format):
-    // drop it, so later visits read one catalogue rather than two.
+    // drop it, so later visits read one catalog rather than two.
     if (stored.status === 'fulfilled' && stored.value && newest !== saved) this.storage.clear?.().catch(() => {});
     if (!newest) {
-      if (!await this.refresh()) throw new Error('The catalogue could not be loaded. Reconnect and try again.');
+      if (!await this.refresh()) throw new Error('The catalog could not be loaded. Reconnect and try again.');
     } else {
       if (!this.data || Date.parse(newest.fetchedAt) > Date.parse(this.data.fetchedAt)) this.accept(newest);
-      if (!this.refreshing) this.status = 'Saved catalogue ready';
+      if (!this.refreshing) this.status = 'Saved catalog ready';
       this.emit();
     }
     return this.data;
@@ -103,7 +103,7 @@ export class ExoplanetCatalogue {
     }
   }
 
-  /** Fetches the whole catalogue from NASA. Concurrent calls share one refresh. Resolves to whether it worked. */
+  /** Fetches the whole catalog from NASA. Concurrent calls share one refresh. Resolves to whether it worked. */
   refresh() {
     return this._refresh ??= this._refreshLive().finally(() => {
       this._refresh = null;
@@ -135,7 +135,7 @@ export class ExoplanetCatalogue {
         this.status = `Checking NASA · ${rows.length.toLocaleString()} planets received`;
         this.emit();
       }
-      if (rows.length < 1000 || (this.data && rows.length < this.data.rows.length * 0.95)) throw new Error('Incomplete catalogue');
+      if (rows.length < 1000 || (this.data && rows.length < this.data.rows.length * 0.95)) throw new Error('Incomplete catalog');
       const data = catalogueFromArchive(rows);
       this.accept(data);
       const saved = await this.storage.write(data).then(() => true, () => false);
@@ -144,7 +144,7 @@ export class ExoplanetCatalogue {
     } catch (error) {
       this.lastError = error;
       this.status = this.data
-        ? 'NASA refresh unavailable · keeping the saved catalogue. Try again later.'
+        ? 'NASA refresh unavailable · keeping the saved catalog. Try again later.'
         : 'NASA is unavailable. Reconnect and try again.';
       return false;
     } finally {
@@ -177,13 +177,13 @@ export const catalogueStorage = {
   clear: () => stored('readwrite', (store) => store.delete('latest')),
 };
 
-/** Runs one operation on the saved catalogue's store, resolving with its result once the transaction completes. */
+/** Runs one operation on the saved catalog's store, resolving with its result once the transaction completes. */
 function stored(mode, operate) {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open('orrery-exoplanets', 1);
     request.onupgradeneeded = () => request.result.createObjectStore('catalogue');
     request.onerror = () => reject(request.error);
-    request.onblocked = () => reject(new Error('Catalogue storage is blocked'));
+    request.onblocked = () => reject(new Error('Catalog storage is blocked'));
     request.onsuccess = () => {
       const db = request.result;
       const tx = db.transaction('catalogue', mode);

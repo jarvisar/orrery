@@ -1,8 +1,8 @@
 /**
  * The few exoplanets whose appearance has actually been observed, by NASA
  * archive name. Each replaces the guess from worlds.js with what was measured
- * (a colour, an albedo, a temperature, clouds, the lack of an atmosphere) and
- * says so, with the paper, in the info panel. Colours are chosen to match the
+ * (a color, an albedo, a temperature, clouds, the lack of an atmosphere) and
+ * says so, with the paper, in the info panel. Colors are chosen to match the
  * published description. Only HD 189733 b's has been measured as a spectrum.
  */
 
@@ -40,7 +40,7 @@ const OBSERVED = {
     look: { heat: { low: 2556, high: 4566, shift: 18.7 * Math.PI / 180, uniform: false } },
   },
   'WASP-76 b': {
-    note: 'Iron vaporises on its day side and condenses on the cooler night side: it rains iron.',
+    note: 'Iron vaporizes on its day side and condenses on the cooler night side: it rains iron.',
     ref: ['Ehrenreich et al. 2020, Nature 580, 597', 'https://doi.org/10.1038/s41586-020-2107-1'],
   },
   '55 Cnc e': {
@@ -87,7 +87,7 @@ const OBSERVED = {
     young: 1700, spinHours: 8.1,
   },
   'GJ 504 b': {
-    note: 'About 510 K, still warm from its formation. NASA describes its colour as “dark cherry blossom, a dull magenta”.',
+    note: 'About 510 K, still warm from its formation. NASA describes its color as “dark cherry blossom, a dull magenta”.',
     ref: ['Kuzuhara et al. 2013, ApJ 774, 11', 'https://doi.org/10.1088/0004-637X/774/1/11'],
     young: 510,
   },

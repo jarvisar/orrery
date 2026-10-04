@@ -59,7 +59,7 @@ if (rootVersion !== desktopVersion) {
 console.log(`version   ${rootVersion}`);
 
 // ----------------------------------------------------------------- 2. icons
-// Line endings normalised: a Windows checkout has CRLF, and that is not a change.
+// Line endings normalized: a Windows checkout has CRLF, and that is not a change.
 const svg = (await readFile(join(ROOT, 'public/icon/orrery.svg'), 'utf8')).replace(/\r\n/g, '\n');
 const drawnFrom = await readJson(join(DESKTOP, 'build/icons.json')).then((data) => data.source, () => null);
 const svgHash = createHash('sha256').update(svg).digest('hex').slice(0, 16);

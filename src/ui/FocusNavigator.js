@@ -132,7 +132,7 @@ export class FocusNavigator {
 
   /**
    * Steps the focused slider by one notch, or a list to its next choice. A slider can override this by
-   * cancelling the `gamepadadjust` event, as the time-rate slider does.
+   * canceling the `gamepadadjust` event, as the time-rate slider does.
    */
   adjust(delta, { wrap = false } = {}) {
     const input = this.current;

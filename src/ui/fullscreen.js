@@ -31,7 +31,7 @@ export function isFullscreen() {
  *
  * @param {object} [hooks]
  * @param {(entered: boolean) => void} [hooks.onPendingEnd] Called when a
- *   waiting request is answered, times out, or is cancelled.
+ *   waiting request is answered, times out, or is canceled.
  */
 export async function toggleFullscreen({ onPendingEnd } = {}) {
   if (!fullscreenSupported()) return 'unsupported';

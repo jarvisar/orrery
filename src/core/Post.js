@@ -254,7 +254,7 @@ class Bloom extends UnrealBloomPass {
   }
 }
 
-/** Tone mapping and colour-space conversion as in three's OutputPass, plus bloom, vignette and dither. */
+/** Tone mapping and color-space conversion as in three's OutputPass, plus bloom, vignette and dither. */
 class FinishPass extends Pass {
   /** @param {Bloom} bloom Whose glow to add. See the note at the top of this file. */
   constructor(bloom) {

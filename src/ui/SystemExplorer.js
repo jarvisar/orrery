@@ -1,6 +1,6 @@
 /**
  * The star systems atlas: a searchable list of every exoplanet host in the NASA
- * catalogue. Each card links to that system, which opens as a page of its own.
+ * catalog. Each card links to that system, which opens as a page of its own.
  */
 
 import { el, icon } from './dom.js';
@@ -17,7 +17,7 @@ const FEATURED = [
 /** Cards shown at first, and added by each "Show more". */
 const CARDS_PER_PAGE = 24;
 
-/** Catalogue order a person expects: Kepler-2 before Kepler-10. */
+/** Catalog order a person expects: Kepler-2 before Kepler-10. */
 const collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
 const byName = (a, b) => collator.compare(a.name, b.name);
 const byDistance = (a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity);
@@ -39,7 +39,7 @@ function rank(system) {
 export class SystemExplorer {
   /**
    * @param {import('../core/ExoplanetCatalogue.js').ExoplanetCatalogue} catalogue
-   * @param {object} current The catalogue on screen, which its card marks.
+   * @param {object} current The catalog on screen, which its card marks.
    * @param {{onOpen?: () => void}} [options] `onOpen` clears the way for the dialog.
    */
   constructor(catalogue, current, { onOpen = () => {} } = {}) {
@@ -65,7 +65,7 @@ export class SystemExplorer {
     );
 
     this.title = el('h2', { id: 'systems-title', text: 'Star systems' });
-    this.count = el('p', { class: 'systems__count', text: 'Reading the NASA catalogue…' });
+    this.count = el('p', { class: 'systems__count', text: 'Reading the NASA catalog…' });
     this.search = el('input', {
       type: 'search',
       placeholder: 'Find a star or planet…',
@@ -161,7 +161,7 @@ export class SystemExplorer {
           el('p', {
             class: 'systems__note',
             text: 'Confirmed planets · published default solutions. Sizes and distances are compressed. ' +
-              'Model estimates are labelled; orbital phases and appearances are illustrative.',
+              'Model estimates are labeled; orbital phases and appearances are illustrative.',
           }),
         ]),
       ]
@@ -193,7 +193,7 @@ export class SystemExplorer {
       this.renderStatus();
       this.catalogue.refreshIfStale();
     } catch (error) {
-      this.count.textContent = 'Catalogue unavailable';
+      this.count.textContent = 'Catalog unavailable';
       this.status.textContent = error.message;
     }
   }
@@ -236,7 +236,7 @@ export class SystemExplorer {
     this._rendered = key;
 
     this.count.textContent = `${data.rows.length.toLocaleString()} planets · ${systems.length.toLocaleString()} hosts`;
-    // Sorted once per catalogue and order. Filtering keeps the order.
+    // Sorted once per catalog and order. Filtering keeps the order.
     if (this._sorted?.systems !== systems || this._sorted.sort !== sort) {
       // Multiple stars: the systems that can show them all come first.
       const order = sort === 'stars'

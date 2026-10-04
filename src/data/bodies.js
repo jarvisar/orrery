@@ -1,7 +1,7 @@
 /**
- * The catalogue every part of the app is built from.
+ * The catalog every part of the app is built from.
  *
- * Nothing here is a scene unit. These are real measurements (kilometres,
+ * Nothing here is a scene unit. These are real measurements (kilometers,
  * days, degrees), and `src/scene/scaling.js` is the single place that turns
  * them into something you can actually look at. Adding a body means adding an
  * entry here and a texture. No other file needs to change.
@@ -14,7 +14,7 @@
  * navigate by.
  */
 
-/** Astronomical unit, kilometres. */
+/** Astronomical unit, kilometers. */
 export const AU_KM = 149_597_870.7;
 
 /** Earth's volumetric mean radius, the yardstick for relative sizes. */
@@ -659,7 +659,7 @@ export function periodDays(body) {
 }
 
 /**
- * The two debris fields, in AU. Rendered as point clouds rather than catalogued
+ * The two debris fields, in AU. Rendered as point clouds rather than cataloged
  * bodies because there are a few hundred thousand of them and none is worth
  * clicking on.
  */

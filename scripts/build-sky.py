@@ -22,7 +22,7 @@ glow map itself, so the band keeps its texture where it's densest. Each star is
 
     int16 x, y, z    unit direction in scene axes, x 32767
     uint8 magnitude  (V + 1.5) x 25
-    int8  colour     (B - V) x 60
+    int8  color     (B - V) x 60
 """
 import json, os, struct, sys
 import numpy as np
@@ -70,7 +70,7 @@ def build_glow(source_path, width=2048):
     src = np.asarray(image, dtype=np.float32) / 255.0
     h, w = src.shape[:2]
 
-    # Stars are a few pixels across and the band's structure is tens. A grey
+    # Stars are a few pixels across and the band's structure is tens. A gray
     # opening removes anything smaller than its footprint and leaves the rest.
     # Two passes of increasing size catch the brighter, wider stars as well.
     luminance = src @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
@@ -97,8 +97,8 @@ def build_glow(source_path, width=2048):
     l = np.arctan2(gal[..., 1], gal[..., 0])
     b = np.arcsin(np.clip(gal[..., 2], -1, 1))
 
-    # The source: longitude increases to the left from a centred galactic
-    # centre, and south is up.
+    # The source: longitude increases to the left from a centered galactic
+    # center, and south is up.
     sx = ((0.5 - l / (2 * np.pi)) % 1.0) * w - 0.5
     sy = (b / np.pi + 0.5) * h - 0.5
     out = np.stack([
@@ -108,9 +108,9 @@ def build_glow(source_path, width=2048):
 
     # Grade, on brightness alone so the hue survives. Take out the painted noise
     # floor so empty sky is black, lift what is left, and keep only a hint of
-    # the source's colour. Then warm the bulge the way it looks in long
-    # exposures (the centre of the galaxy is older, redder stars) and let the
-    # arms fall off toward a cool grey.
+    # the source's color. Then warm the bulge the way it looks in long
+    # exposures (the center of the galaxy is older, redder stars) and let the
+    # arms fall off toward a cool gray.
     lum = luminance_of(out)
     chroma = out / np.maximum(lum, 1e-4)[..., None]
     chroma = 1 + (np.clip(chroma, 0, 3) - 1) * 0.3
@@ -200,7 +200,7 @@ def main():
             m = int(np.clip(round((mag[i] + 1.5) * 25), 0, 255))
             c = int(np.clip(round(bv[i] * 60), -128, 127))
             f.write(struct.pack("<hhhBb", x, y, z, m, c))
-    print(f"{OUT_STARS}: {len(real)} catalogued + {len(faint_mag)} faint, "
+    print(f"{OUT_STARS}: {len(real)} cataloged + {len(faint_mag)} faint, "
           f"{os.path.getsize(OUT_STARS) // 1024} KB")
 
 

@@ -1,6 +1,6 @@
 """One-shot pipeline that rebuilds public/textures/ from the original source art.
 
-Colour (albedo) maps become WebP. Single-channel data maps (elevation/specular)
+Color (albedo) maps become WebP. Single-channel data maps (elevation/specular)
 become grayscale JPEG, which beats WebP for smooth noise-free height data.
 Target sizes are chosen from how large each body actually renders on screen.
 An 8192x4096 bump map on a moon drawn 8px across costs 179MB of VRAM for

@@ -26,7 +26,7 @@ The browser checks use your local installation of Chrome and skip themselves if 
 Exoplanet data and checks:
 
 ```sh
-npm run exoplanets:update   # download the latest NASA catalogue
+npm run exoplanets:update   # download the latest NASA catalog
 npm run stars:update        # download the latest binary and multiple star data
 npm run exoplanets:verify   # check that every system in the data can be drawn
 npm run exoplanets:test     # unit tests for the exoplanet models and data

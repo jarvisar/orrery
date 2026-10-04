@@ -5,10 +5,10 @@
  * turning a palm to the eyes: it comes to that hand, and then holds still
  * where the other hand can press it, rather than trembling with the wrist.
  *
- * Buttons are six centimetres by three, twelve millimetres apart: Meta's
- * minimum for anything meant to be touched is 22 by 22 millimetres with 12
- * millimetre gaps. Text is sized with the same guide's legibility floor in
- * mind, about 24 millimetres tall a metre away.
+ * Buttons are six centimeters by three, twelve millimeters apart: Meta's
+ * minimum for anything meant to be touched is 22 by 22 millimeters with 12
+ * millimeter gaps. Text is sized with the same guide's legibility floor in
+ * mind, about 24 millimeters tall a meter away.
  *
  * Under the buttons, a few lines of text: the controls when a session starts,
  * then whatever is in focus. Options swaps the buttons for a page of
@@ -24,7 +24,7 @@ import * as THREE from 'three';
 import { BODY_BY_ID } from '../data/bodies.js';
 import { KIND_LABEL } from '../ui/InfoPanel.js';
 
-/** Canvas pixels, and the plane's size in metres: about 3.4 pixels to the millimetre. */
+/** Canvas pixels, and the plane's size in meters: about 3.4 pixels to the millimeter. */
 const WIDTH = 1024;
 const HEIGHT = 900;
 /** The header strip's height, in the same pixels: everything above the buttons. */
@@ -138,7 +138,7 @@ function optionsGrid(options) {
   return cells;
 }
 
-/** Held: how far above the controller the panel's centre floats, in metres. */
+/** Held: how far above the controller the panel's center floats, in meters. */
 const HOLD_ABOVE_M = 0.05 + HEIGHT_M / 2;
 /** Summoned by a hand: how far to the side of the palm its near edge floats. */
 const BESIDE_PALM_M = 0.05;
@@ -151,12 +151,12 @@ const PALM_SLACK_M = 0.1;
 const GLIDE_RATE = 14;
 /**
  * Floating on its own: ahead of the eyes and below them, within easy reach of
- * a fingertip. Meta puts touch panels 42 to 46 centimetres from the body.
+ * a fingertip. Meta puts touch panels 42 to 46 centimeters from the body.
  */
 const FLOAT_AHEAD_M = 0.42;
 const FLOAT_BELOW_M = 0.36;
 
-/** The fingertip cursor's radius, in metres, from well clear of the panel to touching it. */
+/** The fingertip cursor's radius, in meters, from well clear of the panel to touching it. */
 const CURSOR_FAR_M = 0.011;
 const CURSOR_NEAR_M = 0.0035;
 
@@ -219,7 +219,7 @@ export class VRPanel {
 
   /**
    * Keeps a held panel over its controller and facing the eyes. Everything
-   * here is in the rig's own space, in metres, and the rig is always upright.
+   * here is in the rig's own space, in meters, and the rig is always upright.
    */
   follow(camera) {
     const grip = this.holder?.grip;
@@ -238,7 +238,7 @@ export class VRPanel {
    * Keeps the panel beside an open palm, on the side towards the middle of
    * the body, where the other hand can reach it without crossing the first.
    * It glides there, then stays put until the hand moves well away.
-   * `palm` and `camera` are in the rig's space, in metres.
+   * `palm` and `camera` are in the rig's space, in meters.
    */
   besidePalm(rig, palm, handedness, camera, dt, { instant = false } = {}) {
     let arriving = false;
@@ -311,8 +311,8 @@ export class VRPanel {
   }
 
   /**
-   * A world-space point in the panel's own frame, in metres: x to the right
-   * and y up from its centre, z out of its face towards the viewer. Null
+   * A world-space point in the panel's own frame, in meters: x to the right
+   * and y up from its center, z out of its face towards the viewer. Null
    * while it is not shown.
    */
   toLocal(world, out = _local) {
@@ -325,12 +325,12 @@ export class VRPanel {
     return this._buttonAt((local.x / WIDTH_M + 0.5) * WIDTH, (0.5 - local.y / HEIGHT_M) * HEIGHT);
   }
 
-  /** Whether a point in the panel's frame is over its face, give or take `margin` metres. */
+  /** Whether a point in the panel's frame is over its face, give or take `margin` meters. */
   covers(local, margin = 0) {
     return Math.abs(local.x) <= WIDTH_M / 2 + margin && Math.abs(local.y) <= HEIGHT_M / 2 + margin;
   }
 
-  /** A button's centre in world space, on the page showing now. */
+  /** A button's center in world space, on the page showing now. */
   buttonPosition(id, out = new THREE.Vector3()) {
     const button = this._buttons().find((b) => b.id === id);
     if (!button) return null;

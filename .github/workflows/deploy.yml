@@ -17,7 +17,7 @@ permissions:
   pages: write
   id-token: write
 
-# Let a run in progress finish rather than cancelling it: a half-deployed
+# Let a run in progress finish rather than canceling it: a half-deployed
 # Pages site is worse than a slightly stale one.
 concurrency:
   group: pages
@@ -40,15 +40,15 @@ jobs:
       - name: Verify the build
         # Catches the failure modes a bundler would normally catch for us:
         # a syntax error, a stale vendored three.js, a texture in the
-        # catalogue that is not actually shipped.
+        # catalog that is not actually shipped.
         run: npm run check
 
       - name: Check the exoplanet model
-        # Against the committed catalogues, before they are refreshed, so these
+        # Against the committed catalogs, before they are refreshed, so these
         # named-system tests only ever fail for a change to the code.
         run: npm run exoplanets:test
 
-      - name: Refresh the offline exoplanet catalogue
+      - name: Refresh the offline exoplanet catalog
         # Also runs weekly (the schedule above). The importer replaces the
         # committed copy only once the new one has passed its own checks, so an
         # archive outage or a bad response ships last week's data instead.
@@ -59,7 +59,7 @@ jobs:
         continue-on-error: true
         run: npm run stars:update
 
-      - name: Check the catalogues being shipped
+      - name: Check the catalogs being shipped
         # Independent of which systems they hold: every one must still build a
         # finite model that keeps all of its planets.
         run: npm run exoplanets:verify
@@ -74,7 +74,7 @@ jobs:
           touch _site/.nojekyll
 
       - name: Write the exoplanet system pages
-        # Plain HTML pages under systems/ for search engines, from the catalogue
+        # Plain HTML pages under systems/ for search engines, from the catalog
         # that was just refreshed. Only on Pages, the desktop app doesn't get them.
         run: node scripts/pages.js _site
 

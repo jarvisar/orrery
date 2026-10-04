@@ -85,7 +85,7 @@ export class Viewport {
     });
 
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    // AgX rolls bright colour off toward white. ACES pushes it toward saturated
+    // AgX rolls bright color off toward white. ACES pushes it toward saturated
     // orange, which turns the Sun into a ball of cheese.
     this.renderer.toneMapping = THREE.AgXToneMapping;
     this.renderer.toneMappingExposure = 1.0;

@@ -47,7 +47,7 @@ jobs:
       - name: Check VR with an emulated headset
         # IWER stands in for a Quest 3, so the whole VR path runs in headless
         # Chrome: controllers, hands, the panel by ray and by fingertip, the
-        # palm gesture, recentring, and leaving VR with the page intact.
+        # palm gesture, recentering, and leaving VR with the page intact.
         run: npm run vr -- --strict
 
       - name: Check game controllers

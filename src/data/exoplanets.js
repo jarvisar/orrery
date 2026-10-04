@@ -31,7 +31,7 @@ const CITATIONS = { pl_refname: 'pl_ref', st_refname: 'st_ref', sy_dist_reflink:
 /**
  * Composite-table (pscomppars) values that fill a gap in the default solution.
  * They can come from a different publication, so they are only ever used where
- * the default solution has nothing, and are labelled wherever they appear.
+ * the default solution has nothing, and are labeled wherever they appear.
  */
 const FILLERS = ['pl_orbper', 'pl_orbsmax', 'pl_orbeccen', 'st_mass', 'st_rad', 'st_teff'];
 
@@ -58,16 +58,16 @@ export const QUERY_URL = `${ARCHIVE}/TAP/sync?${new URLSearchParams({ query: QUE
 
 /* --- hosts in the sky ------------------------------------------------------- */
 
-/** Written by the importer beside the catalogue. The sky loads this instead of the whole catalogue. */
+/** Written by the importer beside the catalog. The sky loads this instead of the whole catalog. */
 export const SKY_HOSTS_PATH = 'public/data/sky-hosts.json';
-/** The faintest star the sky draws from its catalogue (Sky.js, scripts/build-sky.py). */
+/** The faintest star the sky draws from its catalog (Sky.js, scripts/build-sky.py). */
 export const SKY_MAGNITUDE_LIMIT = 6.5;
 /** Where the brighter hosts are. By planet, since that is how the composite table is keyed. */
 export const SKY_QUERY = `select pl_name, ra, dec, sy_vmag from pscomppars where sy_vmag <= ${SKY_MAGNITUDE_LIMIT}`;
 export const SKY_QUERY_URL = `${ARCHIVE}/TAP/sync?${new URLSearchParams({ query: SKY_QUERY, format: 'json' })}`;
 
 /**
- * The catalogue's hosts that are bright enough to be a star in the sky, each as
+ * The catalog's hosts that are bright enough to be a star in the sky, each as
  * [name, RA°, Dec° (J2000), V magnitude, planets, distance in pc or null],
  * brightest first. `raw` is the SKY_QUERY response.
  */
@@ -105,7 +105,7 @@ export function validateSkyHosts(data) {
   return data;
 }
 
-/* --- the stored catalogue --------------------------------------------------- */
+/* --- the stored catalog --------------------------------------------------- */
 
 /**
  * Raw TAP rows to the stored form: nulls and zero flags dropped, citations
@@ -149,7 +149,7 @@ export function normalizeRows(raw) {
   return { refs, rows };
 }
 
-/** A validated catalogue from a complete archive response. */
+/** A validated catalog from a complete archive response. */
 export function catalogueFromArchive(raw, fetchedAt = new Date().toISOString()) {
   const { refs, rows } = normalizeRows(raw);
   return validateCatalogue({
@@ -169,18 +169,18 @@ const NUMERIC_KEYS = new Set([
 export function validateCatalogue(data) {
   if (data?.schemaVersion !== SCHEMA_VERSION || !Number.isFinite(Date.parse(data.fetchedAt)) ||
       data.source?.table !== 'ps' || !Array.isArray(data.refs) || !Array.isArray(data.rows) || !data.rows.length) {
-    throw new Error('Unrecognized exoplanet catalogue.');
+    throw new Error('Unrecognized exoplanet catalog.');
   }
   for (const ref of data.refs) {
     if (!Array.isArray(ref) || typeof ref[0] !== 'string' || ref.length > 2 || (ref.length === 2 && !safeHref(ref[1]))) {
-      throw new Error('Invalid citation in the exoplanet catalogue.');
+      throw new Error('Invalid citation in the exoplanet catalog.');
     }
   }
   const names = new Set();
   for (const row of data.rows) {
     if (!row || typeof row.hostname !== 'string' || !row.hostname.trim() ||
         typeof row.pl_name !== 'string' || !row.pl_name.trim() || names.has(row.pl_name)) {
-      throw new Error('Invalid or duplicate planet in the exoplanet catalogue.');
+      throw new Error('Invalid or duplicate planet in the exoplanet catalog.');
     }
     names.add(row.pl_name);
     // Object.entries would make a pair for every field of every row, about 250,000 arrays.
@@ -300,7 +300,7 @@ export function measuredText(row, key, unit = '') {
   }
   return text + (unit ? ` ${unit}` : '');
 }
-/** The default solution's value as reported, else a labelled composite gap filler. */
+/** The default solution's value as reported, else a labeled composite gap filler. */
 function factText(row, key, unit = '') {
   if (Number.isFinite(row[key])) return measuredText(row, key, unit);
   const filler = row[`c_${key}`];
@@ -331,7 +331,7 @@ export function orbitModel(row, { binaryMass = null } = {}) {
   if (circumbinary) {
     massLabel = 'total mass of the stellar pair';
     if (positive(binaryMass)) mass = binaryMass;
-    else if (a && period) notes.push('The stellar pair could not be reconstructed, so this orbit is drawn about the host’s position, which stands in for the pair’s centre of mass.');
+    else if (a && period) notes.push('The stellar pair could not be reconstructed, so this orbit is drawn about the host’s position, which stands in for the pair’s center of mass.');
     else return { reason: 'Circumbinary orbit: the stellar pair cannot be reconstructed, and the orbit size or period is missing.' };
   } else {
     ({ mass, note: massNote } = stellarMass(row));
@@ -367,7 +367,7 @@ export function parseReference(html) {
   const label = html.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').trim();
   return label ? { label, href: safeHref(raw) ? new URL(raw).href : undefined } : null;
 }
-/** A stored citation, by its index in the catalogue's reference table. */
+/** A stored citation, by its index in the catalog's reference table. */
 export function reference(data, index) {
   const ref = Number.isInteger(index) ? data.refs[index] : null;
   return ref ? { label: ref[0], href: ref[1] } : null;
@@ -380,7 +380,7 @@ export function archiveLink(name) { return `${ARCHIVE}/overview/${encodeURICompo
 
 export { stellarColor };
 
-/* --- one system as the renderer's catalogue -------------------------------- */
+/* --- one system as the renderer's catalog -------------------------------- */
 
 export function makeSystem(entry, data, supplement = null) {
   const layout = stellarLayout(entry, data, supplement);
@@ -460,7 +460,7 @@ export function makeSystem(entry, data, supplement = null) {
         'Minimum mass (M sin i)': measuredText(row, 'pl_msinie', 'M⊕'),
         'Orbital period': factText(row, 'pl_orbper', 'days'),
         [projected ? 'Separation / semi-major axis' : 'Semi-major axis']: factText(row, 'pl_orbsmax', 'AU'),
-        'Orbits': parentNode ? `${parentNode.name}${parentNode.kind === 'binary' ? ' barycentre' : ''}` : entry.name,
+        'Orbits': parentNode ? `${parentNode.name}${parentNode.kind === 'binary' ? ' barycenter' : ''}` : entry.name,
         Eccentricity: factText(row, 'pl_orbeccen'),
         'Archive row updated': row.rowupdate?.slice(0, 10) ?? 'Not reported',
         ...(look && {
@@ -469,7 +469,7 @@ export function makeSystem(entry, data, supplement = null) {
         }),
       },
       modelNotes: [...(orbit.notes ?? []), ...(estimate.note ? [estimate.note] : []), ...(look?.notes ?? []),
-        ...(row.cb_flag === 1 && parentNode?.kind === 'binary' && !orbit.reason ? ['Circumbinary orbit about the stellar pair’s centre of mass. Two-body approximation; precession and stellar perturbations are omitted.'] : []),
+        ...(row.cb_flag === 1 && parentNode?.kind === 'binary' && !orbit.reason ? ['Circumbinary orbit about the stellar pair’s center of mass. Two-body approximation; precession and stellar perturbations are omitted.'] : []),
         'Surface detail is illustrative. Orbital phase, orientation and rotation are not measured here.'],
       unmodeled: orbit.reason ?? null,
     };
@@ -485,7 +485,7 @@ export function makeSystem(entry, data, supplement = null) {
 
   // Framing radii. Every offset in the scene is a nested sum of compressed
   // distances, wᵢ·C·xᵢ^k (w a star's mass fraction, k the Scale exponent), so
-  // a body at most Σ wᵢxᵢ^k from the centre fits in (Σ wᵢxᵢ^k)^(1/k) AU. That
+  // a body at most Σ wᵢxᵢ^k from the center fits in (Σ wᵢxᵢ^k)^(1/k) AU. That
   // is not monotonic in k when the weights are fractions, so it is taken at
   // every step of the Scale setting.
   const terms = new Map();
@@ -556,14 +556,14 @@ function nasaStar(entry, host, data, starId, companions) {
       ...(companions.listed > 1 ? { 'Stars shown': `${companions.shown} of ${companions.listed}` } : {}),
     },
     modelNotes: [radius.note,
-      'Distance is from the NASA composite table; stellar properties use one published default solution, with labelled composite values only where it has none.',
+      'Distance is from the NASA composite table; stellar properties use one published default solution, with labeled composite values only where it has none.',
       BLACKBODY_NOTE, ...appearance.look.notes].filter(Boolean),
   };
 }
 
-const BLACKBODY_NOTE = 'Stellar colour is the colour of a blackbody at the star’s temperature.';
+const BLACKBODY_NOTE = 'Stellar color is the color of a blackbody at the star’s temperature.';
 
-/** A star's look (worlds.js), its colour, and the mass and luminosity its planets' climates need. */
+/** A star's look (worlds.js), its color, and the mass and luminosity its planets' climates need. */
 function dressStar({ name, radius, teff, massSun, logg = null, spectype }) {
   // A placeholder radius says nothing about the star's brightness.
   const radiusSun = radius.note?.startsWith('No usable') ? null : radius.radius;

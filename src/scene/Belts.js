@@ -96,7 +96,7 @@ export class Belts {
       const t = Math.sqrt(Math.random());
       const radiusAU = spec.innerAU + (spec.outerAU - spec.innerAU) * t;
       const theta = Math.random() * Math.PI * 2;
-      // Two samples summed gives a soft centre-weighted spread without a
+      // Two samples summed gives a soft center-weighted spread without a
       // hard cutoff at the rim of the torus.
       const heightAU = (Math.random() + Math.random() - 1) * spec.thicknessAU * 0.5;
 
@@ -145,7 +145,7 @@ export class Belts {
       cloud.points.rotation.y = -(tDays / periodDays) * Math.PI * 2;
     }
     if (this.disk) {
-      // Centred on its star, which moves in a multiple system.
+      // Centered on its star, which moves in a multiple system.
       const centre = this.system.bodies.get(this.system.catalogue.disk.starId)?.group.position;
       if (centre) {
         this.disk.update(centre, tDays);

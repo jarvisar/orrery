@@ -24,7 +24,7 @@ const DWARFS = [
 
 export function validateStellarCatalogue(data) {
   if (data?.schemaVersion !== 1 || !Number.isFinite(Date.parse(data.fetchedAt)) || !Array.isArray(data.systems)) {
-    throw new Error('Invalid stellar companion catalogue');
+    throw new Error('Invalid stellar companion catalog');
   }
   for (const system of data.systems) {
     let count = 0;
@@ -115,7 +115,7 @@ function interpolate(points, x) {
   return Math.exp(Math.log(m0) + t * (Math.log(m1) - Math.log(m0)));
 }
 
-// Built once per catalogue: which supplement systems name a planet, and where
+// Built once per catalog: which supplement systems name a planet, and where
 // each archive planet is, so a lookup only visits the systems that matter.
 const supplementIndexes = new WeakMap();
 function systemsByPlanet(supplement) {
@@ -156,7 +156,7 @@ export function stellarLayout(entry, data, supplement) {
   if (!supplement || entry.stars < 2) return null;
   const index = systemsByPlanet(supplement), rows = rowsByPlanet(data);
   const candidates = new Set(entry.planets.flatMap((row) => [...(index.get(alias(row.pl_name)) ?? [])]));
-  // The host's own mass as NASA gives it, so the barycentre matches the panel.
+  // The host's own mass as NASA gives it, so the barycenter matches the panel.
   const nasaMass = entry.planets.map((r) => value(r, 'st_mass') ?? r.c_st_mass).find(positive) ?? null;
   const matches = [];
   for (const system of candidates) {
@@ -214,12 +214,12 @@ export function stellarLayout(entry, data, supplement) {
         }
       }
       // A size that disagrees with the period and masses is usually one star's
-      // orbit about the centre of mass, entered as the pair's. The period is
+      // orbit about the center of mass, entered as the pair's. The period is
       // almost always the better measured of the two.
       if (positive(a) && positive(period) && node.mass) {
         const kepler = Math.cbrt(node.mass * (period / 365.25) ** 2);
         if (a / kepler < 2 / 3 || a / kepler > 1.5) {
-          notes.push(`The catalogue’s orbit size (${round(a)} AU) disagrees with the period and masses; ${round(kepler)} AU, from the period, is used.`);
+          notes.push(`The catalog’s orbit size (${round(a)} AU) disagrees with the period and masses; ${round(kepler)} AU, from the period, is used.`);
           a = kepler;
         }
       }

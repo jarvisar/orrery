@@ -12,7 +12,7 @@
 export const REMOTE_ORIGINS = [
   // VR only: the 3D model of each make of controller (src/xr/VRMode.js).
   'https://cdn.jsdelivr.net',
-  // Live NASA catalogue refresh through the owner's CORS proxy.
+  // Live NASA catalog refresh through the owner's CORS proxy.
   'https://cors-proxy-phi.vercel.app',
 ];
 

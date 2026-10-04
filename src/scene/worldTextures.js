@@ -8,7 +8,7 @@
  * no seam at the date line and nothing pinches at the poles.
  *
  * Two maps per planet:
- *   colour  sRGB albedo (the shader writes linear and the hardware encodes it)
+ *   color  sRGB albedo (the shader writes linear and the hardware encodes it)
  *   data    R height (bump), G cloud cover (the cloud shell's alphaMap reads
  *           G), B heat (0 cold to 1 hottest, see exoplanetSurface.js), A how
  *           shiny (seas and ice)
@@ -29,7 +29,7 @@ const NOISE = /* glsl */ `
   // of world, with the page frozen throughout.
   uniform int uZero;
 
-  // PCG3D (Jarzynski & Olano 2020): a good integer hash, no sin() artefacts.
+  // PCG3D (Jarzynski & Olano 2020): a good integer hash, no sin() artifacts.
   uvec3 pcg3d( uvec3 v ) {
     v = v * 1664525u + 1013904223u;
     v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
@@ -120,7 +120,7 @@ const NOISE = /* glsl */ `
     float phi = uv.x * 2.0 * PI, theta = ( 1.0 - uv.y ) * PI;
     return vec3( -cos( phi ) * sin( theta ), cos( theta ), sin( phi ) * sin( theta ) );
   }
-  // Four colours along t, dark to light.
+  // Four colors along t, dark to light.
   vec3 ramp( vec3 a, vec3 b, vec3 c, vec3 d, float t ) {
     t = clamp( t, 0.0, 1.0 );
     return t < 0.4 ? mix( a, b, t / 0.4 ) : t < 0.8 ? mix( b, c, ( t - 0.4 ) / 0.4 ) : mix( c, d, ( t - 0.8 ) / 0.2 );
@@ -144,7 +144,7 @@ const PLANET = /* glsl */ `
   uniform vec4 uHeat;
 
   varying vec2 vUv;
-  // One map per pass: the colour, or with DATA defined the data, and the
+  // One map per pass: the color, or with DATA defined the data, and the
   // compiler drops whatever the other needs. Both at once, to two targets,
   // would be cheaper to draw, but Chrome on Windows compiles such a shader a
   // second time at its first draw, with the page stopped until it is done.
@@ -254,7 +254,7 @@ const PLANET = /* glsl */ `
       float detail, flow;
       float b = bands( d, detail, flow );
       colour = ramp( uPalette[ 0 ], uPalette[ 1 ], uPalette[ 2 ], mix( uPalette[ 2 ], vec3( 1.0 ), 0.25 ), b );
-      // Some bands pick up the accent colour, as Jupiter's belts go brown and red.
+      // Some bands pick up the accent color, as Jupiter's belts go brown and red.
       float accent = smoothstep( 0.25, 0.7, noise( vec3( flow * uBands.x * 0.5, uOffset.z * 2.0, 3.3 ) ) );
       colour = mix( colour, uPalette[ 3 ], accent * 0.35 * ( 1.0 - b ) );
       colour = mix( colour, uPalette[ 3 ], stormMask * 0.8 );
@@ -276,7 +276,7 @@ const PLANET = /* glsl */ `
 
       #if defined( TEMPERATE ) || defined( EYEBALL )
         float level = seaLevel();
-        // Land from lowland to highland, without the ramp's top (ice) colour.
+        // Land from lowland to highland, without the ramp's top (ice) color.
         colour = ramp( uPalette[ 0 ], uPalette[ 1 ], uPalette[ 2 ], uPalette[ 2 ] * 1.1, clamp( ( h - level ) * 1.6 + 0.35 + wobble * 0.2, 0.0, 1.0 ) ) * ( 0.94 + 0.12 * grain );
         if ( h < level ) {
           colour = mix( uOcean[ 0 ], uOcean[ 1 ], smoothstep( level - 0.14, level, h ) );
@@ -342,7 +342,7 @@ const STAR = /* glsl */ `
 
   float granulation( vec3 d, vec3 offset ) {
     vec2 f = cells( d * uStar.x + offset );
-    // Bright cell centres with dark lanes between them, and a second, finer
+    // Bright cell centers with dark lanes between them, and a second, finer
     // set for texture.
     float cell = smoothstep( 0.0, 0.32, f.y - f.x );
     vec2 g = cells( d * uStar.x * 2.3 + offset * 1.7 );

@@ -1,5 +1,5 @@
 /**
- * Checks any catalogue has to pass before it replaces the shipped copy: each
+ * Checks any catalog has to pass before it replaces the shipped copy: each
  * system builds into a finite, drawable model that keeps every planet. They
  * hold for any data, so the weekly refresh can use them. The tests for named
  * systems in the committed copy are in scripts/exoplanets.test.js.

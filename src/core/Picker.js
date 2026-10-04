@@ -47,7 +47,7 @@ export class Picker {
 
     /** @type {string|null} */
     this.hoveredId = null;
-    /** Pickable things that are not catalogue bodies, by id. */
+    /** Pickable things that are not catalog bodies, by id. */
     this._extras = new Map();
     this._onSelect = null;
     this._onHover = null;
@@ -65,7 +65,7 @@ export class Picker {
   onSelect(callback) { this._onSelect = callback; }
   onHover(callback) { this._onHover = callback; }
 
-  /** Makes something outside the catalogue clickable. Its meshes carry `userData.bodyId`. */
+  /** Makes something outside the catalog clickable. Its meshes carry `userData.bodyId`. */
   addSelectable(id, meshes) {
     this._extras.set(id, meshes);
   }
@@ -73,7 +73,7 @@ export class Picker {
   /**
    * What to offer where no body is hit: `(direction, tolerance) => id|null`,
    * given the pointer's world-space unit direction and the angle, in radians,
-   * that a few pixels span at the centre of the view.
+   * that a few pixels span at the center of the view.
    */
   setFallback(fallback) { this._fallback = fallback; }
 

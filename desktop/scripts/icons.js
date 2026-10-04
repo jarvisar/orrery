@@ -27,7 +27,7 @@ const svg = readFileSync(SOURCE);
 
 const ICONS = [
   { file: 'icon.png', inset: 0, shadow: false },
-  // Apple's grid: an 824 px body centred on 1024, with a shadow below it.
+  // Apple's grid: an 824 px body centered on 1024, with a shadow below it.
   { file: 'icon-mac.png', inset: 100, shadow: true },
 ];
 
@@ -42,7 +42,7 @@ app.whenReady().then(async () => {
     writeFileSync(join(OUT, icon.file), Buffer.from(png.split(',')[1], 'base64'));
     console.log(`icons: build/${icon.file}`);
   }
-  // Line endings normalised, as desktop/scripts/check.js does: a Windows
+  // Line endings normalized, as desktop/scripts/check.js does: a Windows
   // checkout has CRLF, and that is not a change.
   const source = hash(svg.toString('utf8').replace(/\r\n/g, '\n'));
   writeFileSync(join(OUT, 'icons.json'), `${JSON.stringify({ source }, null, 2)}\n`);

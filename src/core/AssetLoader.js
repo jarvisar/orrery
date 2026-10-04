@@ -31,13 +31,13 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const TEXTURE_DIR = 'public/textures/';
 const MODEL_DIR = 'public/models/';
 
-/** Map slots whose contents are colour and therefore need sRGB decoding. */
+/** Map slots whose contents are color and therefore need sRGB decoding. */
 const COLOR_SLOTS = new Set(['map', 'emissiveMap']);
 
 /**
  * Decoded as WebGL would upload an <img> with three's defaults: flipped, alpha
- * left straight, and no colour-profile conversion (three asks for none either,
- * for colour and data maps alike).
+ * left straight, and no color-profile conversion (three asks for none either,
+ * for color and data maps alike).
  */
 const BITMAP_OPTIONS = { imageOrientation: 'flipY', premultiplyAlpha: 'none', colorSpaceConversion: 'none' };
 
@@ -96,7 +96,7 @@ export class AssetLoader {
    * with a placeholder if it fails. It never rejects.
    *
    * @param {string} name   Manifest stem, e.g. 'europa_bump'.
-   * @param {string} slot   Material slot it will occupy, which decides colour space.
+   * @param {string} slot   Material slot it will occupy, which decides color space.
    * @param {number} priority Lower numbers load first.
    * @param {object} [options]
    * @param {boolean} [options.keepImage] Keep the decoded image once uploaded,
@@ -391,7 +391,7 @@ export class AssetLoader {
   }
 }
 
-/** Maps a stem to its filename: colour maps are .webp, single-channel data maps .jpg. */
+/** Maps a stem to its filename: color maps are .webp, single-channel data maps .jpg. */
 let manifestPromise = null;
 async function loadManifest() {
   manifestPromise ??= fetch(`${TEXTURE_DIR}manifest.json`).then((r) => r.json());
@@ -406,7 +406,7 @@ async function resolveFile(name) {
 }
 
 /**
- * Whether createImageBitmap honours the options above (the same test as three's
+ * Whether createImageBitmap honors the options above (the same test as three's
  * GLTFLoader): Safari < 17 and Firefox < 98 lack it or ignore the flip.
  */
 const BITMAPS_WORK = (() => {

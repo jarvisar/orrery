@@ -1,6 +1,6 @@
 /**
  * The exoplanet model, importers and refresh. Named systems (Kepler-16,
- * Proxima Cen...) are checked against the committed catalogues, so CI is
+ * Proxima Cen...) are checked against the committed catalogs, so CI is
  * repeatable. The weekly refresh is checked by `npm run exoplanets:verify`
  * instead, which doesn't depend on the data, so new discoveries can't break it.
  */
@@ -69,7 +69,7 @@ test('composite values fill only the gaps the default solution leaves, never lim
   assert.equal(stellarMass(kept).note, null);
 });
 
-test('malformed catalogues are rejected', () => {
+test('malformed catalogs are rejected', () => {
   assert.throws(() => validateCatalogue({ ...data, rows: [data.rows[0], data.rows[0]] }));
   assert.throws(() => validateCatalogue({ ...data, rows: [{ ...data.rows[0], pl_rade: '12' }] }));
   assert.throws(() => validateCatalogue({ ...data, rows: [{ ...data.rows[0], pl_ref: data.refs.length }] }));
@@ -89,7 +89,7 @@ test('Kepler estimates use stellar mass, and limits are never treated as measure
   assert.ok(orbitModel({ pl_orbper: 10 }).reason, 'no period without the mass to go with it');
 });
 
-test('projected separations, gravity masses and composite periods are used, and always labelled', () => {
+test('projected separations, gravity masses and composite periods are used, and always labeled', () => {
   const imaged = orbitModel({ discoverymethod: 'Imaging', pl_orbsmax: 50, st_mass: 1 });
   assert.equal(imaged.a, 50);
   assert.match(imaged.notes.join(' '), /projected on the sky/);
@@ -114,7 +114,7 @@ test('circumbinary orbits use the pair’s total mass, or a reported orbit when 
   assert.match(orbitModel({ cb_flag: 1, pl_orbper: 100 }).reason, /cannot be reconstructed/);
   const reported = orbitModel({ cb_flag: 1, pl_orbper: 100, pl_orbsmax: 0.5 });
   assert.equal(reported.a, 0.5);
-  assert.match(reported.notes.join(' '), /centre of mass/);
+  assert.match(reported.notes.join(' '), /center of mass/);
 });
 
 test('reported radii win; missing radii use the published mass fit and identify minimum-mass proxies', () => {
@@ -137,7 +137,7 @@ test('stellar estimates use luminosity or gravity; compact hosts are handled', (
   assert.equal(model('WD 1856+534').bodies[0].radiusKm, 0.0131 * 695700);
 });
 
-test('star colours follow the blackbody at each temperature', () => {
+test('star colors follow the blackbody at each temperature', () => {
   const rgb = (t) => stellarColor(t).match(/\w\w/g).map((h) => parseInt(h, 16));
   const [cool, sun, hot] = [rgb(3000), rgb(5772), rgb(10000)];
   assert.ok(cool[0] === 255 && cool[2] < 130, 'an M dwarf is orange');
@@ -267,8 +267,8 @@ test('NASA decides what is a star; a supplement listing fewer is drawn with the 
   assert.equal(starsShown(entries.find((e) => e.name === '16 Cyg B'), data, supplement), 3);
 });
 
-test('stellar orbits trust the period when the catalogue’s size disagrees with it', () => {
-  // OEC gives one star's orbit about the centre of mass as the pair's. Welsh et al. (2012) give 0.2288 AU.
+test('stellar orbits trust the period when the catalog’s size disagrees with it', () => {
+  // OEC gives one star's orbit about the center of mass as the pair's. Welsh et al. (2012) give 0.2288 AU.
   const kepler34 = model('Kepler-34');
   const a = kepler34.bodies.find((b) => b.kind === 'star' && b.orbit).orbit.aAU;
   assert.ok(Math.abs(a - 0.2288) < 0.001, `${a}`);
@@ -280,7 +280,7 @@ test('stellar orbits trust the period when the catalogue’s size disagrees with
 test('planets around different stars stay attached to their own host, which leads its own system', () => {
   for (const [name, own] of [['HD 133131 A', 'HD 133131 A b'], ['HD 133131 B', 'HD 133131 B b']]) {
     const system = model(name);
-    assert.equal(system.byId.get(`planet:${own}`).parent, system.starId, `${name} is centred on its own star`);
+    assert.equal(system.byId.get(`planet:${own}`).parent, system.starId, `${name} is centered on its own star`);
     assert.equal(system.bodies[0].id, system.starId);
     assert.notEqual(system.byId.get('planet:HD 133131 A b').parent, system.byId.get('planet:HD 133131 B b').parent);
     assert.equal(system.allBodies.filter((b) => b.kind === 'planet').length, 3);
@@ -292,11 +292,11 @@ test('a host whose planets are lost in a wide stellar orbit opens on its own pla
   const proxima = model('Proxima Cen');
   assert.equal(proxima.home.centreId, proxima.starId);
   assert.ok(proxima.home.radiusAU < 1 && proxima.overviewAU > 1000);
-  assert.equal(model('Kepler-16').home, null, 'circumbinary planets are framed from the barycentre');
+  assert.equal(model('Kepler-16').home, null, 'circumbinary planets are framed from the barycenter');
   assert.equal(model('TRAPPIST-1').home, null);
 });
 
-test('binary mass fractions keep every nested centre of mass fixed, inside the overview at every Scale', () => {
+test('binary mass fractions keep every nested center of mass fixed, inside the overview at every Scale', () => {
   for (const name of ['Kepler-16', 'Proxima Cen', 'PH1', 'GJ 414 A']) {
     const system = model(name);
     for (const exponent of EXPONENTS) for (const day of [-100000, 0, 100000]) {
@@ -339,7 +339,7 @@ test('search finds stars by their full names as well as the archive’s abbrevia
   assert.ok(find('tau cet').includes('tau Cet'));
 });
 
-test('the companion importer reads the catalogue’s XML strictly', () => {
+test('the companion importer reads the catalog’s XML strictly', () => {
   const tree = parseXml('<?xml version="1.0"?><a x="1 &amp; 2"><!-- note --><b>T &lt; 5</b><c/></a>');
   assert.equal(tree.children[0].attrs.x, '1 & 2');
   assert.equal(tree.children[0].children[0].text, 'T < 5');
@@ -384,7 +384,7 @@ test('TAP range cursors escape names', () => {
   assert.ok(trappist.distance > 10 && trappist.distance < 15, 'composite host distance is available');
 });
 
-/* --- the in-browser catalogue ---------------------------------------------- */
+/* --- the in-browser catalog ---------------------------------------------- */
 
 /** Stored rows back into the shape the archive sends, citations and all. */
 const archiveRows = data.rows.map(({ pl_ref, st_ref, dist_ref, ...row }) => ({ ...row,
@@ -415,7 +415,7 @@ test('a saved copy the shipped one has overtaken, or in an older format, is clea
   }
 });
 
-test('only a catalogue older than a week is refreshed on its own', async () => {
+test('only a catalog older than a week is refreshed on its own', async () => {
   const service = new ExoplanetCatalogue({ storage: { read: async () => null } });
   service.accept({ ...data, fetchedAt: new Date(Date.now() - 3 * 86400e3).toISOString() });
   assert.equal(service.stale, false);
@@ -538,7 +538,7 @@ test('malformed sky host lists are rejected', () => {
 
 test('hosts in the sky are placed on the stars the sky draws, and every one can be visited', () => {
   const matched = matchDrawnStars(committedSky.hosts, drawnStars);
-  // Only a few near the naked-eye limit are missing from the star catalogue the sky draws.
+  // Only a few near the naked-eye limit are missing from the star catalog the sky draws.
   assert.ok(matched.length >= committedSky.hosts.length * 0.95, `${matched.length} of ${committedSky.hosts.length} matched`);
   const names = new Set(entries.map((s) => s.name));
   assert.ok(committedSky.hosts.every(([name]) => names.has(name)));

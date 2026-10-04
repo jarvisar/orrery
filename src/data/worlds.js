@@ -8,7 +8,7 @@
  * keep an atmosphere, a small world cold enough to freeze over. This module
  * turns the measurements into a description that src/scene/worldTextures.js
  * paints from, with a note saying why each planet looks the way it does. The
- * few planets whose colour or brightness has been observed are in
+ * few planets whose color or brightness has been observed are in
  * appearances.js, which overrides these guesses.
  *
  * Everything here is plain data and deterministic: the same planet always gets
@@ -62,7 +62,7 @@ export function starLook({ name = '', teff = null, radiusSun = 1, massSun = null
   if (!temperature && !remnant) {
     temperature = dwarfTemperature({ spectype, mass: massSun });
     if (temperature) {
-      notes.push(`Temperature not reported: its colour assumes about ${round(temperature, 2)} K, typical of a main-sequence star of its ${/^[BAFGKM]/.test(spectype ?? '') ? 'spectral type' : 'mass'} (Pecaut & Mamajek 2013).`);
+      notes.push(`Temperature not reported: its color assumes about ${round(temperature, 2)} K, typical of a main-sequence star of its ${/^[BAFGKM]/.test(spectype ?? '') ? 'spectral type' : 'mass'} (Pecaut & Mamajek 2013).`);
     }
   }
   const type = remnant
@@ -476,7 +476,7 @@ function heat(high, low) {
   return { low, high, shift: 0, uniform: false };
 }
 
-/** The glow colours at either end of a heat map, as linear RGB radiance. */
+/** The glow colors at either end of a heat map, as linear RGB radiance. */
 export function heatRadiance({ low, high }) {
   const at = (t) => blackbodyLinear(t).map((c) => c * glowIntensity(t));
   return { low: at(low), high: at(high) };
@@ -489,7 +489,7 @@ function massFromRadius(radius) {
   return radius <= 1.23 ? (radius / 1.008) ** (1 / 0.279) : (radius / 0.808) ** (1 / 0.589);
 }
 
-/** Small, repeatable shifts in hue and lightness, so neighbours differ. */
+/** Small, repeatable shifts in hue and lightness, so neighbors differ. */
 function jitter(palette, random) {
   const hueShift = (random('hue') - 0.5) * 0.05;
   const light = 1 + (random('light') - 0.5) * 0.16;

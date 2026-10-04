@@ -13,11 +13,11 @@ Planet and star data comes from the [NASA Exoplanet Archive](https://exoplanetar
 - If the default solution is missing a period, orbit size, eccentricity, or the star's mass, radius, temperature or spectral type, the composite table's value is used instead and labeled as such in the info panel.
 - See the [column definitions](https://exoplanetarchive.ipac.caltech.edu/docs/API_TD_columns.html) for what each value means.
 
-Binary and multiple star systems use data from the [Open Exoplanet Catalogue](https://github.com/OpenExoplanetCatalogue/open_exoplanet_catalogue) (MIT license). Only planets that are in the NASA data are shown, and NASA's count of stars in each system is the one used. If the catalogue lists more stars than NASA (usually a brown dwarf that NASA counts as a planet), its data isn't used for that system.
+Binary and multiple star systems use data from the [Open Exoplanet Catalogue](https://github.com/OpenExoplanetCatalogue/open_exoplanet_catalogue) (MIT license). Only planets that are in the NASA data are shown, and NASA's count of stars in each system is the one used. If the catalog lists more stars than NASA (usually a brown dwarf that NASA counts as a planet), its data isn't used for that system.
 
 Companion star masses that aren't reported are estimated from temperature or spectral type using the main-sequence table from [Pecaut & Mamajek (2013)](https://www.pas.rochester.edu/~emamajek/EEM_dwarf_UBVIJHK_colors_Teff.txt). White dwarfs use a typical 0.6 solar masses. Giant stars aren't estimated.
 
-`scripts/update-stellar-systems.js` has a short list of corrections for known mistakes in the catalogue, like a period entered in years instead of days. Each one only applies while the catalogue still has the wrong value.
+`scripts/update-stellar-systems.js` has a short list of corrections for known mistakes in the catalog, like a period entered in years instead of days. Each one only applies while the catalog still has the wrong value.
 
 ## Updating the Data
 
@@ -26,9 +26,9 @@ npm run exoplanets:update   # public/data/exoplanets.json and sky-hosts.json
 npm run stars:update        # public/data/stellar-systems.json
 ```
 
-Both scripts check the new data before saving it. If the download fails, the data is invalid, the catalogue is more than 5% smaller than before, or any system can't be drawn, the old file is kept.
+Both scripts check the new data before saving it. If the download fails, the data is invalid, the catalog is more than 5% smaller than before, or any system can't be drawn, the old file is kept.
 
-`sky-hosts.json` lists the hosts bright enough to see without a telescope (V magnitude 6.5 or brighter), with where they are and how many planets they have. It's a few kilobytes, so the sky can load it without the whole catalogue. Each one is matched to the star the sky draws for it, and the few that the sky's star catalogue doesn't include can't be clicked. The two files are replaced together or not at all.
+`sky-hosts.json` lists the hosts bright enough to see without a telescope (V magnitude 6.5 or brighter), with where they are and how many planets they have. It's a few kilobytes, so the sky can load it without the whole catalog. Each one is matched to the star the sky draws for it, and the few that the sky's star catalog doesn't include can't be clicked. The two files are replaced together or not at all.
 
 The deploy workflow runs both scripts on every push to `main` and every Monday. The desktop app includes whichever files are committed, so update them before a release.
 

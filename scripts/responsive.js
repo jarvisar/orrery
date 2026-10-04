@@ -76,7 +76,7 @@ const STATES = [
   { name: 'date', open: '.timebar__date', surface: '.when' },
   { name: 'settings', open: '[aria-label="Settings"]', surface: '.drawer' },
   { name: 'help', open: '[aria-label="Controls"]', surface: '.help__card', keyboard: true },
-  // The list is filled once the catalogue has loaded.
+  // The list is filled once the catalog has loaded.
   { name: 'systems', open: '.systems-button', surface: '.systems', ready: '.systems__card', keyboard: true },
 ];
 
@@ -463,7 +463,7 @@ async function checkDialogKeyboard(page, surface) {
     const style = getComputedStyle(node);
     const rect = node.getBoundingClientRect();
     const name = node.getAttribute('aria-label') || node.textContent.trim().slice(0, 24) || node.tagName;
-    // Inset a little, so a neighbour's border does not count as covering it.
+    // Inset a little, so a neighbor's border does not count as covering it.
     const points = [[0.5, 0.5], [0.5, 0], [0.5, 1], [0, 0.5], [1, 0.5]].map(([fx, fy]) => [
       Math.min(Math.max(rect.left + 2 + (rect.width - 4) * fx, 0), innerWidth - 1),
       Math.min(Math.max(rect.top + 2 + (rect.height - 4) * fy, 0), innerHeight - 1),
@@ -502,7 +502,7 @@ async function checkDialogKeyboard(page, surface) {
 async function runAxe() {
   const result = await window.axe.run(document, {
     runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] },
-    // A 3D scene has no background colour axe can read, so it cannot judge
+    // A 3D scene has no background color axe can read, so it cannot judge
     // contrast over it. The plates' own contrast is set in style.css.
     rules: { 'color-contrast': { enabled: false } },
   });

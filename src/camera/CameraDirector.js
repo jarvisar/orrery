@@ -1,5 +1,5 @@
 /**
- * Camera behaviour: what it is looking at, and how it gets there.
+ * Camera behavior: what it is looking at, and how it gets there.
  *
  * Following translates the camera by the same delta as the focused body, so
  * the body stays still in view while the rest of the system moves round it.
@@ -64,7 +64,7 @@ export class CameraDirector {
 
     /** @type {import('../scene/SolarSystem.js').BodyView|null} */
     this.focus = null;
-    /** What an overview is centred on and follows, when not the system's centre. */
+    /** What an overview is centered on and follows, when not the system's center. */
     this.anchor = null;
     this._lastFocusPosition = new THREE.Vector3();
     this._transition = null;
@@ -173,7 +173,7 @@ export class CameraDirector {
       fromTarget: this.controls.target.clone(),
       fromPosition: this.camera.position.clone(),
       offset: _offset.clone(),
-      // A moving centre is tracked all the way there, like a focused body.
+      // A moving center is tracked all the way there, like a focused body.
       toTarget: centre ? null : target,
     });
   }

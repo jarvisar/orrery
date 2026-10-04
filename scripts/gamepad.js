@@ -2,7 +2,7 @@
 /**
  * Drives every controller binding through a fake standard-mapping pad that
  * replaces navigator.getGamepads(): camera, time, flight, menus and settings,
- * full screen, vibration, and a second make of controller relabelling the
+ * full screen, vibration, and a second make of controller relabeling the
  * buttons. Then checks the legend sits clear of the interface at phone,
  * landscape phone and laptop sizes.
  *
@@ -384,7 +384,7 @@ try {
   s = await state();
   assert(/PlayStation controller connected/.test(s.padbarTitle), `a DualSense connected as "${s.padbarTitle}"`);
   const cross = await ev(() => document.querySelector('.padbar .pad--face .sr-only, .help__body .pad--face .sr-only')?.textContent);
-  assert(['Cross', 'Circle', 'Square', 'Triangle'].includes(cross), `a DualSense's buttons are labelled "${cross}"`);
+  assert(['Cross', 'Circle', 'Square', 'Triangle'].includes(cross), `a DualSense's buttons are labeled "${cross}"`);
   await shot('dualsense');
 
   /* --- where the legend sits ----------------------------------------------- */

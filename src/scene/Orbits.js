@@ -36,7 +36,7 @@ const TRAIL_FALLOFF = 1.6;
 /**
  * Two reasons to fade a path out:
  *
- * Span: the orbit's radius over the camera's distance to its centre, roughly
+ * Span: the orbit's radius over the camera's distance to its center, roughly
  * how many screens wide the path is. Past SPAN_OUT it reads as a stray line.
  *
  * Proximity: the camera's distance from the path, as a fraction of the orbit's
@@ -92,7 +92,7 @@ export class Orbits {
 
     const width = heliocentric ? BASE_WIDTH : BASE_WIDTH * 0.75;
     const material = new LineMaterial({
-      // Tinted towards the body's colour so a dense system reads as separate orbits.
+      // Tinted towards the body's color so a dense system reads as separate orbits.
       color: new THREE.Color(view.body.color ?? '#ffffff').lerp(new THREE.Color(0xffffff), 0.2),
       linewidth: width + this._smooth.value,
       worldUnits: false,
@@ -269,7 +269,7 @@ export class Orbits {
 
 /**
  * Where each vertex sits round the orbit, 0..1, smuggled to the shader in the
- * red channel of the line's colour attribute. The path is sampled evenly in
+ * red channel of the line's color attribute. The path is sampled evenly in
  * eccentric anomaly, so vertex i of n is simply at i/n.
  */
 function pathPhases(segments) {
@@ -285,7 +285,7 @@ function orbitPhase(el, tDays) {
 }
 
 /**
- * Replaces LineMaterial's colour multiply with the trail's fade, and adds the
+ * Replaces LineMaterial's color multiply with the trail's fade, and adds the
  * optional edge smoothing (see Orbits#setSmoothing).
  */
 function applyTrail(material, head, smooth) {
@@ -310,7 +310,7 @@ function applyTrail(material, head, smooth) {
   });
 }
 
-/** Mean, nearest and farthest distance of a sampled path from its own centre, in scene units. */
+/** Mean, nearest and farthest distance of a sampled path from its own center, in scene units. */
 function pathRadii(positions) {
   const count = positions.length / 3;
   let total = 0, minRadius = Infinity, maxRadius = 0;
@@ -325,11 +325,11 @@ function pathRadii(positions) {
 
 /**
  * How far the camera is from the nearest vertex of a path. Comparing the
- * camera's distance from the centre with the mean radius only works for round
+ * camera's distance from the center with the mean radius only works for round
  * orbits. Eris sits around 20% outside its mean radius right now, so its path
  * never faded when it was focused.
  *
- * @param {number} distance The camera's distance from the path's centre.
+ * @param {number} distance The camera's distance from the path's center.
  */
 function distanceToPath(entry, cameraPosition, distance) {
   // Can't be any closer than this, which rules out most paths without the loop.

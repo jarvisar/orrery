@@ -197,7 +197,7 @@ body[data-state="over"] .pause-btn { visibility: hidden; }
 
 /* --- stage --------------------------------------------------------------- */
 
-/* Three columns, so the board sits on the true centre line with the status
+/* Three columns, so the board sits on the true center line with the status
    column hanging off its right edge. The one row is exactly as tall as the
    well, so everything beside it can align to its top and bottom. */
 .stage {
@@ -821,7 +821,7 @@ function rotateMatrix(matrix) {
   return matrix.map((line, i) => line.map((_, j) => matrix[n - j][i]));
 }
 
-// 7-bag randomiser: each piece once per bag, in random order.
+// 7-bag randomizer: each piece once per bag, in random order.
 // @see https://tetris.fandom.com/wiki/Random_Generator
 function fillQueue() {
   while (queue.length < 2) {
@@ -843,7 +843,7 @@ function spawn() {
     matrix,
     turn: 0,
     // Every piece starts in the two hidden rows (guideline rows 21 and 22),
-    // I and O centred, the others one column left of centre.
+    // I and O centered, the others one column left of center.
     row: -2,
     col: COLS / 2 - Math.ceil(matrix[0].length / 2),
   };
@@ -1238,7 +1238,7 @@ let dpr = 1;
 let cell = 30;
 let nextSize = { width: 0, height: 0, cell: 0 };
 
-// An inset rounded square, so neighbouring cells read as separate tiles.
+// An inset rounded square, so neighboring cells read as separate tiles.
 function tilePath(ctx, x, y, size, grow = 0) {
   const inset = Math.max(1, Math.round(size * 0.06)) - grow;
   const side = size - inset * 2;
@@ -1310,7 +1310,7 @@ function drawNext() {
   const name = queue?.[0];
   if (!name || !s) return;
 
-  // Centre the piece on its filled cells, not its bounding box.
+  // Center the piece on its filled cells, not its bounding box.
   const cells = [];
   SHAPES[name].forEach((line, r) => line.forEach((filled, c) => filled && cells.push([r, c])));
   const rows = cells.map(([r]) => r);
@@ -1399,7 +1399,7 @@ function layout() {
   if (narrowLayout.matches) {
     ({ width, height } = slot.getBoundingClientRect());
   } else {
-    // The outer columns mirror each other so the board stays on the centre line.
+    // The outer columns mirror each other so the board stays on the center line.
     const sideWidth = parseFloat(styles.getPropertyValue('--side-w')) || 0;
     const gap = parseFloat(getComputedStyle(stage).columnGap) || 0;
     width = stage.clientWidth - 2 * (sideWidth + gap);

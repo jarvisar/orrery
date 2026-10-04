@@ -96,7 +96,7 @@ export async function selfTest(win, report, startUrl, screenshot) {
     }
 
     // The same renderer with a downloaded system. Also tests app:// navigation
-    // and checks that the offline NASA catalogue made it into the package.
+    // and checks that the offline NASA catalog made it into the package.
     await contents.loadURL(`${ORIGIN}/?system=TRAPPIST-1&body=planet%3ATRAPPIST-1%20e`);
     while (await contents.executeJavaScript('Boolean(document.getElementById("loading"))')) await sleep(500);
     const exoplanet = await contents.executeJavaScript(`({
@@ -117,7 +117,7 @@ export async function selfTest(win, report, startUrl, screenshot) {
       provenance: document.querySelector('.info__provenance')?.textContent,
     })`);
     expect(binary.name === 'Kepler-16 b', 'the desktop circumbinary planet is missing');
-    expect(binary.members.includes('Kepler-16 A') && binary.members.includes('Kepler-16 B'), 'the packaged stellar companion catalogue is missing');
+    expect(binary.members.includes('Kepler-16 A') && binary.members.includes('Kepler-16 B'), 'the packaged stellar companion catalog is missing');
     expect(binary.provenance?.includes('Circumbinary'), 'the desktop binary model has no orbit provenance');
     log(`binary: ${binary.members.join(', ')}`);
 

@@ -1,6 +1,6 @@
 import { orbitalPosition } from './kepler.js';
 
-/** Compress relative separation once, then split by mass: the barycentre stays fixed. */
+/** Compress relative separation once, then split by mass: the barycenter stays fixed. */
 export function stellarPositions(nodes, tDays, distanceScale, positions = new Map()) {
   const raw = {};
   for (const node of nodes) {

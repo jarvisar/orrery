@@ -38,7 +38,7 @@ export function exoplanetSurface(material, look, maps, radius) {
   if (look.heat) {
     // Thermal glow, day and night alike, interpolated in log space between
     // the coldest and hottest the map shows: brightness rises steeply with
-    // temperature, and the colour reddens as it falls.
+    // temperature, and the color reddens as it falls.
     const { low, high } = heatRadiance(look.heat);
     const floor = (rgb) => new THREE.Vector3(...rgb.map((c) => Math.max(c, 1e-4)));
     const uniforms = { uHeatLow: { value: floor(low) }, uHeatHigh: { value: floor(high) } };
@@ -58,7 +58,7 @@ export function exoplanetSurface(material, look, maps, radius) {
 }
 
 /**
- * A star's colour as drawn, in linear light. The Sun is graded warmer than a
+ * A star's color as drawn, in linear light. The Sun is graded warmer than a
  * pure blackbody (see sunSurface in shading.js). A Sun-like star gets the same
  * grade so it matches, fading out toward hotter stars (pure blue-white) and
  * cooler ones (pure orange).
@@ -87,7 +87,7 @@ const PLAIN = (() => {
  * Limb darkening from the Eddington-Barbier relation: looking in at angle
  * θ (μ = cos θ) you see down to where T(μ)⁴ = ¾Teff⁴(μ + ⅔), so the edge shows
  * cooler gas. Taking Planck's law at red, green and blue wavelengths gives
- * both the darkening (about a third of the centre's brightness at the Sun's
+ * both the darkening (about a third of the center's brightness at the Sun's
  * limb, as observed) and the reddening, weaker for hotter stars. Granulation,
  * spots and faculae come from the baked data map. Spots are darkened by the
  * blackbody ratio at their lower temperature.

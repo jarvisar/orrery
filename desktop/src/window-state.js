@@ -1,6 +1,6 @@
 /**
  * Remembers the window between runs: where it was, how big, whether it was
- * maximised or full screen, and the zoom level.
+ * maximized or full screen, and the zoom level.
  */
 import { app, screen } from 'electron';
 import { readFileSync, writeFileSync } from 'node:fs';

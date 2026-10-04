@@ -6,7 +6,7 @@
  *
  * Atomic, like the NASA importer: the new copy replaces the old only once it
  * validates, is no more than 5% smaller, and every system still builds a finite
- * model with the current NASA catalogue.
+ * model with the current NASA catalog.
  *
  *   npm run stars:update
  */
@@ -25,7 +25,7 @@ const FIELDS = {
 };
 
 /**
- * Known slips in the catalogue, each applied only while the published value is
+ * Known slips in the catalog, each applied only while the published value is
  * still the wrong one, so a fix upstream retires it. `components` names the
  * pair by its two members.
  */
@@ -35,7 +35,7 @@ const CORRECTIONS = [
 ];
 
 /**
- * Just enough XML for the catalogue's machine-written files: elements,
+ * Just enough XML for the catalog's machine-written files: elements,
  * attributes, text and the five predefined entities plus character references.
  * Anything else (a DTD, a stray '<') is an error rather than a guess.
  */
@@ -78,7 +78,7 @@ function decode(text) {
 
 const child = (node, tag) => node.children.find((c) => c.tag === tag);
 const texts = (node, tag) => node.children.filter((c) => c.tag === tag).map((c) => c.text.trim()).filter(Boolean);
-/** A plain decimal number, as the catalogue writes them. Anything else is unusable. */
+/** A plain decimal number, as the catalog writes them. Anything else is unusable. */
 function decimal(text) {
   const trimmed = text?.trim() ?? '';
   return /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(trimmed) ? Number(trimmed) : null;
@@ -128,7 +128,7 @@ function convert(element) {
 /** Every system with a stellar hierarchy. A malformed one is skipped, not fatal. */
 export function convertSystems(xml) {
   const catalogue = child(parseXml(xml), 'systems');
-  if (!catalogue) throw new Error('No <systems> in the catalogue');
+  if (!catalogue) throw new Error('No <systems> in the catalog');
   const systems = [], skipped = [];
   for (const system of catalogue.children.filter((c) => c.tag === 'system')) {
     const binary = child(system, 'binary');
@@ -156,7 +156,7 @@ async function main() {
   let previous = null;
   try { previous = JSON.parse(await readFile(dest, 'utf8')); } catch { /* first import */ }
   if (systems.length < 100 || (previous && systems.length < previous.systems.length * 0.95)) {
-    throw new Error(`Incomplete companion catalogue (${systems.length} systems); keeping the previous copy.`);
+    throw new Error(`Incomplete companion catalog (${systems.length} systems); keeping the previous copy.`);
   }
   const data = validateStellarCatalogue({
     schemaVersion: 1, fetchedAt: new Date().toISOString(),

@@ -3,7 +3,7 @@
  * Refreshes public/data/exoplanets.json from the NASA Exoplanet Archive, and
  * public/data/sky-hosts.json, the hosts bright enough to click in the sky.
  *
- * Atomic. The new copies only replace the old ones once the catalogue has been
+ * Atomic. The new copies only replace the old ones once the catalog has been
  * normalized, validated, found no more than 5% smaller, and built into a finite
  * model for every system (with the current companion supplement). The sky list
  * also has to validate and be no more than 5% shorter. Any failure exits
@@ -27,7 +27,7 @@ const supplement = validateStellarCatalogue(JSON.parse(await readFile(supplement
 
 const raw = await fetchArchive(QUERY_URL);
 if (raw.length < 1000 || (previous && raw.length < previous.rows.length * 0.95)) {
-  throw new Error(`Catalogue unexpectedly small (${raw.length} rows); keeping the last successful import. Inspect the archive before replacing it.`);
+  throw new Error(`Catalog unexpectedly small (${raw.length} rows); keeping the last successful import. Inspect the archive before replacing it.`);
 }
 const data = catalogueFromArchive(raw);
 const systems = verifyModels(data, supplement);

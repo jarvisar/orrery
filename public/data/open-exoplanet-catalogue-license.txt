@@ -2,7 +2,7 @@ Stellar companion data: Open Exoplanet Catalogue
 https://github.com/OpenExoplanetCatalogue/open_exoplanet_catalogue
 Copyright (c) Open Exoplanet Catalogue contributors
 
-The catalogue declares its data to be licensed under the MIT License:
+The catalog declares its data to be licensed under the MIT License:
 https://github.com/OpenExoplanetCatalogue/open_exoplanet_catalogue#about-the-open-exoplanet-catalogue
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

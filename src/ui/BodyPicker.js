@@ -1,6 +1,6 @@
 /**
  * The body selector: a custom list box rather than a `<select>`, since browsers
- * honour `hidden` on options inconsistently. Bodies are grouped by kind, and the
+ * honor `hidden` on options inconsistently. Bodies are grouped by kind, and the
  * whole group is hidden when its category is switched off.
  */
 
@@ -19,7 +19,7 @@ export class BodyPicker {
    * @param {object} handlers
    * @param {(id: string) => void} handlers.onSelect
    * @param {() => void} handlers.onOverview
-   * @param {() => void} [handlers.onHome] The host's own planets, where the catalogue has that view.
+   * @param {() => void} [handlers.onHome] The host's own planets, where the catalog has that view.
    */
   constructor({ onSelect, onOverview, onHome, catalogue = SOLAR_SYSTEM }) {
     this.catalogue = catalogue;
@@ -153,7 +153,7 @@ export class BodyPicker {
   }
 
   /**
-   * Shows `id` as the current body. `display` names things the catalogue doesn't
+   * Shows `id` as the current body. `display` names things the catalog doesn't
    * have, like the whole-system view or something that isn't a body at all.
    * `display.option` picks which overview option is marked, '@overview' if not given.
    */

@@ -5,7 +5,7 @@
  * ALMA, by NASA archive host name. Radii are in AU as published. Where a paper
  * used a slightly different distance to the star, its radii are kept as given.
  *
- * Each belt: [inner AU, outer AU]. `dust` is the scattered-light colour where
+ * Each belt: [inner AU, outer AU]. `dust` is the scattered-light color where
  * it has been measured (β Pic's dust is red, AU Mic's blue), otherwise neutral.
  */
 const DISKS = {

@@ -11,7 +11,7 @@
  * few radii out. Touching the controls takes over at once.
  *
  * Steering is a virtual stick. A captured mouse pushes it and it drifts back to
- * centre. A finger (or an uncaptured mouse) deflects it from where the drag
+ * center. A finger (or an uncaptured mouse) deflects it from where the drag
  * started. A controller's left stick adds straight in.
  *
  * Listeners are attached only while enabled.
@@ -33,7 +33,7 @@ const DEAD_ZONE = 0.04;
 const STICK_RADIUS = 70;
 /** Pixels of captured mouse movement for full deflection. */
 const MOUSE_TRAVEL = 220;
-/** How fast a captured mouse's stick drifts back to centre, per second. */
+/** How fast a captured mouse's stick drifts back to center, per second. */
 const RECENTER = 3;
 /** Full-throttle speed as a multiple of altitude, per second. */
 const APPROACH = 0.9;

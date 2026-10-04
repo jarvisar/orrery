@@ -71,7 +71,7 @@ export function nightSideEmissive(material) {
 /**
  * The Sun's visible surface: limb darkening (the edge shows cooler, shallower
  * gas, roughly I = 0.4 + 0.6 cos(theta)) written in HDR, several times brighter
- * than white, so tone mapping rolls the centre off and the bloom pass has
+ * than white, so tone mapping rolls the center off and the bloom pass has
  * something to bloom.
  *
  * @returns {{uniforms: {uIntensity: {value: number}}}}
@@ -96,7 +96,7 @@ export function sunSurface(material, intensity = 1.4) {
         /* glsl */ `
         #include <map_fragment>
         float mu = saturate( dot( normalize( vSunNormal ), normalize( vSunView ) ) );
-        // Colour and brightness come from mu. The texture supplies only fine
+        // Color and brightness come from mu. The texture supplies only fine
         // grain. The source art has broad bright blotches the real photosphere
         // lacks, so a heavily blurred sample of the same map is subtracted out.
         vec3 luma = vec3( 0.2126, 0.7152, 0.0722 );

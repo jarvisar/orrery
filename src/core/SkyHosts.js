@@ -16,7 +16,7 @@ import { equatorialToScene } from '../sim/frames.js';
 
 /**
  * How far a host's archive position may sit from the star drawn for it, in
- * radians (3 arcminutes). The two catalogues' epochs are up to a few decades
+ * radians (3 arcminutes). The two catalogs' epochs are up to a few decades
  * apart, and over that time these stars' proper motion is at most about an
  * arcminute.
  */

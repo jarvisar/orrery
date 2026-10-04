@@ -124,7 +124,7 @@ function normalizeSigned(radians) {
 /**
  * Rotation angle about a body's own axis at `tDays`.
  * Negative periods mean retrograde rotation, which is how Venus and Uranus are
- * stored in the catalogue.
+ * stored in the catalog.
  */
 export function spinAngle(periodHours, tDays) {
   if (!periodHours) return 0;

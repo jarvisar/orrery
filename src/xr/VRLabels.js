@@ -82,7 +82,7 @@ export class VRLabels {
    * @param {THREE.Vector3} up The head's up direction, in world space.
    * @param {THREE.Vector3} right The head's right, in world space.
    * @param {number} unitsPerMetre The rig's scale.
-   * @param {Set<string>} pointed Bodies a controller is pointing at: always labelled, in full.
+   * @param {Set<string>} pointed Bodies a controller is pointing at: always labeled, in full.
    */
   update(viewer, up, right, unitsPerMetre, pointed) {
     if (!this.group.visible) return;
@@ -109,7 +109,7 @@ export class VRLabels {
       sprite.material.opacity = opacity;
       // On the body's upper limb, so a large body pointed at is named, not covered.
       sprite.position.copy(view.group.position).addScaledVector(up, view.radius);
-      // A sprite's size is in view units (metres here), not world units.
+      // A sprite's size is in view units (meters here), not world units.
       entry.height = (distance / unitsPerMetre) * LABEL_ANGLE;
       entry.distance = distance;
       entry.hot = hot;
@@ -120,7 +120,7 @@ export class VRLabels {
   }
 
   /**
-   * Lays the labels out on the plane a metre in front of the eyes, where each
+   * Lays the labels out on the plane a meter in front of the eyes, where each
    * one is LABEL_ANGLE tall, and folds any that would land on a nearer one.
    * The nearest wins, as in src/ui/Markers.js. A label being pointed at always
    * wins, since that is the one being read.

@@ -27,7 +27,7 @@ xs = np.clip(np.rint(cx + radii[:, None] * np.cos(theta)[None, :]).astype(int), 
 ys = np.clip(np.rint(cy + radii[:, None] * np.sin(theta)[None, :]).astype(int), 0, h - 1)
 strip = src[ys, xs].mean(axis=1)                       # (N, 4)
 # premultiply-safe: where a ring sample is transparent its RGB is garbage, so
-# carry the nearest opaque colour outward rather than averaging in the key colour
+# carry the nearest opaque color outward rather than averaging in the key color
 opaque = strip[:, 3] > 2
 if opaque.any():
     idx = np.where(opaque, np.arange(N), 0)

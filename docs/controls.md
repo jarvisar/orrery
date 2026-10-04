@@ -114,6 +114,6 @@ You can also get there from the sky. About 170 of the stars you can see with the
 
 Exoplanet systems use the same controls as the solar system. Systems where the planets would be too small to see next to a distant companion star, like Proxima Centauri, open on the host star's planets. Press `H` to see every star.
 
-The atlas includes an offline copy of the catalogue that is updated every week. If that copy is more than a week old, the app checks NASA for new planets. Click on `Refresh from NASA` to check at any time. Requests go through my [CORS proxy](https://github.com/jarvisar/cors-proxy). If NASA can't be reached, the last saved catalogue is used. Reopen a system after refreshing to see new data.
+The atlas includes an offline copy of the catalog that is updated every week. If that copy is more than a week old, the app checks NASA for new planets. Click on `Refresh from NASA` to check at any time. Requests go through my [CORS proxy](https://github.com/jarvisar/cors-proxy). If NASA can't be reached, the last saved catalog is used. Reopen a system after refreshing to see new data.
 
 See the [exoplanet notes](exoplanets.md) for where the data comes from and how systems are modeled.

@@ -4,9 +4,9 @@
  * In a headset the camera is the viewer's head, so the app moves a rig the
  * head stands in instead: a group with a position, a heading and a uniform
  * scale. The scene is in units where the Earth is 48 across and a headset
- * measures in metres, so the rig is rescaled to suit what is being looked at.
- * A focused planet becomes a globe a little under two metres across, a couple
- * of metres away, and the whole system becomes a tabletop orrery. The eyes ride
+ * measures in meters, so the rig is rescaled to suit what is being looked at.
+ * A focused planet becomes a globe a little under two meters across, a couple
+ * of meters away, and the whole system becomes a tabletop orrery. The eyes ride
  * in the rig too, so stereo separation scales with it and the depth matches a
  * model of that size.
  *
@@ -44,7 +44,7 @@
  *
  * A pinch has to do the grip's job too: Quest reserves the palm-up pinch for
  * its own menu and sends no squeeze for a hand. So a pinch that stays put is a
- * click, and one that moves a few centimetres becomes a grab. A click selects
+ * click, and one that moves a few centimeters becomes a grab. A click selects
  * whatever the ray was on when the fingers met, since pinching tugs the ray
  * off its target.
  *
@@ -63,12 +63,12 @@ import { VRPanel, OPTIONS } from './VRPanel.js';
 import { VRLabels } from './VRLabels.js';
 import { VRSounds } from './VRSounds.js';
 
-/** A focused body is framed with this radius, in metres, its centre this far from the eyes. */
+/** A focused body is framed with this radius, in meters, its center this far from the eyes. */
 const FOCUS_RADIUS_M = 0.85;
 const FOCUS_DISTANCE_M = 2.4;
 
 /**
- * The whole system as a tabletop: the framed radius in metres, and where the
+ * The whole system as a tabletop: the framed radius in meters, and where the
  * Sun sits relative to the eyes. That's out in front and below, so the orbits
  * are looked down on like a model on a table.
  */
@@ -76,13 +76,13 @@ const TABLE_RADIUS_M = 1.3;
 const TABLE_AHEAD_M = 1.6;
 const TABLE_BELOW_M = 0.5;
 
-/** How far the rig may be scaled, in scene units per metre. */
+/** How far the rig may be scaled, in scene units per meter. */
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 500_000;
 
-/** Near plane in metres: close enough for a controller held up to the face. */
+/** Near plane in meters: close enough for a controller held up to the face. */
 const NEAR_M = 0.05;
-/** Far plane ceiling in metres. The logarithmic depth buffer copes with the range. */
+/** Far plane ceiling in meters. The logarithmic depth buffer copes with the range. */
 const MAX_FAR_M = 1e7;
 
 /**
@@ -96,10 +96,10 @@ const FADE_OUT_S = 0.15;
 const FADE_IN_S = 0.3;
 
 const DEAD_ZONE = 0.15;
-/** Flying speed at full deflection, in metres per second at the current scale. */
+/** Flying speed at full deflection, in meters per second at the current scale. */
 const FLY_SPEED_M = 1.8;
 const BOOST = 4;
-/** Within this many metres of a surface, flying eases off, so you arrive rather than hit. */
+/** Within this many meters of a surface, flying eases off, so you arrive rather than hit. */
 const EASE_M = 0.6;
 /** Closest the viewer may get to a surface, as a fraction of its radius. */
 const CLEARANCE = 0.08;
@@ -114,10 +114,10 @@ const ASSIST_ANGLE = THREE.MathUtils.degToRad(2);
 /** Laser length when it is not touching anything. */
 const RAY_LENGTH_M = 6;
 
-/** A pinch that travels this far, in metres, is a grab rather than a click. */
+/** A pinch that travels this far, in meters, is a grab rather than a click. */
 const DRAG_START_M = 0.03;
 /**
- * Pressing the panel with a fingertip, in metres from its face: close enough
+ * Pressing the panel with a fingertip, in meters from its face: close enough
  * to hide that hand's ray, to show the cursor, to light a button up and to
  * touch it (the tip joint sits about this far inside the pad of the finger),
  * then far enough back out to let go.
@@ -244,7 +244,7 @@ export class VRMode {
     this.session = null;
     /** @type {import('../scene/SolarSystem.js').BodyView|null} */
     this.focus = null;
-    /** What the overview is centred on and follows, when not the system's centre. */
+    /** What the overview is centered on and follows, when not the system's center. */
     this._anchor = null;
     /** The viewer's eyes, in world space. Valid while presenting. */
     this.viewerPosition = new THREE.Vector3();
@@ -349,7 +349,7 @@ export class VRMode {
       await this._compile();
       try {
         await this.renderer.xr.setSession(session);
-        // Recentring (holding the Meta button) swings the world round the
+        // Recentering (holding the Meta button) swings the world round the
         // viewer. Whatever they were looking at is then off to one side.
         this.renderer.xr.getReferenceSpace()?.addEventListener('reset', () => {
           this._recentred = true;
@@ -677,10 +677,10 @@ export class VRMode {
    * Both eyes are culled against one frustum wide enough to hold them both.
    * three builds it from the distance between the eyes, which it measures in
    * world units but then uses as if it were in the eyes' own view units. In a
-   * scaled rig those are metres, and the two differ by the scale: on the
-   * tabletop the shared near plane ends up hundreds of metres out and culls
+   * scaled rig those are meters, and the two differ by the scale: on the
+   * tabletop the shared near plane ends up hundreds of meters out and culls
    * every planet within reach. This is three's construction again, with the
-   * separation in metres. The frustum's position was already right.
+   * separation in meters. The frustum's position was already right.
    */
   _fixCullingFrustum() {
     const xrCamera = this.renderer.xr.getCamera();
@@ -783,7 +783,7 @@ export class VRMode {
   }
 
   /**
-   * After a recentre: the same view again, straight ahead. A floating panel
+   * After a recenter: the same view again, straight ahead. A floating panel
    * comes back in front too. One in a hand is already wherever the hand is.
    */
   _recentre() {
@@ -811,7 +811,7 @@ export class VRMode {
     this._vignette.visible = strength > 0.01;
   }
 
-  /** Near and far, in metres. The far plane moves out as the viewer shrinks. */
+  /** Near and far, in meters. The far plane moves out as the viewer shrinks. */
   _updateClipping() {
     const far = THREE.MathUtils.clamp((heliocentricDistance(this.system.catalogue.edgeAU, this.system.scaleExponent) * 6) / this.scale, 1000, MAX_FAR_M);
     // Only on a real change: each one is a render-state update for the session.
@@ -1066,7 +1066,7 @@ export class VRMode {
   }
 
   /**
-   * The point a hand holds things by, in the rig's own space, in metres: a
+   * The point a hand holds things by, in the rig's own space, in meters: a
    * controller's tip, or the meeting point of a pinch. A hand's pointing ray
    * starts back near the wrist and swings as the fingers close, so it would
    * make a shaky handle. A Vision Pro pinch's ray starts at the eyes, and its
@@ -1135,7 +1135,7 @@ export class VRMode {
       return;
     }
 
-    // Both hands' positions in the rig's own space, in metres.
+    // Both hands' positions in the rig's own space, in meters.
     this._handPoint(a, _v);
     this._handPoint(b, _w);
     _localSpan.subVectors(_w, _v);
@@ -1237,7 +1237,7 @@ export class VRMode {
 
   /**
    * Aim assist. From across a tabletop solar system most bodies are a
-   * millimetre or two across, and a hand-held ray wobbles by more than that.
+   * millimeter or two across, and a hand-held ray wobbles by more than that.
    * Anything the labels are showing counts as hit if the ray passes within a
    * couple of degrees of it, and the nearest to the ray wins.
    */
@@ -1449,7 +1449,7 @@ export class VRMode {
 
   /**
    * How squarely a hand's palm faces the eyes, as a cosine, with the palm's
-   * centre left in `centre`. Returns -1 when the hand is not tracked or not in
+   * center left in `centre`. Returns -1 when the hand is not tracked or not in
    * view. The palm's normal comes from the knuckles either side of it rather
    * than a joint's orientation, so there are no joint axes to get wrong.
    */
@@ -1550,7 +1550,7 @@ export class VRMode {
 
   _describe() {
     const pointedId = this._pointedId();
-    // The visitor has no catalogue entry, hence no name.
+    // The visitor has no catalog entry, hence no name.
     const pointing = pointedId && (this.system.bodies.get(pointedId)?.name ?? 'Something');
     // Hands, when there are no controllers: the panel's hints then talk about
     // pinching. And once a Vision Pro pinch has been seen, about looking.

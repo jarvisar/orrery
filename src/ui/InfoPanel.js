@@ -1,12 +1,12 @@
 /**
  * Facts about whatever is currently in focus.
  *
- * A static block from the catalogue, and a live block recomputed a few times a
+ * A static block from the catalog, and a live block recomputed a few times a
  * second from the same Keplerian state that positions the body, so the panel
  * and the scene cannot disagree.
  *
  * The orbit map is a top-down plan of the body's orbit and its nearest
- * neighbours', to scale. The bright arc is the ground covered since periapsis.
+ * neighbors', to scale. The bright arc is the ground covered since periapsis.
  */
 
 import { el, icon, svgEl, formatKm } from './dom.js';
@@ -19,7 +19,7 @@ export const KIND_LABEL = {
   planet: 'Planet',
   dwarf: 'Dwarf planet',
   moon: 'Moon',
-  visitor: 'Uncatalogued',
+  visitor: 'Uncataloged',
 };
 
 const LIGHT_KM_S = 299_792.458;
@@ -167,7 +167,7 @@ export class InfoPanel {
     ].filter(Boolean));
   }
 
-  /** Re-checks which links and neighbours to show, after a visibility setting changes. */
+  /** Re-checks which links and neighbors to show, after a visibility setting changes. */
   refreshSystem() {
     if (!this._view) return;
     this._buildSystem(this._view.body);
@@ -198,7 +198,7 @@ export class InfoPanel {
   }
 
   /**
-   * Links to a planet's moons, or a moon's planet and siblings. The catalogue
+   * Links to a planet's moons, or a moon's planet and siblings. The catalog
    * only carries the notable few, so the heading does not claim a full list.
    */
   _buildSystem(body) {
@@ -285,7 +285,7 @@ export class InfoPanel {
       }));
     }
 
-    // Another star's own colour. A pair's centre of mass takes the host's, as a ring.
+    // Another star's own color. A pair's center of mass takes the host's, as a ring.
     const primaryColor = view.body.exoplanet
       ? (own.parentBody ?? this.catalogue.byId.get(this.catalogue.starId))?.color ?? '#ffd9a0'
       : own.heliocentric ? '#ffd9a0' : (own.parentBody?.color ?? '#ffffff');
@@ -332,7 +332,7 @@ export class InfoPanel {
       if (view.elements) {
         const elements = diagramElements(view.elements);
         orbitalPosition(elements, tDays, _now);
-        this._renderLive([[body.parent?.startsWith('barycentre:') ? 'Model distance to barycentre' : 'Model distance to star',
+        this._renderLive([[body.parent?.startsWith('barycentre:') ? 'Model distance to barycenter' : 'Model distance to star',
           `${Math.hypot(_now.x, _now.y, _now.z).toPrecision(4)} AU`]]);
         this._updateDiagram(elements, tDays);
       }
@@ -452,7 +452,7 @@ export class InfoPanel {
 }
 
 /**
- * Splits catalogue text like "5.972 × 10²⁴ kg" into text and <sup> nodes.
+ * Splits catalog text like "5.972 × 10²⁴ kg" into text and <sup> nodes.
  * Unicode superscript digits fall back to whatever font has them, so one
  * number can mix three fonts.
  */

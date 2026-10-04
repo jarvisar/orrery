@@ -131,7 +131,7 @@ export function receivePlanetShadow(material, { planetRadius }) {
         }
 
         // Ray/sphere test from the ring particle toward the Sun. The planet is
-        // centred on this mesh's own origin, which makes the closest-approach
+        // centered on this mesh's own origin, which makes the closest-approach
         // distance a single dot product.
         float planetShadow() {
           float along = dot( -vObjectPosition, uSunDirection );

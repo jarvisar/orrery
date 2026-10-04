@@ -293,7 +293,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
   font-weight: 500;
   letter-spacing: 0.5em;
   text-transform: uppercase;
-  /* Letter-spacing trails the last glyph. This keeps the word optically centred. */
+  /* Letter-spacing trails the last glyph. This keeps the word optically centered. */
   margin-right: -0.5em;
 }
 .loading__track {
@@ -634,7 +634,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
   padding: 6px 20px 16px;
   font-size: 10.5px;
 }
-/* A short rule in the body's own colour: the one place it appears as an accent. */
+/* A short rule in the body's own color: the one place it appears as an accent. */
 .info__kind::before {
   content: "";
   display: inline-block;
@@ -828,7 +828,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 }
 .timebar__tick {
   position: absolute;
-  /* The thumb is 3px wide, so its centre travels 1.5px in from each end. */
+  /* The thumb is 3px wide, so its center travels 1.5px in from each end. */
   left: calc(1.5px + var(--at) * (100% - 3px));
   top: 3px;
   width: 1px;
@@ -1120,7 +1120,7 @@ svg[aria-hidden="true"] { fill: none; stroke: currentColor; stroke-width: 1.5; f
 
 .hud__hint {
   /* Below the body picker rather than above the time bar, which owns the
-     bottom centre and would otherwise sit on top of it. Fades once read. */
+     bottom center and would otherwise sit on top of it. Fades once read. */
   position: absolute;
   top: 76px;
   left: 50%;
@@ -1859,7 +1859,7 @@ body:has(.picker.is-open, .timebar.is-open) :is(.toast, .hint) {
 :root.is-constrained { --plate: rgba(8, 9, 13, 0.96); }
 .is-constrained .panel, .is-constrained .help { backdrop-filter: none; -webkit-backdrop-filter: none; }
 
-/* Windows High Contrast and similar: the system picks the colours, so the
+/* Windows High Contrast and similar: the system picks the colors, so the
    shapes that were drawn only with fills get real borders. */
 @media (forced-colors: active) {
   .panel, .picker__menu, .when, .chip, kbd { border: 1px solid CanvasText; }
@@ -1875,7 +1875,7 @@ body:has(.picker.is-open, .timebar.is-open) :is(.toast, .hint) {
   .ui::before { display: none; }
 }
 
-/* Honour the OS setting, and the in-app override that mirrors it. */
+/* Honor the OS setting, and the in-app override that mirrors it. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

@@ -68,11 +68,11 @@ for (const [specifier, target] of Object.entries(importMap.imports)) {
 }
 console.log(`importmap ${Object.keys(importMap.imports).length} entries resolve`);
 
-// ------------------------------- 4. every texture the catalogue names is shipped
+// ------------------------------- 4. every texture the catalog names is shipped
 const manifest = JSON.parse(await readFile(join(ROOT, 'public/textures/manifest.json'), 'utf8'));
 const catalogue = await readFile(join(ROOT, 'src/data/bodies.js'), 'utf8');
 
-// The catalogue is data, so the texture stems can be read straight out of it.
+// The catalog is data, so the texture stems can be read straight out of it.
 const referenced = new Set(
   [...catalogue.matchAll(/\b(?:map|bumpMap|specularMap|emissiveMap|alphaMap):\s*'([a-z0-9_]+)'/g)]
     .map((match) => match[1])
@@ -97,7 +97,7 @@ console.log(
 const models = new Set(
   [...catalogue.matchAll(/\bmodel:\s*'([a-z0-9_]+)'/g)].map((match) => match[1])
 );
-models.add('ufo'); // referenced from main.js, not the catalogue
+models.add('ufo'); // referenced from main.js, not the catalog
 for (const name of models) {
   if (!(await exists(`public/models/${name}.glb`))) fail(`public/models/${name}.glb is missing`);
 }
@@ -142,7 +142,7 @@ console.log(`install   ${images.length} manifest images, service worker ready to
 const stars = await readFile(join(ROOT, 'public/data/stars.bin')).catch(() => null);
 if (!stars) fail('public/data/stars.bin is missing - run scripts/build-sky.py');
 else if (stars.length % 8 !== 0) fail(`public/data/stars.bin is ${stars.length} bytes, not a whole number of stars`);
-else console.log(`stars     ${stars.length / 8} in the catalogue`);
+else console.log(`stars     ${stars.length / 8} in the catalog`);
 
 // ------------------------- 9. every top-level file is either shipped or not
 // Pages and the desktop app are both staged from scripts/lib/served.js. So if

@@ -53,10 +53,10 @@ import { toggleFullscreen } from './ui/fullscreen.js';
 import { VRMode } from './xr/VRMode.js';
 import { el, icon, svgEl, announce, isTypingTarget } from './ui/dom.js';
 
-/** Scene units to kilometres, using the body-size scale rather than the orbit scale. */
+/** Scene units to kilometers, using the body-size scale rather than the orbit scale. */
 const KM_PER_UNIT = EARTH_RADIUS_KM / EARTH_RADIUS_UNITS;
 
-/** The one thing in the scene that is not in the catalogue. */
+/** The one thing in the scene that is not in the catalog. */
 const VISITOR_ID = 'visitor';
 
 /** Keys flight mode takes over from the rest of the interface. */
@@ -96,7 +96,7 @@ async function boot() {
       if (!entry && await exoplanets.hasHost(requestedSystem) && await exoplanets.refresh()) {
         entry = exoplanets.systems.find((s) => s.name === requestedSystem);
       }
-      if (!entry) throw new Error(`“${requestedSystem}” is not in the available catalogue. Choose a system from the atlas.`);
+      if (!entry) throw new Error(`“${requestedSystem}” is not in the available catalog. Choose a system from the atlas.`);
       // Host-only view still works when the supplement is unavailable.
       const companions = entry.stars > 1 ? await loadStellarCatalogue().catch(() => null) : null;
       catalogue = makeSystem(entry, exoplanets.data, companions);
@@ -129,7 +129,7 @@ async function boot() {
   viewport.onConstrained(() => document.documentElement.classList.add('is-constrained'));
   renderer.toneMappingExposure = settings.get('exposure');
 
-  loading.begin('catalogue', 'Reading the catalogue…');
+  loading.begin('catalogue', 'Reading the catalog…');
   // Another star's worlds are painted on the GPU as they are built.
   await system.build({ onPaint: (fraction, name) => loading.progress(fraction, `Painting ${name}…`) });
   system.setShadowQuality(settings.get('shadowQuality'));
@@ -501,7 +501,7 @@ function buildInterface(ctx) {
     system.focusShadows(view);
     dismissHint();
 
-    // Fetch this body's still-queued textures next rather than in catalogue order.
+    // Fetch this body's still-queued textures next rather than in catalog order.
     if (view) assets.promote(collectTextureNames(view.body));
 
     // The visitor is never linked to. It is meant to be found.

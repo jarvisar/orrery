@@ -1,7 +1,7 @@
 /**
  * Short clicks and blips for the headset. A controller answers a press with a
  * buzz. A bare hand has nothing to feel, so a sound tells you the press
- * landed. Each one is a tone or two synthesised on the spot: nothing to
+ * landed. Each one is a tone or two synthesized on the spot: nothing to
  * download, and nothing that plays outside VR.
  *
  * Audio has to be started by a click or a key press, like full screen. The

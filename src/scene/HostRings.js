@@ -32,7 +32,7 @@ const fragmentShader = /* glsl */ `
   uniform float uSize;
 
   void main() {
-    // Distance from the centre in pixels, and a ring about a pixel wide on its edge.
+    // Distance from the center in pixels, and a ring about a pixel wide on its edge.
     float r = length( gl_PointCoord - 0.5 ) * uSize;
     float ring = 1.0 - smoothstep( 0.0, 1.0, abs( r - uSize * 0.42 ) );
     if ( ring <= 0.0 ) discard;

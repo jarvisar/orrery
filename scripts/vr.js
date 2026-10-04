@@ -4,7 +4,7 @@
  * pointing and selecting, grabbing, two-handed scaling, the sticks and face
  * buttons, the panel by ray and by fingertip, the palm gesture with either
  * hand, the options page, a sweep across the panel, the system menu,
- * recentring, swapped hands, one controller, and leaving.
+ * recentering, swapped hands, one controller, and leaving.
  *
  * Requests to the CDN the controller and hand models come from are refused,
  * so the run doesn't depend on the network and tests the offline stand-ins.
@@ -126,7 +126,7 @@ try {
   s = await pressButton('reverse');
   assert(!s.reversed, 'a second Reverse did not run time forwards again');
 
-  // At the fastest rate Faster is greyed out, and pointing at it lights nothing.
+  // At the fastest rate Faster is grayed out, and pointing at it lights nothing.
   const rate = await page.evaluate(() => {
     const before = orrery.clock.daysPerSecond;
     for (let i = 0; i < 12; i++) orrery.ui.vr.actions.stepRate(1);
@@ -273,13 +273,13 @@ try {
   assert(s.focus === 'jupiter', `selecting Jupiter focused ${s.focus}`);
   await shot('jupiter');
 
-  // Recentring brings the view back in front.
+  // Recentering brings the view back in front.
   await page.evaluate(() => T.turnHead(Math.PI / 2));
   await frames(2);
   await page.evaluate(() => __device.recenter());
   await frames(10);
   s = await state();
-  assert(s.focusAhead > 0.95, `after recentring Jupiter is off to the side (${s.focusAhead})`);
+  assert(s.focusAhead > 0.95, `after recentering Jupiter is off to the side (${s.focusAhead})`);
 
   /* --- hands --------------------------------------------------------------- */
 
@@ -438,7 +438,7 @@ try {
 
   // Proxima's planets are lost in its 13,000 AU orbit round Alpha Centauri, so
   // the table is set around Proxima itself and follows it. Whole system
-  // re-centres on the barycentre.
+  // re-centers on the barycenter.
   await page.goto(`${ORIGIN}/?debug&system=Proxima%20Cen`, { waitUntil: 'load', timeout: 60_000 });
   await waitForApp(page);
   await page.evaluate(() => window.__xr);
@@ -460,7 +460,7 @@ try {
   await press((v) => T.button('right', 'trigger', v));
   await frames(20);
   exo = await table();
-  assert(exo.anchor === null && exo.metres < 5, `Whole system did not re-centre the table (${exo.anchor}, ${exo.metres.toFixed(1)} m)`);
+  assert(exo.anchor === null && exo.metres < 5, `Whole system did not re-center the table (${exo.anchor}, ${exo.metres.toFixed(1)} m)`);
   await page.evaluate(() => orrery.ui.vr.end());
   await page.waitForFunction(() => !orrery.ui.vr.active, { timeout: 30_000 }).catch(() => {});
   await sleep(1000);
@@ -468,7 +468,7 @@ try {
   assert(label === 'Whole system', `back on the page showing ${label}, not the whole system`);
 
   if (problems.length === 0) {
-    console.log('vr: ok — controllers, hands, panel, options, palm, poke, sweep, system menu, one controller, swapped hands, recentre, exit and another star all behaved');
+    console.log('vr: ok — controllers, hands, panel, options, palm, poke, sweep, system menu, one controller, swapped hands, recenter, exit and another star all behaved');
   } else {
     exitCode = 1;
     console.error(`vr: ${problems.length} problem(s)`);
@@ -491,7 +491,7 @@ function distance(a, b) {
 
 /**
  * window.T: the emulated headset's controls, in the terms the checks need.
- * Positions given to the emulator are in the rig's own space, in metres.
+ * Positions given to the emulator are in the rig's own space, in meters.
  * Anything aimed at is in the scene, and gets converted.
  */
 function installHelpers(page) {
@@ -602,8 +602,8 @@ function installHelpers(page) {
       },
 
       /**
-       * Puts a fingertip `depth` metres in front of a panel button (negative:
-       * through it), and `across` metres to its right, by moving the whole
+       * Puts a fingertip `depth` meters in front of a panel button (negative:
+       * through it), and `across` meters to its right, by moving the whole
        * hand, which keeps its pose.
        */
       pokeButton(side, id, depth, across = 0) {

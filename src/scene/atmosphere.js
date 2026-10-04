@@ -36,7 +36,7 @@ const fragmentShader = /* glsl */ `
   uniform float uIntensity;
   // Where the light comes from: the origin for the Sun, anywhere for another star.
   uniform vec3 uStarPosition;
-  // cos of the angle, seen from the shell's own centre, at which the planet's
+  // cos of the angle, seen from the shell's own center, at which the planet's
   // limb sits (where the shell's back faces stop being hidden behind it).
   uniform float uLimb;
 

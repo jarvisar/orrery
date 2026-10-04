@@ -22,7 +22,7 @@ const BRACKET_MAX = 160;
 export class FlightHud {
   /**
    * @param {import('../camera/FlightControls.js').FlightControls} controls
-   * @param {number} kmPerUnit Scene units to kilometres, for the readouts.
+   * @param {number} kmPerUnit Scene units to kilometers, for the readouts.
    * @param {THREE.PerspectiveCamera} camera
    * @param {{ onStep: (delta: number) => void, onAutopilot: () => void }} actions
    */

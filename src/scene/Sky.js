@@ -1,6 +1,6 @@
 /**
  * The sky: the Yale Bright Star Catalogue, in true direction, brightness and
- * colour, over a diffuse Milky Way background reprojected into the scene's
+ * color, over a diffuse Milky Way background reprojected into the scene's
  * frame (see scripts/build-sky.py). Stars are drawn as fixed-pixel-size points
  * so they stay sharp at any zoom.
  */
@@ -98,7 +98,7 @@ export class Sky {
         return response.arrayBuffer();
       })
       .then((buffer) => this._build(buffer))
-      .catch((error) => console.warn('[sky] star catalogue failed to load', error));
+      .catch((error) => console.warn('[sky] star catalog failed to load', error));
   }
 
   /**
@@ -169,7 +169,7 @@ export class Sky {
 }
 
 /**
- * A star's colour from its B-V index: B-V to temperature (Ballesteros 2012),
+ * A star's color from its B-V index: B-V to temperature (Ballesteros 2012),
  * then temperature to an approximate blackbody RGB, pulled most of the way to
  * white as stars look to the eye.
  */
