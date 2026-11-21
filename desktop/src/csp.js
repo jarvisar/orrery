@@ -32,6 +32,13 @@ export const LINK_ORIGINS = [
   'https://orrery.jarvisar.com',
   // The credit on the about page.
   'https://jarvisar.com',
+  // The author's profiles, named in index.html's structured data.
+  'https://www.linkedin.com',
+  'https://www.youtube.com',
+  'https://www.patreon.com',
+  'https://makerworld.com',
+  'https://www.printables.com',
+  'https://www.thingiverse.com',
 ];
 
 /**
