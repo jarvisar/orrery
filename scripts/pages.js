@@ -124,6 +124,7 @@ function page({ title, description, path, root, body }) {
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
 <link rel="canonical" href="${SITE}${path}">
+<meta name="author" content="Jarvizar">
 <meta name="theme-color" content="#05070f">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Orrery">
